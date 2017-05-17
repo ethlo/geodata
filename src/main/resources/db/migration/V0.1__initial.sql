@@ -2,7 +2,8 @@ CREATE ALIAS IF NOT EXISTS H2GIS_FUNCTIONS FOR "org.h2gis.functions.factory.H2GI
 CALL H2GIS_FUNCTIONS();
 
 create table geonames (
-	id int not null primary key,
+	id bigint not null primary key,
+	PARENT_ID bigint,
 	name varchar(200),
 	feature_class char(1),
 	feature_code varchar(10),
@@ -10,18 +11,28 @@ create table geonames (
 	population bigint,
 	elevation_meters int,
 	timezone varchar(40),
-	last_modified int,
+	last_modified date,
 	lat double,
 	lng double,
 	coord point
 );
+CREATE SPATIAL INDEX geonames_coord ON geonames(coord);
 
-create table geo_ip (
-	geoname_id int not null,
-	geoname_country_id int,
-	first int not null,
-	last int not null,
-	lat double,
-	lng double,
+create table geoip (
+	geoname_id bigint not null,
+	geoname_country_id bigint,
+	first bigint not null,
+	last bigint not null,
 	precision_meters int
 );
+ALTER TABLE geoip ADD CONSTRAINT fk_geoname_id FOREIGN KEY (geoname_id)  REFERENCES `geonames` (`id` );
+ALTER TABLE geoip ADD CONSTRAINT fk_geoname_country_id FOREIGN KEY (geoname_country_id)  REFERENCES `geonames` (`id`);
+
+CREATE TABLE geoboundaries (
+  id bigint NOT NULL PRIMARY KEY,
+  raw_polygon geometry NOT NULL,
+  coord geometry NOT NULL
+);
+  
+CREATE SPATIAL INDEX polygon_idx ON geoboundaries(raw_polygon);
+CREATE SPATIAL INDEX point_idx ON geoboundaries(coord);
