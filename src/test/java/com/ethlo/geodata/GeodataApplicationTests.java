@@ -18,12 +18,14 @@ import org.springframework.test.context.junit4.SpringRunner;
 import com.ethlo.geodata.importer.jdbc.JdbcGeonamesBoundaryImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcGeonamesImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcIpLookupImporter;
-import com.ethlo.geodata.model.LocationDto;
+import com.ethlo.geodata.model.Location;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
 public class GeodataApplicationTests
 {
+    private static boolean initialized = false;
+    
     @Autowired
     private JdbcIpLookupImporter ipLookupImporter;
     
@@ -39,9 +41,13 @@ public class GeodataApplicationTests
     @Before
     public void contextLoads() throws IOException, SQLException
     {
-        geonamesImporter.importLocations();
-        ipLookupImporter.importIpRanges();
-        boundaryImporter.importBoundaries();
+        if (! initialized)
+        {
+            geonamesImporter.importLocations();
+            ipLookupImporter.importIpRanges();
+            boundaryImporter.importBoundaries();
+            initialized = true;
+        }
     }
     
     @Test
@@ -52,7 +58,6 @@ public class GeodataApplicationTests
         assertThat(geodataService.findByIp("136.1.107.78")).isNotNull();
     }
 
-    @Ignore
     @Test
     public void testFindLocationById()
     {
@@ -63,7 +68,7 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForNearestLocationByPoint()
     {
-        final LocationDto location = geodataService.findByCoordinates(new Point(62,10));
+        final Location location = geodataService.findByCoordinates(new Point(62,10));
         assertThat(location).isNotNull();
     }
 

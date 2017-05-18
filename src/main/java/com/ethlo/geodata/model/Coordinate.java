@@ -4,7 +4,7 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
-public class CoordinateDto
+public class Coordinate
 {
     @NotNull
     @Min(-90)
@@ -21,7 +21,7 @@ public class CoordinateDto
         return lat;
     }
     
-    public CoordinateDto setLat(double latitude)
+    public Coordinate setLat(double latitude)
     {
         this.lat = latitude;
         return this;
@@ -32,7 +32,7 @@ public class CoordinateDto
         return lng;
     }
     
-    public CoordinateDto setLng(double longitude)
+    public Coordinate setLng(double longitude)
     {
         this.lng = longitude;
         return this;

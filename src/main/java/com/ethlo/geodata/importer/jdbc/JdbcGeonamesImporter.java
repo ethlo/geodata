@@ -3,9 +3,6 @@ package com.ethlo.geodata.importer.jdbc;
 import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import javax.sql.DataSource;
@@ -48,9 +45,6 @@ public class JdbcGeonamesImporter
 
     public void importLocations() throws IOException, SQLException
     {
-        final List<Map<String, Object>> tableData = jdbcTemplate.queryForList("show columns from geonames", Collections.emptyMap());
-        System.out.println(StringUtils.collectionToDelimitedString(tableData, "\n"));
-        
         final String sql = "INSERT INTO geonames (id, parent_id, name, feature_class, feature_code, country_code, population, elevation_meters, timezone, last_modified, lat, lng) VALUES ("
                         + ":id, :parent_id, :name, :feature_class, :feature_code, :country_code, :population, :elevation_meters, :timezone, :last_modified, :lat, :lng)";
 

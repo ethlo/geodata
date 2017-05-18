@@ -37,7 +37,6 @@ public class JdbcGeonamesBoundaryImporter
         final String sql = "INSERT INTO geoboundaries(id, raw_polygon, coord) VALUES(:id, ST_MPolyFromText(:poly), ST_Centroid(ST_MPolyFromText(:poly)))";
         importer.processFile(entry->
         {
-            System.out.println(entry);
             jdbcTemplate.update(sql, entry);
         });
     }

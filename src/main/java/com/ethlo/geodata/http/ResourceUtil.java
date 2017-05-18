@@ -16,15 +16,14 @@ import java.time.ZoneOffset;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import org.apache.tomcat.util.http.fileupload.util.Streams;
+import org.apache.commons.compress.utils.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.jdbc.core.PreparedStatementCallback;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.util.Assert;
-
-import com.google.common.base.Throwables;
 
 public class ResourceUtil
 {
@@ -38,7 +37,7 @@ public class ResourceUtil
         final String tmpDir = System.getProperty("java.io.tmpdir");
         final File file = new File(tmpDir, alias + ".data");
         final long localLastModified = file.exists() ? file.lastModified() : -2;
-        logger.info("Local file for "
+        logger.debug("Local file for "
             + "alias {}"
             + "\nPath: {}"
             + "\nExists: {}"
@@ -50,7 +49,7 @@ public class ResourceUtil
         
         if (remoteLastModified > localLastModified)
         {
-            logger.info("New file has last-modified value of {}", formatDate(localLastModified));
+            logger.info("New file has last-modified value of {}", formatDate(remoteLastModified));
             logger.info("Downloading new file from {}", url);
             try (final ZipInputStream zipIn = new ZipInputStream(url.openStream());)
             {
@@ -66,7 +65,7 @@ public class ResourceUtil
                 
                 try(FileOutputStream fos = new FileOutputStream(file))
                 {
-                    Streams.copy(zipIn, fos, true);
+                    IOUtils.copy(zipIn, fos);
                 }
                 file.setLastModified(remoteLastModified);
             }
@@ -78,9 +77,9 @@ public class ResourceUtil
         return file;
     }
 
-    private static LocalDateTime formatDate(long localLastModified)
+    private static LocalDateTime formatDate(long timestamp)
     {
-        return LocalDateTime.ofEpochSecond(localLastModified/1_000, 0, ZoneOffset.UTC);
+        return LocalDateTime.ofEpochSecond(timestamp/1_000, 0, ZoneOffset.UTC);
     }
 
     public static void dumpInsertStatements(NamedParameterJdbcOperations jdbcTemplate, String tableName, File file) throws IOException, SQLException
@@ -109,7 +108,7 @@ public class ResourceUtil
                             }
                             catch (IOException exc)
                             {
-                                throw Throwables.propagate(exc);
+                                throw new DataAccessResourceFailureException(exc.getMessage(), exc);
                             }
                         }
                     }

@@ -2,7 +2,7 @@ package com.ethlo.geodata.model;
 
 import javax.validation.constraints.NotNull;
 
-public class LocationDto
+public class Location
 {
     @NotNull
     private Long id;
@@ -16,9 +16,9 @@ public class LocationDto
 
     private String address;
 
-    private CountryDto country;
+    private Country country;
 
-    private CoordinateDto coordinates;
+    private Coordinate coordinates;
 
     public Long getId()
     {
@@ -40,7 +40,7 @@ public class LocationDto
         return address;
     }
 
-    public CountryDto getCountry()
+    public Country getCountry()
     {
         return country;
     }
@@ -50,7 +50,7 @@ public class LocationDto
         return parentLocationId;
     }
     
-    public CoordinateDto getCoordinates()
+    public Coordinate getCoordinates()
     {
         return this.coordinates;
     }
@@ -59,11 +59,11 @@ public class LocationDto
     {
         private Long id;
         private Long parentLocationId;
-        private CoordinateDto coordinates;
+        private Coordinate coordinates;
         private String name;
         private String city;
         private String address;
-        private CountryDto country;
+        private Country country;
 
         public Builder id(Long id)
         {
@@ -83,7 +83,7 @@ public class LocationDto
             return this;
         }
         
-        public Builder coordinates(CoordinateDto coordinates)
+        public Builder coordinates(Coordinate coordinates)
         {
             this.coordinates = coordinates;
             return this;
@@ -101,19 +101,19 @@ public class LocationDto
             return this;
         }
 
-        public Builder country(CountryDto country)
+        public Builder country(Country country)
         {
             this.country = country;
             return this;
         }
 
-        public LocationDto build()
+        public Location build()
         {
-            return new LocationDto(this);
+            return new Location(this);
         }
     }
 
-    private LocationDto(Builder builder)
+    private Location(Builder builder)
     {
         this.id = builder.id;
         this.parentLocationId = builder.parentLocationId;

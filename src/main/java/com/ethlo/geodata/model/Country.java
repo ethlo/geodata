@@ -2,7 +2,7 @@ package com.ethlo.geodata.model;
 
 import javax.validation.constraints.NotNull;
 
-public class CountryDto
+public class Country
 {
     @NotNull
     private String code;
@@ -30,13 +30,13 @@ public class CountryDto
         this.name = name;
     }
 
-    public CountryDto withCode(String countryCode)
+    public Country withCode(String countryCode)
     {
         this.code = countryCode;
         return this;
     }
     
-    public CountryDto withName(String name)
+    public Country withName(String name)
     {
         this.name = name;
         return this;

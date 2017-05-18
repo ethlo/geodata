@@ -10,7 +10,7 @@ import org.springframework.data.geo.Point;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import com.ethlo.geodata.model.LocationDto;
+import com.ethlo.geodata.model.Location;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
 
@@ -25,7 +25,7 @@ public class GeodataService
         this.jdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
     }
     
-    public LocationDto findByIp(String ip)
+    public Location findByIp(String ip)
     {
         final long ipLong = UnsignedInteger.fromIntBits(InetAddresses.coerceToInteger(InetAddresses.forString(ip))).longValue();
         final String sql = "SELECT * from geoip WHERE first <= :ip AND last >= :ip";
@@ -40,14 +40,14 @@ public class GeodataService
         });
     }
     
-    public LocationDto findById(long geoNameId)
+    public Location findById(long geoNameId)
     {
         final String sql = "SELECT * from geonames WHERE id = :id";
         return jdbcTemplate.query(sql, Collections.singletonMap("id", geoNameId), rs->
         {
             if (rs.next())
             {
-                return new LocationDto.Builder()
+                return new Location.Builder()
                      .id(rs.getLong("id"))
                      .name(rs.getString("name"))
                      // TODO
@@ -57,7 +57,7 @@ public class GeodataService
         });
     }
 
-    public LocationDto findByCoordinates(Point point)
+    public Location findByCoordinates(Point point)
     {
         return null;
     }
