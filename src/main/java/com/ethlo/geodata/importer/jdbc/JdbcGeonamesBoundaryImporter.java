@@ -13,8 +13,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
-import com.ethlo.geodata.http.ResourceUtil;
 import com.ethlo.geodata.importer.GeonamesBoundaryImporter;
+import com.ethlo.geodata.util.ResourceUtil;
 
 @Component
 public class JdbcGeonamesBoundaryImporter implements PersistentImporter

@@ -1,11 +1,17 @@
 package com.ethlo.geodata.importer.jdbc;
 
+import static org.hamcrest.CoreMatchers.nullValue;
+
 import java.io.File;
 import java.io.IOException;
+import java.util.AbstractMap;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 import javax.sql.DataSource;
 
@@ -15,8 +21,9 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-import com.ethlo.geodata.http.ResourceUtil;
 import com.ethlo.geodata.importer.GeonamesImporter;
+import com.ethlo.geodata.model.Node;
+import com.ethlo.geodata.util.ResourceUtil;
 
 @Component
 public class JdbcGeonamesImporter implements PersistentImporter
@@ -71,11 +78,38 @@ public class JdbcGeonamesImporter implements PersistentImporter
             .hierarchyFile(hierarchyFile)
             .build();
 
+        // Collect parent/child hierarchy
+        final Map<Long, Long> childToParentMap = new HashMap<>();
+        final Function<Map.Entry<Long,Long>, Void> hierarchyListener = r->
+        {
+            childToParentMap.put(r.getKey(), r.getValue());
+            return null;
+        };
+        
         geonamesImporter.processFile(entry->
         {
             jdbcTemplate.update(sql, entry);
+            
+            if (entry.get("parent_id") != null)
+            {
+                hierarchyListener.apply(new AbstractMap.SimpleEntry<>(Long.parseLong(entry.get("id")), Long.parseLong(entry.get("parent_id"))));
+            }
         });
         
+        // Process hierarchy
+        final Map<Long, Node> parents = new HashMap<>();
+        childToParentMap.entrySet().forEach(e->
+        {
+            final Long parent = e.getValue();
+            parents.put(parent, new Node(null, parent));
+        });
+        
+        childToParentMap.entrySet().forEach(e->
+        {
+            final Long child = e.getKey();
+            final Long parent = e.getValue();
+            // TODO: Process hierarchy and serialize/store it as JSON or something quick to load!
+        });
     }
 
     @Override

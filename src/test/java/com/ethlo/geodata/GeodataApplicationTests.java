@@ -7,7 +7,6 @@ import java.sql.SQLException;
 import java.util.Date;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,12 +14,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.geo.Point;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import com.ethlo.geodata.http.ResourceUtil;
 import com.ethlo.geodata.importer.jdbc.GeoMetaService;
 import com.ethlo.geodata.importer.jdbc.JdbcGeonamesBoundaryImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcGeonamesImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcIpLookupImporter;
 import com.ethlo.geodata.model.Location;
+import com.ethlo.geodata.util.ResourceUtil;
 import com.vividsolutions.jts.geom.Geometry;
 
 @RunWith(SpringRunner.class)
@@ -71,6 +70,12 @@ public class GeodataApplicationTests
     }
     
     @Test
+    public void testBuildHierarchy()
+    {
+        
+    }
+    
+    @Test
     public void testQueryForLocationByIp()
     {
         assertThat(geodataService.findByIp("77.88.103.250")).isNotNull();
@@ -84,11 +89,10 @@ public class GeodataApplicationTests
         assertThat(geodataService.findById(1581130)).isNotNull();
     }
         
-    @Ignore
     @Test
     public void testQueryForNearestLocationByPoint()
     {
-        final Location location = geodataService.findByCoordinates(new Point(62,10));
+        final Location location = geodataService.findByCoordinates(new Point(10, 62));
         assertThat(location).isNotNull();
     }
 
@@ -96,7 +100,6 @@ public class GeodataApplicationTests
     public void testQueryForBoundaries()
     {
         final Geometry boundaries = geodataService.findBoundaries(7626836);
-        //System.out.println(boundaries.getNumGeometries());
         assertThat(boundaries).isNotNull();
     }
 }

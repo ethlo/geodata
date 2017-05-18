@@ -21,8 +21,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
-import com.ethlo.geodata.http.ResourceUtil;
 import com.ethlo.geodata.importer.IpLookupImporter;
+import com.ethlo.geodata.util.ResourceUtil;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
 

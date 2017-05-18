@@ -1,4 +1,4 @@
-package com.ethlo.geodata.http;
+package com.ethlo.geodata.util;
 
 import java.io.BufferedWriter;
 import java.io.File;
