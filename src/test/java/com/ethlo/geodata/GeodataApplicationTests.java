@@ -7,7 +7,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +23,7 @@ import com.ethlo.geodata.model.Location;
 @SpringBootTest
 public class GeodataApplicationTests
 {
-    private static boolean initialized = false;
+    private static boolean initialized = true;
     
     @Autowired
     private JdbcIpLookupImporter ipLookupImporter;
@@ -64,7 +63,6 @@ public class GeodataApplicationTests
         assertThat(geodataService.findById(1581130)).isNotNull();
     }
         
-    @Ignore
     @Test
     public void testQueryForNearestLocationByPoint()
     {
@@ -72,7 +70,6 @@ public class GeodataApplicationTests
         assertThat(location).isNotNull();
     }
 
-    @Ignore
     @Test
     public void testQueryForBoundaries()
     {
