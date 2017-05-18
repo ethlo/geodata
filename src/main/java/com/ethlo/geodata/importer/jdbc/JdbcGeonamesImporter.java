@@ -2,7 +2,9 @@ package com.ethlo.geodata.importer.jdbc;
 
 import java.io.File;
 import java.io.IOException;
-import java.sql.SQLException;
+import java.util.Collections;
+import java.util.Date;
+import java.util.Map;
 import java.util.Set;
 
 import javax.sql.DataSource;
@@ -17,7 +19,7 @@ import com.ethlo.geodata.http.ResourceUtil;
 import com.ethlo.geodata.importer.GeonamesImporter;
 
 @Component
-public class JdbcGeonamesImporter
+public class JdbcGeonamesImporter implements PersistentImporter
 {
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
@@ -36,21 +38,32 @@ public class JdbcGeonamesImporter
         exclusions = StringUtils.commaDelimitedListToSet(csv);
     }
     
-
     @Autowired
     public void setDataSource(DataSource dataSource)
     {
         this.jdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
     }
 
-    public void importLocations() throws IOException, SQLException
+    @Override
+    public void importData() throws IOException
+    {
+        final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchZipEntry("geonames_hierarchy", geoNamesHierarchyUrl, "hierarchy.txt");
+        final Map.Entry<Date, File> allCountriesFile = ResourceUtil.fetchZipEntry("geonames", geoNamesAllCountriesUrl, "allCountries.txt");
+        
+        doUpdate(allCountriesFile.getValue(), hierarchyFile.getValue());
+    }
+
+    @Override
+    public void purge()
+    {
+        jdbcTemplate.update("DELETE FROM geonames", Collections.emptyMap());
+    }
+
+    private void doUpdate(File allCountriesFile, File hierarchyFile) throws IOException
     {
         final String sql = "INSERT INTO geonames (id, parent_id, name, feature_class, feature_code, country_code, population, elevation_meters, timezone, last_modified, lat, lng) VALUES ("
                         + ":id, :parent_id, :name, :feature_class, :feature_code, :country_code, :population, :elevation_meters, :timezone, :last_modified, :lat, :lng)";
 
-        final File hierarchyFile = ResourceUtil.fetchZipEntry("geonames_hierarchy", geoNamesHierarchyUrl, "hierarchy.txt");
-        final File allCountriesFile = ResourceUtil.fetchZipEntry("geonames", geoNamesAllCountriesUrl, "allCountries.txt");
-        
         final GeonamesImporter geonamesImporter = new GeonamesImporter.Builder()
             .allCountriesFile(allCountriesFile)
             .onlyHierarchical(false)
@@ -62,5 +75,12 @@ public class JdbcGeonamesImporter
         {
             jdbcTemplate.update(sql, entry);
         });
+        
+    }
+
+    @Override
+    public Date lastRemoteModified() throws IOException
+    {
+        return new Date(Math.max(ResourceUtil.getLastModified(geoNamesAllCountriesUrl).getTime(), ResourceUtil.getLastModified(geoNamesHierarchyUrl).getTime()));
     }
 }

@@ -13,6 +13,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.AbstractMap;
+import java.util.Date;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -29,7 +32,14 @@ public class ResourceUtil
 {
     private static final Logger logger = LoggerFactory.getLogger(ResourceUtil.class);
     
-    public static File fetchZipEntry(String alias, String urlStr, String zipEntryName) throws IOException
+    public static Date getLastModified(String urlStr) throws IOException
+    {
+        final URL url = new URL(urlStr);
+        final URLConnection connection = url.openConnection();
+        return new Date(connection.getLastModified());
+    }
+    
+    public static Map.Entry<Date, File> fetchZipEntry(String alias, String urlStr, String zipEntryName) throws IOException
     {
         final URL url = new URL(urlStr);
         final URLConnection connection = url.openConnection();
@@ -74,7 +84,7 @@ public class ResourceUtil
         {
             logger.info("Using cached file for {}", url);
         }
-        return file;
+        return new AbstractMap.SimpleEntry<>(new Date(Math.max(localLastModified, remoteLastModified)), file);
     }
 
     private static LocalDateTime formatDate(long timestamp)
@@ -116,5 +126,15 @@ public class ResourceUtil
                 }
             });
         };
+    }
+
+    public static Date latest(Date... dates)
+    {
+        long cur = 0;
+        for (Date d : dates)
+        {
+            cur = Math.max(cur, d.getTime());
+        }
+        return new Date(cur);
     }        
 }

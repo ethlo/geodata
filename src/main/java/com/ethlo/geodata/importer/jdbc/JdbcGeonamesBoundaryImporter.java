@@ -2,7 +2,9 @@ package com.ethlo.geodata.importer.jdbc;
 
 import java.io.File;
 import java.io.IOException;
-import java.sql.SQLException;
+import java.util.Collections;
+import java.util.Date;
+import java.util.Map.Entry;
 
 import javax.sql.DataSource;
 
@@ -15,7 +17,7 @@ import com.ethlo.geodata.http.ResourceUtil;
 import com.ethlo.geodata.importer.GeonamesBoundaryImporter;
 
 @Component
-public class JdbcGeonamesBoundaryImporter
+public class JdbcGeonamesBoundaryImporter implements PersistentImporter
 {
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
@@ -29,15 +31,28 @@ public class JdbcGeonamesBoundaryImporter
         this.jdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
     }
 
-    public void importBoundaries() throws IOException, SQLException
+    @Override
+    public void purge() throws IOException
     {
-        final File boundaryFile = ResourceUtil.fetchZipEntry("geonames_boundary", geoNamesBoundaryUrl, "shapes_all_low.txt");
-        final GeonamesBoundaryImporter importer = new GeonamesBoundaryImporter(boundaryFile);
+        jdbcTemplate.update("DELETE FROM geoboundaries", Collections.emptyMap());
+    }
+
+    @Override
+    public void importData() throws IOException
+    {
+        final Entry<Date, File> boundaryFile = ResourceUtil.fetchZipEntry("geonames_boundary", geoNamesBoundaryUrl, "shapes_all_low.txt");
+        final GeonamesBoundaryImporter importer = new GeonamesBoundaryImporter(boundaryFile.getValue());
 
         final String sql = "INSERT INTO geoboundaries(id, raw_polygon, coord) VALUES(:id, ST_GeomFromText(:poly), ST_Centroid(ST_GeomFromText(:poly)))";
         importer.processFile(entry->
         {
             jdbcTemplate.update(sql, entry);
         });
+    }
+
+    @Override
+    public Date lastRemoteModified() throws IOException
+    {
+        return ResourceUtil.getLastModified(geoNamesBoundaryUrl);
     }
 }

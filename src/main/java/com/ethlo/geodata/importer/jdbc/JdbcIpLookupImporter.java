@@ -2,15 +2,13 @@ package com.ethlo.geodata.importer.jdbc;
 
 import java.io.File;
 import java.io.IOException;
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.sql.DataSource;
 
 import org.apache.commons.net.util.SubnetUtils;
 import org.slf4j.Logger;
@@ -29,31 +27,25 @@ import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
 
 @Component
-public class JdbcIpLookupImporter
+public class JdbcIpLookupImporter implements PersistentImporter
 {
     private static final Logger logger = LoggerFactory.getLogger(JdbcIpLookupImporter.class);
 
+    @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
     
     @Value("${geodata.geolite2.source}")
     private String url;
 
-    @Autowired
-    public void setDataSource(DataSource dataSource)
-    {
-        this.jdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
-    }
-    
-    public void importIpRanges() throws IOException, SQLException
+    @Override
+    public void importData() throws IOException
     {
         final String sql = "INSERT INTO geoip(geoname_id, geoname_country_id, first, last) VALUES (:geoname_id, :geoname_country_id, :first, :last)";
-        
-        final File ipDataFile = ResourceUtil.fetchZipEntry("ipData", url, "GeoLite2-City-Blocks-IPv4.csv");
+        final Map.Entry<Date, File> ipDataFile = ResourceUtil.fetchZipEntry("ipData", url, "GeoLite2-City-Blocks-IPv4.csv");
         
         final AtomicInteger count = new AtomicInteger(0);
-        
-        final IpLookupImporter ipLookupImporter = new IpLookupImporter(ipDataFile);
-        
+
+        final IpLookupImporter ipLookupImporter = new IpLookupImporter(ipDataFile.getValue());
         ipLookupImporter.processFile(entry->
         {
             final String strGeoNameId = findMapValue(entry, "geoname_id", "represented_country_geoname_id", "registered_country_geoname_id");
@@ -93,11 +85,6 @@ public class JdbcIpLookupImporter
                 count.getAndIncrement();
             }
         });
-        
-        final int rowCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM geoip", Collections.emptyMap(), Integer.class);
-        logger.info("rowCount: {}", rowCount);
-        
-        //ResourceUtil.dumpInsertStatements(jdbcTemplate, "geoip", null);
     }
 
     private Double parseDouble(String str)
@@ -129,5 +116,17 @@ public class JdbcIpLookupImporter
             } 
         }
         return null;
+    }
+
+    @Override
+    public void purge() throws IOException
+    {
+        jdbcTemplate.update("DELETE FROM geoip", Collections.emptyMap());
+    }
+
+    @Override
+    public Date lastRemoteModified() throws IOException
+    {
+        return ResourceUtil.getLastModified(url);
     }
 }
