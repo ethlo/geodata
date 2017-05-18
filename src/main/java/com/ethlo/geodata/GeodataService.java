@@ -1,7 +1,6 @@
 package com.ethlo.geodata;
 
 import java.util.Collections;
-import java.util.List;
 
 import javax.sql.DataSource;
 
@@ -33,7 +32,8 @@ public class GeodataService
     {
         final long ipLong = UnsignedInteger.fromIntBits(InetAddresses.coerceToInteger(InetAddresses.forString(ip))).longValue();
         final String sql = "SELECT * from geoip WHERE first <= :ip AND last >= :ip";
-        return jdbcTemplate.query(sql, Collections.singletonMap("ip", ipLong), rs -> {
+        return jdbcTemplate.query(sql, Collections.singletonMap("ip", ipLong), rs -> 
+        {
             if (rs.next())
             {
                 final Long geoNameId = rs.getLong("geoname_id") != 0 ? rs.getLong("geoname_id") : rs.getLong("geoname_country_id");
@@ -46,12 +46,15 @@ public class GeodataService
     public Location findById(long geoNameId)
     {
         final String sql = "SELECT * from geonames WHERE id = :id";
-        return jdbcTemplate.query(sql, Collections.singletonMap("id", geoNameId), rs -> {
+        return jdbcTemplate.query(sql, Collections.singletonMap("id", geoNameId), rs ->
+        {
             if (rs.next())
             {
-                return new Location.Builder().id(rs.getLong("id")).name(rs.getString("name"))
-                                // TODO
-                                .build();
+                return new Location.Builder()
+                    .id(rs.getLong("id"))
+                    .name(rs.getString("name"))
+                    // TODO
+                    .build();
             }
             return null;
         });
@@ -62,7 +65,7 @@ public class GeodataService
         return null;
     }
 
-    public List<Point> findBoundaries(long id)
+    public Geometry findBoundaries(long id)
     {
         final String sql = "SELECT ST_AsBinary(raw_polygon) as wkb FROM geoboundaries WHERE id = :id";
         return jdbcTemplate.query(sql, Collections.singletonMap("id", id), rse ->
@@ -73,8 +76,7 @@ public class GeodataService
                 WKBReader r = new WKBReader();
                 try
                 {
-                    final Geometry geo = r.read(rse.getBytes("wkb"));
-                    // TODO: Process geometry
+                    return r.read(rse.getBytes("wkb"));
                 }
                 catch (ParseException exc)
                 {

@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.List;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +18,7 @@ import com.ethlo.geodata.importer.jdbc.JdbcGeonamesBoundaryImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcGeonamesImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcIpLookupImporter;
 import com.ethlo.geodata.model.Location;
+import com.vividsolutions.jts.geom.Geometry;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -43,8 +44,8 @@ public class GeodataApplicationTests
         if (! initialized)
         {
             geonamesImporter.importLocations();
-            ipLookupImporter.importIpRanges();
             boundaryImporter.importBoundaries();
+            ipLookupImporter.importIpRanges();
             initialized = true;
         }
     }
@@ -63,6 +64,7 @@ public class GeodataApplicationTests
         assertThat(geodataService.findById(1581130)).isNotNull();
     }
         
+    @Ignore
     @Test
     public void testQueryForNearestLocationByPoint()
     {
@@ -73,7 +75,8 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForBoundaries()
     {
-        final List<Point> boundaries = geodataService.findBoundaries(7626836);
+        final Geometry boundaries = geodataService.findBoundaries(7626836);
+        //System.out.println(boundaries.getNumGeometries());
         assertThat(boundaries).isNotNull();
     }
 }

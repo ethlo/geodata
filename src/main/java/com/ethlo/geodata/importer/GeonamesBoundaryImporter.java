@@ -6,24 +6,21 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Consumer;
 
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.data.geo.Point;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vividsolutions.jts.geom.Geometry;
+import com.vividsolutions.jts.io.ParseException;
+import com.vividsolutions.jts.io.geojson.GeoJsonReader;
 
 public class GeonamesBoundaryImporter implements DataImporter
 {
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    
     private final File boundaryFile;
+    
+    private final GeoJsonReader r = new GeoJsonReader();
     
     public GeonamesBoundaryImporter(File boundaryFile)
     {
@@ -53,72 +50,22 @@ public class GeonamesBoundaryImporter implements DataImporter
         
     }
 
-    private Map<String, String> parsePoints(final String[] fields) throws JsonProcessingException, IOException
+    private Map<String, String> parsePoints(final String[] fields) throws IOException
     {
         final long id = Long.parseLong(fields[0]);
-        final List<List<Point>> polyList = polyToPoints(fields[1]);
-        final List<String> polyStrings = new LinkedList<>();
-        for (List<Point> pol : polyList)
-        {
-            polyStrings.add(toString(pol));
-        }
         
-        final Map<String, String> params = new TreeMap<>();
-        params.put("id", Long.toString(id));
-        params.put("poly", "MULTIPOLYGON((" + org.springframework.util.StringUtils.collectionToCommaDelimitedString(polyStrings) + "))");
-        return params;
-    }
-
-    private String toString(List<Point> poly)
-    {
-        final StringBuilder b = new StringBuilder();
-        poly.stream().forEach((p)->{b.append(p.getX() + " " + p.getY() + ",");});
-        return "(" + StringUtils.stripEnd(b.toString(), ",") + ")";
-    }
-
-    private List<List<Point>> polyToPoints(final String s) throws JsonProcessingException, IOException
-    {
-        final JsonNode node = objectMapper.readTree(s);
-        final String type = node.get("type").asText();
-        final JsonNode coords = node.get("coordinates");
-        final List<List<Point>> retVal = new LinkedList<>();
-        switch (type)
+        try
         {
-            case "Polygon":
-                for (JsonNode poly : coords)
-                {
-                    retVal.add(extract(poly));
-                }
-                return retVal;
-                
-            case "MultiPolygon":
-                for (JsonNode poly : coords)
-                {
-                    for (JsonNode sub : poly)
-                    {
-                        retVal.add(extract(sub));
-                    }
-                }
-                return retVal;
-                
-            default:
-                throw new IllegalArgumentException("Unknown type " + type);
+            Geometry geometry = r.read(fields[1]);
+            final Map<String, String> params = new TreeMap<>();
+            params.put("id", Long.toString(id));
+            params.put("poly", geometry.toText());
+            return params;
         }
-    }
-
-    private List<Point> extract(JsonNode polyList)
-    {
-        final List<Point> points = new LinkedList<>();
-        for (JsonNode c : polyList)
+        catch (ParseException exc)
         {
-            final double lon = c.get(0).asDouble();
-            final double lat = c.get(1).asDouble();
-            final Point p = new Point(lon, lat);
-            points.add(p);
+            throw new IOException(exc.getMessage(), exc);
         }
-        // Repeat first
-        points.add(points.get(0));
-        return points;
     }
 }
 

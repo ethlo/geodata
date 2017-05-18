@@ -34,7 +34,7 @@ public class JdbcGeonamesBoundaryImporter
         final File boundaryFile = ResourceUtil.fetchZipEntry("geonames_boundary", geoNamesBoundaryUrl, "shapes_all_low.txt");
         final GeonamesBoundaryImporter importer = new GeonamesBoundaryImporter(boundaryFile);
 
-        final String sql = "INSERT INTO geoboundaries(id, raw_polygon, coord) VALUES(:id, ST_MPolyFromText(:poly), ST_Centroid(ST_MPolyFromText(:poly)))";
+        final String sql = "INSERT INTO geoboundaries(id, raw_polygon, coord) VALUES(:id, ST_GeomFromText(:poly), ST_Centroid(ST_GeomFromText(:poly)))";
         importer.processFile(entry->
         {
             jdbcTemplate.update(sql, entry);
