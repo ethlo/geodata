@@ -85,12 +85,12 @@ public class GeodataService
             .build();
     }
 
-    public Location findByCoordinates(Point point)
+    public Location findByCoordinates(Point point, int maxDistanceInKilometers)
     {
-        final List<Entry<Location, Long>> foo = doFindNearest(point, 1000, new PageRequest(0, 1));
-        if (! foo.isEmpty())
+        final List<Entry<Location, Long>> locations = doFindNearest(point, maxDistanceInKilometers, new PageRequest(0, 1));
+        if (! locations.isEmpty())
         {
-            return foo.get(0).getKey();
+            return locations.get(0).getKey();
         }
         return null;
     }
@@ -125,7 +125,7 @@ public class GeodataService
         final Map<String, Object> params = createParams(point, distance, pageable);
         final String sql = "SELECT id, st_distance(ST_PointFromText(:point), coord) AS distance " 
                          + "FROM geoboundaries "
-                         //+ "WHERE st_within(coord, st_envelope(st_makeline(:minPoint, :maxPoint))) "
+                         + "WHERE st_within(coord, st_envelope(st_makeline(:minPoint, :maxPoint))) "
                          + "ORDER BY distance ASC "
                          + "LIMIT :offset, :limit";
         

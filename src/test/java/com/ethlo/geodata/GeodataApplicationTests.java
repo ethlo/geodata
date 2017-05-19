@@ -48,12 +48,15 @@ public class GeodataApplicationTests
     {
         if (! initialized)
         {
+            final boolean forceUpdate = false;
+            final boolean neverUpdate = true;
+            
             // Check last modified
             final Date geonamesTimestamp = geonamesImporter.lastRemoteModified();
             final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
             final Date ipTimestamp = ipLookupImporter.lastRemoteModified();
             final Date latestRemote = ResourceUtil.latest(geonamesTimestamp, boundariesTimestamp, ipTimestamp);
-            if (latestRemote.after(geoMetaService.getLastModified()))
+            if ((latestRemote.after(geoMetaService.getLastModified()) || forceUpdate) && !neverUpdate)
             {
                 ipLookupImporter.purge();
                 boundaryImporter.purge();
@@ -92,7 +95,7 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForNearestLocationByPoint()
     {
-        final Location location = geodataService.findByCoordinates(new Point(10, 62));
+        final Location location = geodataService.findByCoordinates(new Point(10, 62), 100);
         assertThat(location).isNotNull();
     }
 

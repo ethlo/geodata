@@ -2,9 +2,11 @@ package com.ethlo.geodata.util;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Writer;
 import java.net.URL;
 import java.net.URLConnection;
@@ -35,6 +37,20 @@ public class ResourceUtil
     public static Date getLastModified(String urlStr) throws IOException
     {
         final URL url = new URL(urlStr);
+        if (url.getProtocol().equals("file"))
+        {
+            String path = urlStr.substring(7);
+            if (path.startsWith("~" + File.separator))
+            {
+                path = System.getProperty("user.home") + path.substring(1);
+            }
+            final File file = new File(path);
+            if (! file.exists())
+            {
+                throw new IOException("File " + file.getAbsolutePath() + " does not exist");
+            }
+            return new Date(file.lastModified());
+        }
         final URLConnection connection = url.openConnection();
         return new Date(connection.getLastModified());
     }
@@ -42,8 +58,7 @@ public class ResourceUtil
     public static Map.Entry<Date, File> fetchZipEntry(String alias, String urlStr, String zipEntryName) throws IOException
     {
         final URL url = new URL(urlStr);
-        final URLConnection connection = url.openConnection();
-        final long remoteLastModified = connection.getLastModified();
+        final Date remoteLastModified = getLastModified(urlStr);
         final String tmpDir = System.getProperty("java.io.tmpdir");
         final File file = new File(tmpDir, alias + ".data");
         final long localLastModified = file.exists() ? file.lastModified() : -2;
@@ -57,11 +72,12 @@ public class ResourceUtil
             file.exists(), 
             formatDate(localLastModified));
         
-        if (remoteLastModified > localLastModified)
+        if (remoteLastModified.getTime() > localLastModified)
         {
-            logger.info("New file has last-modified value of {}", formatDate(remoteLastModified));
+            logger.info("New file has last-modified value of {}", formatDate(remoteLastModified.getTime()));
             logger.info("Downloading new file from {}", url);
-            try (final ZipInputStream zipIn = new ZipInputStream(url.openStream());)
+            
+            try (final ZipInputStream zipIn = new ZipInputStream(getInputStream(url));)
             {
                 ZipEntry entry = null;
                 
@@ -77,14 +93,33 @@ public class ResourceUtil
                 {
                     IOUtils.copy(zipIn, fos);
                 }
-                file.setLastModified(remoteLastModified);
+                file.setLastModified(remoteLastModified.getTime());
             }
         }
         else
         {
             logger.info("Using cached file for {}", url);
         }
-        return new AbstractMap.SimpleEntry<>(new Date(Math.max(localLastModified, remoteLastModified)), file);
+        return new AbstractMap.SimpleEntry<>(new Date(Math.max(localLastModified, remoteLastModified.getTime())), file);
+    }
+
+    private static InputStream getInputStream(URL url) throws IOException
+    {
+        if (url.getProtocol().equals("file"))
+        {
+            String path = url.toExternalForm().substring(7);
+            if (path.startsWith("~" + File.separator))
+            {
+                path = System.getProperty("user.home") + path.substring(1);
+            }
+            final File file = new File(path);
+            if (! file.exists())
+            {
+                throw new IOException("File " + file.getAbsolutePath() + " does not exist");
+            }
+            return new FileInputStream(file);
+        }
+        return url.openStream();
     }
 
     private static LocalDateTime formatDate(long timestamp)
