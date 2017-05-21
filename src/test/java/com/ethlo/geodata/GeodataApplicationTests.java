@@ -4,38 +4,28 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.Date;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.geo.Point;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import com.ethlo.geodata.importer.jdbc.GeoMetaService;
-import com.ethlo.geodata.importer.jdbc.JdbcGeonamesBoundaryImporter;
-import com.ethlo.geodata.importer.jdbc.JdbcGeonamesImporter;
-import com.ethlo.geodata.importer.jdbc.JdbcIpLookupImporter;
 import com.ethlo.geodata.model.Location;
-import com.ethlo.geodata.util.ResourceUtil;
 import com.vividsolutions.jts.geom.Geometry;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
 public class GeodataApplicationTests
 {
+    private static final Logger logger = LoggerFactory.getLogger(GeodataApplicationTests.class);
+    
     private static boolean initialized = false;
-    
-    @Autowired
-    private JdbcIpLookupImporter ipLookupImporter;
-    
-    @Autowired
-    private JdbcGeonamesImporter geonamesImporter;
-    
-    @Autowired
-    private JdbcGeonamesBoundaryImporter boundaryImporter;
     
     @Autowired
     private GeodataService geodataService;
@@ -48,26 +38,7 @@ public class GeodataApplicationTests
     {
         if (! initialized)
         {
-            final boolean forceUpdate = false;
-            final boolean neverUpdate = true;
-            
-            // Check last modified
-            final Date geonamesTimestamp = geonamesImporter.lastRemoteModified();
-            final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
-            final Date ipTimestamp = ipLookupImporter.lastRemoteModified();
-            final Date latestRemote = ResourceUtil.latest(geonamesTimestamp, boundariesTimestamp, ipTimestamp);
-            if ((latestRemote.after(geoMetaService.getLastModified()) || forceUpdate) && !neverUpdate)
-            {
-                ipLookupImporter.purge();
-                boundaryImporter.purge();
-                geonamesImporter.purge();
-            
-                geonamesImporter.importData();
-                boundaryImporter.importData();
-                ipLookupImporter.importData();
-                
-                geoMetaService.setLastModified(latestRemote);
-            }
+            //geoMetaService.update();
             initialized = true;
         }
     }
@@ -81,9 +52,13 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForLocationByIp()
     {
-        assertThat(geodataService.findByIp("77.88.103.250")).isNotNull();
-        assertThat(geodataService.findByIp("103.199.40.241")).isNotNull();
-        assertThat(geodataService.findByIp("136.1.107.78")).isNotNull();
+        for (int i = 0; i < 5; i++)
+        {
+            assertThat(geodataService.findByIp("77.88.103.250")).isNotNull();
+            assertThat(geodataService.findByIp("103.199.40.241")).isNotNull();
+            assertThat(geodataService.findByIp("136.1.107.78")).isNotNull();
+            logger.info("Pass {}", i+1);
+        }
     }
 
     @Test
@@ -95,7 +70,16 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForNearestLocationByPoint()
     {
-        final Location location = geodataService.findByCoordinates(new Point(10, 62), 100);
+        final Location location = geodataService.findNear(new Point(10, 62), 1000);
+        System.out.println(location);
+        assertThat(location).isNotNull();
+    }
+    
+    @Test
+    public void testQueryForPointInsideArea()
+    {
+        final Location location = geodataService.findWithin(new Point(10, 62), 90);
+        System.out.println(location);
         assertThat(location).isNotNull();
     }
 

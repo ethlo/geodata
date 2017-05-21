@@ -1,14 +1,11 @@
 package com.ethlo.geodata.importer.jdbc;
 
-import static org.hamcrest.CoreMatchers.nullValue;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -19,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.util.StringUtils;
 
 import com.ethlo.geodata.importer.GeonamesImporter;
@@ -30,6 +28,9 @@ public class JdbcGeonamesImporter implements PersistentImporter
 {
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
+    
+    @Autowired
+    private PlatformTransactionManager txnManaager;
     
     @Value("${geodata.geonames.source.names}")
     private String geoNamesAllCountriesUrl;
@@ -68,8 +69,8 @@ public class JdbcGeonamesImporter implements PersistentImporter
 
     private void doUpdate(File allCountriesFile, File hierarchyFile) throws IOException
     {
-        final String sql = "INSERT INTO geonames (id, parent_id, name, feature_class, feature_code, country_code, population, elevation_meters, timezone, last_modified, lat, lng) VALUES ("
-                        + ":id, :parent_id, :name, :feature_class, :feature_code, :country_code, :population, :elevation_meters, :timezone, :last_modified, :lat, :lng)";
+        final String sql = "INSERT INTO geonames (id, parent_id, name, feature_class, feature_code, country_code, population, elevation_meters, timezone, last_modified, lat, lng, coord) VALUES ("
+                        + ":id, :parent_id, :name, :feature_class, :feature_code, :country_code, :population, :elevation_meters, :timezone, :last_modified, :lat, :lng, ST_GeomFromText(:poly))";
 
         final GeonamesImporter geonamesImporter = new GeonamesImporter.Builder()
             .allCountriesFile(allCountriesFile)

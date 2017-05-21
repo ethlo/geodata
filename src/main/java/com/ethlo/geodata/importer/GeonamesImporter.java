@@ -68,6 +68,7 @@ public class GeonamesImporter implements DataImporter
                     paramMap.put("name", stripToNull(entry[1]));
                     paramMap.put("lat", lat);
                     paramMap.put("lng", lng);
+                    paramMap.put("poly", "POINT(" + lat + " " + lng + ")");
                     paramMap.put("feature_class", stripToNull(entry[6]));
                     paramMap.put("feature_code", featureCode);
                     paramMap.put("country_code", stripToNull(entry[8]));

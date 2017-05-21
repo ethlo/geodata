@@ -1,5 +1,5 @@
-CREATE ALIAS IF NOT EXISTS H2GIS_FUNCTIONS FOR "org.h2gis.functions.factory.H2GISFunctions.load";
-CALL H2GIS_FUNCTIONS();
+-- CREATE ALIAS IF NOT EXISTS H2GIS_FUNCTIONS FOR "org.h2gis.functions.factory.H2GISFunctions.load";
+-- CALL H2GIS_FUNCTIONS();
 
 create table geonames (
 	id bigint not null primary key,
@@ -12,11 +12,11 @@ create table geonames (
 	elevation_meters int,
 	timezone varchar(40),
 	last_modified date,
-	lat double,
-	lng double,
-	coord point
+	lat double not null,
+	lng double not null,
+	coord point not null
 );
-CREATE SPATIAL INDEX geonames_coord ON geonames(coord);
+-- CREATE SPATIAL INDEX geonames_coord ON geonames(coord);
 
 create table geoip (
 	geoname_id bigint not null,
@@ -27,6 +27,7 @@ create table geoip (
 );
 ALTER TABLE geoip ADD CONSTRAINT fk_geoname_id FOREIGN KEY (geoname_id)  REFERENCES `geonames` (`id` );
 ALTER TABLE geoip ADD CONSTRAINT fk_geoname_country_id FOREIGN KEY (geoname_country_id)  REFERENCES `geonames` (`id`);
+CREATE INDEX idx_range ON geoip(first, last);
 
 CREATE TABLE geoboundaries (
   id bigint NOT NULL PRIMARY KEY,
@@ -34,5 +35,8 @@ CREATE TABLE geoboundaries (
   coord geometry NOT NULL
 );
   
-CREATE SPATIAL INDEX polygon_idx ON geoboundaries(raw_polygon);
-CREATE SPATIAL INDEX point_idx ON geoboundaries(coord);
+-- CREATE SPATIAL INDEX polygon_idx ON geoboundaries(raw_polygon);
+-- CREATE SPATIAL INDEX point_idx ON geoboundaries(coord);
+
+alter table geoboundaries add column area double not null;
+-- update geoboundaries set area = st_area(raw_polygon);

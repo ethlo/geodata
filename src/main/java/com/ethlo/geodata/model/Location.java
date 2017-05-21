@@ -123,4 +123,12 @@ public class Location
         this.address = builder.address;
         this.country = builder.country;
     }
+
+    @Override
+    public String toString()
+    {
+        return "Location [" + (id != null ? "id=" + id + ", " : "") + (parentLocationId != null ? "parentLocationId=" + parentLocationId + ", " : "") + (name != null ? "name=" + name + ", " : "")
+                        + (city != null ? "city=" + city + ", " : "") + (address != null ? "address=" + address + ", " : "") + (country != null ? "country=" + country + ", " : "")
+                        + (coordinates != null ? "coordinates=" + coordinates : "") + "]";
+    }
 }

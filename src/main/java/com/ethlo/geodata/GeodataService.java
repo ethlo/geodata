@@ -47,7 +47,7 @@ public class GeodataService
     public Location findByIp(String ip)
     {
         final long ipLong = UnsignedInteger.fromIntBits(InetAddresses.coerceToInteger(InetAddresses.forString(ip))).longValue();
-        final String sql = "SELECT * from geoip WHERE first <= :ip AND last >= :ip";
+        final String sql = "SELECT * from geoip WHERE first <= :ip AND last >= :ip LIMIT 1";
         return jdbcTemplate.query(sql, Collections.singletonMap("ip", ipLong), rs -> 
         {
             if (rs.next())
@@ -85,7 +85,17 @@ public class GeodataService
             .build();
     }
 
-    public Location findByCoordinates(Point point, int maxDistanceInKilometers)
+    public Location findWithin(Point point, int maxDistanceInKilometers)
+    {
+        final List<Long> locationIds = doFindContaining(point, maxDistanceInKilometers, new PageRequest(0, 10));
+        if (! locationIds.isEmpty())
+        {
+            return findById(locationIds.get(0));
+        }
+        return null;
+    }
+    
+    public Location findNear(Point point, int maxDistanceInKilometers)
     {
         final List<Entry<Location, Long>> locations = doFindNearest(point, maxDistanceInKilometers, new PageRequest(0, 1));
         if (! locations.isEmpty())
@@ -120,14 +130,34 @@ public class GeodataService
         return params;
     }
     
+    private List<Long> doFindContaining(Point point, int maxDistanceInKm, Pageable pageable)
+    {
+        final Map<String, Object> params = createParams(point, maxDistanceInKm, pageable);
+        final String sql = "SELECT id "
+                        + "FROM geoboundaries "
+                        + "WHERE st_within(coord, st_envelope(linestring(point(:minX, :minY), point(:maxX, :maxY)))) "
+                        + "AND st_contains(raw_polygon, POINT(:x,:y)) "
+                        + "ORDER BY area ASC " 
+                        + "LIMIT :limit";
+        
+        return jdbcTemplate.query(sql, params, new RowMapper<Long>()
+        {
+            @Override
+            public Long mapRow(ResultSet rs, int rowNum) throws SQLException
+            {
+                return rs.getLong("id");
+            }
+        });
+    }
+    
     private List<Entry<Location, Long>> doFindNearest(Point point, int distance, Pageable pageable)
     {
         final Map<String, Object> params = createParams(point, distance, pageable);
-        final String sql = "SELECT id, st_distance(ST_PointFromText(:point), coord) AS distance " 
-                         + "FROM geoboundaries "
-                         + "WHERE st_within(coord, st_envelope(st_makeline(:minPoint, :maxPoint))) "
-                         + "ORDER BY distance ASC "
-                         + "LIMIT :offset, :limit";
+        final String sql = "SELECT id, st_distance(POINT(:x, :y), coord) AS distance " 
+                        + "FROM geonames "
+                        + "WHERE st_within(coord, st_envelope(linestring(point(:minX, :minY), point(:maxX,:maxY)))) "
+                        + "ORDER BY distance ASC "
+                        + "LIMIT :offset, :limit";
         
         final SqlRowSet rs = jdbcTemplate.queryForRowSet(sql, params);
         final Map<Long, Long> idAndDistance = new TreeMap<>();

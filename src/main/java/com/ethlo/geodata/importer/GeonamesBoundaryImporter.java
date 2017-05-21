@@ -57,10 +57,6 @@ public class GeonamesBoundaryImporter implements DataImporter
                             logger.warn("Cannot parse geometry for location {}: {}", fields[0], exc.getMessage());
                         }
                     }
-                    else
-                    {
-                        System.err.println("NOT LENGTH 2: " + line);
-                    }
                 }
                 
                 if (count % 1_000 == 0)
