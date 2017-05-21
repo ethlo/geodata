@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.Calendar;
+import java.util.Date;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -14,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.geo.Point;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.ethlo.geodata.importer.jdbc.GeoMetaService;
 import com.ethlo.geodata.model.Location;
@@ -50,6 +53,23 @@ public class GeodataApplicationTests
     }
     
     @Test
+    @Transactional
+    public void metadataTest() throws IOException
+    {
+        final Calendar cal = Calendar.getInstance();
+        cal.set(Calendar.YEAR, 2010);
+        cal.set(Calendar.MONTH, 10);
+        cal.set(Calendar.DAY_OF_MONTH, 31);
+        cal.set(Calendar.HOUR_OF_DAY, 14);
+        cal.set(Calendar.MINUTE, 56);
+        cal.set(Calendar.SECOND, 45);
+        cal.set(Calendar.MILLISECOND, 0);
+        final Date expected = cal.getTime();
+        geoMetaService.setLastModified("foo", expected);
+        assertThat(geoMetaService.getLastModified("foo").getTime()).isEqualTo(expected.getTime());
+    }
+    
+    @Test
     public void testQueryForLocationByIp()
     {
         for (int i = 0; i < 5; i++)
@@ -70,7 +90,7 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForNearestLocationByPoint()
     {
-        final Location location = geodataService.findNear(new Point(10, 62), 1000);
+        final Location location = geodataService.findNear(new Point(62, 11), 100);
         System.out.println(location);
         assertThat(location).isNotNull();
     }
@@ -78,7 +98,7 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForPointInsideArea()
     {
-        final Location location = geodataService.findWithin(new Point(10, 62), 90);
+        final Location location = geodataService.findWithin(new Point(10, 62), 1_000);
         System.out.println(location);
         assertThat(location).isNotNull();
     }

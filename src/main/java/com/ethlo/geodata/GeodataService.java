@@ -47,7 +47,7 @@ public class GeodataService
     public Location findByIp(String ip)
     {
         final long ipLong = UnsignedInteger.fromIntBits(InetAddresses.coerceToInteger(InetAddresses.forString(ip))).longValue();
-        final String sql = "SELECT * from geoip WHERE first <= :ip AND last >= :ip LIMIT 1";
+        final String sql = "SELECT geoname_id, geoname_country_id from geoip WHERE :ip BETWEEN first and last LIMIT 1";
         return jdbcTemplate.query(sql, Collections.singletonMap("ip", ipLong), rs -> 
         {
             if (rs.next())

@@ -38,7 +38,7 @@ public class GeoMetaService
         {
             if(rs.next())
             {
-                return rs.getDate("last_modified");
+                return rs.getTimestamp("last_modified");
             }
             return new Date(0);
         });
@@ -46,7 +46,7 @@ public class GeoMetaService
     
     public void setLastModified(String alias, Date lastModified) throws IOException
     {
-        final String sql = "REPLACE INTO metadata (alias, last_modified) (:alias, :updated)";
+        final String sql = "REPLACE INTO `metadata` (`alias`, `last_modified`) VALUES (:alias, :last_modified)";
         final Map<String, Object> params = new TreeMap<>();
         params.put("alias", alias);
         params.put("last_modified", lastModified);

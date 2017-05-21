@@ -8,7 +8,7 @@ create table metadata (
 
 create table geonames (
 	id bigint not null primary key,
-	PARENT_ID bigint,
+	parent_id bigint,
 	name varchar(200),
 	feature_class char(1),
 	feature_code varchar(10),
@@ -40,7 +40,7 @@ CREATE TABLE geoboundaries (
   id bigint NOT NULL PRIMARY KEY,
   raw_polygon geometry NOT NULL,
   coord geometry NOT NULL,
-  area double not null
+  area double NOT NULL
 ) engine=myisam;  
 CREATE SPATIAL INDEX polygon_idx ON geoboundaries(raw_polygon);
 CREATE SPATIAL INDEX point_idx ON geoboundaries(coord);
