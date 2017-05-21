@@ -62,7 +62,7 @@ public class ResourceUtil
         final URL url = new URL(urlStr);
         final Date remoteLastModified = getLastModified(urlStr);
         final String tmpDir = System.getProperty("java.io.tmpdir");
-        final File file = new File(tmpDir, alias + ".data");
+        final File file = new File(tmpDir, alias + ".txt");
         final long localLastModified = file.exists() ? file.lastModified() : -2;
         logger.debug("Local file for "
             + "alias {}"
