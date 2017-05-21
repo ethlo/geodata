@@ -8,6 +8,7 @@ import java.util.Map.Entry;
 
 import javax.sql.DataSource;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -40,7 +41,8 @@ public class JdbcGeonamesBoundaryImporter implements PersistentImporter
     @Override
     public void importData() throws IOException
     {
-        final Entry<Date, File> boundaryFile = ResourceUtil.fetchZipEntry("geonames_boundary", geoNamesBoundaryUrl, "allshapes.txt"); //"shapes_all_low.txt");
+        final String[] urlParts = StringUtils.split(geoNamesBoundaryUrl, "|");
+        final Entry<Date, File> boundaryFile = ResourceUtil.fetchZipEntry("geonames_boundary", urlParts[0], urlParts[1]);
         final GeonamesBoundaryImporter importer = new GeonamesBoundaryImporter(boundaryFile.getValue());
 
         final String sql = "INSERT INTO geoboundaries(id, raw_polygon, coord, area) VALUES(:id, ST_GeomFromText(:poly), ST_Centroid(ST_GeomFromText(:poly)), st_area(ST_GeomFromText(:poly)))";

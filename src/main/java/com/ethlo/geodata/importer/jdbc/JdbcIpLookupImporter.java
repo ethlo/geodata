@@ -41,7 +41,8 @@ public class JdbcIpLookupImporter implements PersistentImporter
     public void importData() throws IOException
     {
         final String sql = "INSERT INTO geoip(geoname_id, geoname_country_id, first, last) VALUES (:geoname_id, :geoname_country_id, :first, :last)";
-        final Map.Entry<Date, File> ipDataFile = ResourceUtil.fetchZipEntry("ipData", url, "GeoLite2-City-Blocks-IPv4.csv");
+        final String[] urlParts = StringUtils.split(url, "|");
+        final Map.Entry<Date, File> ipDataFile = ResourceUtil.fetchZipEntry("ipData", urlParts[0], urlParts[1]);
         
         final AtomicInteger count = new AtomicInteger(0);
 

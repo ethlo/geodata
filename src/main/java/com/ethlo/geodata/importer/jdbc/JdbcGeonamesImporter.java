@@ -16,7 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.util.StringUtils;
 
 import com.ethlo.geodata.importer.GeonamesImporter;
@@ -28,9 +27,6 @@ public class JdbcGeonamesImporter implements PersistentImporter
 {
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
-    
-    @Autowired
-    private PlatformTransactionManager txnManaager;
     
     @Value("${geodata.geonames.source.names}")
     private String geoNamesAllCountriesUrl;
@@ -55,8 +51,11 @@ public class JdbcGeonamesImporter implements PersistentImporter
     @Override
     public void importData() throws IOException
     {
-        final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchZipEntry("geonames_hierarchy", geoNamesHierarchyUrl, "hierarchy.txt");
-        final Map.Entry<Date, File> allCountriesFile = ResourceUtil.fetchZipEntry("geonames", geoNamesAllCountriesUrl, "allCountries.txt");
+        final String[] hierarchyUrlParts = StringUtils.split(geoNamesHierarchyUrl, "|");
+        final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchZipEntry("geonames_hierarchy", hierarchyUrlParts[0], hierarchyUrlParts[1]);
+        
+        final String[] geoUrlParts = StringUtils.split(geoNamesAllCountriesUrl, "|");
+        final Map.Entry<Date, File> allCountriesFile = ResourceUtil.fetchZipEntry("geonames", geoUrlParts[0], geoUrlParts[1]);
         
         doUpdate(allCountriesFile.getValue(), hierarchyFile.getValue());
     }

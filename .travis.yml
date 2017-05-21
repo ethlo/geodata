@@ -4,8 +4,6 @@ jdk:
 dist: trusty
 sudo: false
 before_install:
-  - mysql -h127.0.0.1 -e 'CREATE DATABASE geodata;'
+  - mysql -h127.0.0.1 -e "CREATE DATABASE geodata; USE mysql;\nUPDATE user SET password=PASSWORD('qwerty123') WHERE user='root';\nFLUSH PRIVILEGES;\n"
 addons:
   mariadb: '10.1'
-before_script:
-  - echo "USE mysql;\nUPDATE user SET password=PASSWORD('qwerty123') WHERE user='root';\nFLUSH PRIVILEGES;\n" | mysql -u root

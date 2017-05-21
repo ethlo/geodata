@@ -22,6 +22,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import org.apache.commons.compress.utils.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -36,7 +37,8 @@ public class ResourceUtil
     
     public static Date getLastModified(String urlStr) throws IOException
     {
-        final URL url = new URL(urlStr);
+        final String[] urlParts = StringUtils.split(urlStr, "|");
+        final URL url = new URL(urlParts[0]);
         if (url.getProtocol().equals("file"))
         {
             String path = urlStr.substring(7);
@@ -126,50 +128,4 @@ public class ResourceUtil
     {
         return LocalDateTime.ofEpochSecond(timestamp/1_000, 0, ZoneOffset.UTC);
     }
-
-    public static void dumpInsertStatements(NamedParameterJdbcOperations jdbcTemplate, String tableName, File file) throws IOException, SQLException
-    {
-        final String fileName = file != null ? file.getAbsolutePath() : File.createTempFile("geodata_" + tableName + "_", ".sql").getAbsolutePath();
-        logger.info("Dumping to {}", fileName);
-        final String dumpSqlStatement = "SCRIPT TABLE " + tableName;
-        
-        try (final Writer out = new BufferedWriter(new FileWriter(fileName)))
-        {
-            jdbcTemplate.execute(dumpSqlStatement, new PreparedStatementCallback<Void>()
-            {
-                @Override
-                public Void doInPreparedStatement(PreparedStatement ps) throws SQLException, DataAccessException
-                {
-                    final ResultSet rs = ps.executeQuery();
-                    while (rs.next())
-                    {
-                        final String stmt = rs.getString(1);
-                        if (stmt.startsWith("INSERT"))
-                        {
-                            try
-                            {
-                                out.write(stmt);
-                                out.write("\n");
-                            }
-                            catch (IOException exc)
-                            {
-                                throw new DataAccessResourceFailureException(exc.getMessage(), exc);
-                            }
-                        }
-                    }
-                    return null;
-                }
-            });
-        };
-    }
-
-    public static Date latest(Date... dates)
-    {
-        long cur = 0;
-        for (Date d : dates)
-        {
-            cur = Math.max(cur, d.getTime());
-        }
-        return new Date(cur);
-    }        
 }

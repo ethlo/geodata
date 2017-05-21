@@ -1,15 +1,15 @@
 package com.ethlo.geodata.importer.jdbc;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
+import java.util.Collections;
 import java.util.Date;
+import java.util.Map;
+import java.util.TreeMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import com.ethlo.geodata.util.ResourceUtil;
@@ -17,6 +17,8 @@ import com.ethlo.geodata.util.ResourceUtil;
 @Service
 public class GeoMetaService
 {
+    private static final Logger logger = LoggerFactory.getLogger(GeoMetaService.class);
+    
     @Autowired
     private JdbcIpLookupImporter ipLookupImporter;
     
@@ -26,47 +28,55 @@ public class GeoMetaService
     @Autowired
     private JdbcGeonamesBoundaryImporter boundaryImporter;
     
-    private File file = new File(System.getProperty("user.home"), ".geodata.lastmodified");
+    @Autowired
+    private NamedParameterJdbcTemplate jdbcTemplate;
     
-    private static final Logger logger = LoggerFactory.getLogger(GeoMetaService.class);
-    
-    public Date getLastModified() throws IOException
+    public Date getLastModified(String alias) throws IOException
     {
-        if (file.exists())
+        final String sql = "SELECT last_modified from metadata where alias = :alias";
+        return jdbcTemplate.query(sql, Collections.singletonMap("alias", alias), rs->
         {
-            final String content = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
-            return new Date(Long.parseLong(content));
-        }
-        return new Date(0);
+            if(rs.next())
+            {
+                return rs.getDate("last_modified");
+            }
+            return new Date(0);
+        });
     }
     
-    public void setLastModified(Date lastModified) throws IOException
+    public void setLastModified(String alias, Date lastModified) throws IOException
     {
-        Files.write(file.toPath(), Long.toString(lastModified.getTime()).getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE);
+        final String sql = "REPLACE INTO metadata (alias, last_modified) (:alias, :updated)";
+        final Map<String, Object> params = new TreeMap<>();
+        params.put("alias", alias);
+        params.put("last_modified", lastModified);
+        jdbcTemplate.update(sql, params);
     }
 
     public void update() throws IOException
     {
-        // Check last modified
         final Date geonamesTimestamp = geonamesImporter.lastRemoteModified();
-        final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
-        final Date ipTimestamp = ipLookupImporter.lastRemoteModified();
-        final Date latestRemote = ResourceUtil.latest(geonamesTimestamp, boundariesTimestamp, ipTimestamp);
-        if (latestRemote.after(getLastModified()))
+        if (geonamesTimestamp.after(getLastModified("geonames")))
         {
-            logger.info("Updating data. Latest remote resource was {}", latestRemote);
-            
-            logger.info("Purging all old data");
-            ipLookupImporter.purge();
-            boundaryImporter.purge();
             geonamesImporter.purge();
-        
-            logger.info("Importing new data");
             geonamesImporter.importData();
+            setLastModified("geonames", geonamesTimestamp);
+        }
+        
+        final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
+        if (boundariesTimestamp.after(getLastModified("geoboundaries")))
+        {
+            boundaryImporter.purge();
             boundaryImporter.importData();
+            setLastModified("geoboundaries", boundariesTimestamp);
+        }
+        
+        final Date ipTimestamp = ipLookupImporter.lastRemoteModified();
+        if (ipTimestamp.after(getLastModified("geoip")))
+        {
+            ipLookupImporter.purge();
             ipLookupImporter.importData();
-            
-            setLastModified(latestRemote);
+            setLastModified("geoip", ipTimestamp);
         }
     }
 }

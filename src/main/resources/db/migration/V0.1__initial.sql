@@ -1,6 +1,11 @@
 -- CREATE ALIAS IF NOT EXISTS H2GIS_FUNCTIONS FOR "org.h2gis.functions.factory.H2GISFunctions.load";
 -- CALL H2GIS_FUNCTIONS();
 
+create table metadata (
+	alias varchar(32) not null primary key,
+	last_modified datetime not null
+);
+
 create table geonames (
 	id bigint not null primary key,
 	PARENT_ID bigint,
