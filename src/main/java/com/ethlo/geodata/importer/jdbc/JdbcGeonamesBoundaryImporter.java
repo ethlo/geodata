@@ -43,7 +43,7 @@ public class JdbcGeonamesBoundaryImporter implements PersistentImporter
         final Entry<Date, File> boundaryFile = ResourceUtil.fetchZipEntry("geonames_boundary", geoNamesBoundaryUrl, "allshapes.txt"); //"shapes_all_low.txt");
         final GeonamesBoundaryImporter importer = new GeonamesBoundaryImporter(boundaryFile.getValue());
 
-        final String sql = "INSERT INTO geoboundaries(id, raw_polygon, coord) VALUES(:id, ST_GeomFromText(:poly), ST_Centroid(ST_GeomFromText(:poly)))";
+        final String sql = "INSERT INTO geoboundaries(id, raw_polygon, coord, area) VALUES(:id, ST_GeomFromText(:poly), ST_Centroid(ST_GeomFromText(:poly)), st_area(ST_GeomFromText(:poly)))";
         importer.processFile(entry->
         {
             jdbcTemplate.update(sql, entry);

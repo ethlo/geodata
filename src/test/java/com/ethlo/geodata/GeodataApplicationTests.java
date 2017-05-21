@@ -38,7 +38,7 @@ public class GeodataApplicationTests
     {
         if (! initialized)
         {
-            //geoMetaService.update();
+            geoMetaService.update();
             initialized = true;
         }
     }

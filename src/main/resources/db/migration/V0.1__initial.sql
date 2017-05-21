@@ -15,8 +15,8 @@ create table geonames (
 	lat double not null,
 	lng double not null,
 	coord point not null
-);
--- CREATE SPATIAL INDEX geonames_coord ON geonames(coord);
+) engine=myisam;
+CREATE SPATIAL INDEX geonames_coord ON geonames(coord);
 
 create table geoip (
 	geoname_id bigint not null,
@@ -25,18 +25,17 @@ create table geoip (
 	last bigint not null,
 	precision_meters int
 );
-ALTER TABLE geoip ADD CONSTRAINT fk_geoname_id FOREIGN KEY (geoname_id)  REFERENCES `geonames` (`id` );
-ALTER TABLE geoip ADD CONSTRAINT fk_geoname_country_id FOREIGN KEY (geoname_country_id)  REFERENCES `geonames` (`id`);
+-- InnoDB only
+-- ALTER TABLE geoip ADD CONSTRAINT fk_geoname_id FOREIGN KEY (geoname_id)  REFERENCES `geonames` (`id` );
+-- ALTER TABLE geoip ADD CONSTRAINT fk_geoname_country_id FOREIGN KEY (geoname_country_id)  REFERENCES `geonames` (`id`);
+
 CREATE INDEX idx_range ON geoip(first, last);
 
 CREATE TABLE geoboundaries (
   id bigint NOT NULL PRIMARY KEY,
   raw_polygon geometry NOT NULL,
-  coord geometry NOT NULL
-);
-  
--- CREATE SPATIAL INDEX polygon_idx ON geoboundaries(raw_polygon);
--- CREATE SPATIAL INDEX point_idx ON geoboundaries(coord);
-
-alter table geoboundaries add column area double not null;
--- update geoboundaries set area = st_area(raw_polygon);
+  coord geometry NOT NULL,
+  area double not null
+) engine=myisam;  
+CREATE SPATIAL INDEX polygon_idx ON geoboundaries(raw_polygon);
+CREATE SPATIAL INDEX point_idx ON geoboundaries(coord);

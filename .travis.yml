@@ -1,5 +1,9 @@
 language: java
 jdk:
   - oraclejdk8
-#after_success:
-#  - mvn clean test jacoco:report coveralls:report
+dist: trusty
+sudo: false
+before_install:
+  - mysql -e 'CREATE DATABASE geodata;'
+addons:
+  mariadb: '10.1'
