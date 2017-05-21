@@ -4,6 +4,6 @@ jdk:
 dist: trusty
 sudo: false
 before_install:
-  - mysql -e 'CREATE DATABASE geodata;'
+  - mysql -h127.0.0.1 -e 'CREATE DATABASE geodata;'
 addons:
   mariadb: '10.1'
