@@ -51,7 +51,6 @@
 			<groupId>com.vividsolutions</groupId>
 			<artifactId>jts-core</artifactId>
 			<version>1.14.0</version>
-			<scope>runtime</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.hibernate</groupId>

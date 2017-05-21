@@ -9,8 +9,10 @@
 		</encoder>
 	</appender>
 
+	<!-- 
 	<logger name="org.springframework.jdbc.core.JdbcTemplate" level="trace" />
 	<logger name="org.springframework.jdbc.core.StatementCreatorUtils" level="trace" />
+	-->
 
 	<root level="info">
 		<appender-ref ref="stdout" />
