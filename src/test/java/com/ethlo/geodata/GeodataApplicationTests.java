@@ -5,20 +5,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Date;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.geo.Point;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import com.ethlo.geodata.importer.jdbc.GeoMetaService;
+import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.Location;
 import com.vividsolutions.jts.geom.Geometry;
 
@@ -26,8 +28,6 @@ import com.vividsolutions.jts.geom.Geometry;
 @SpringBootTest
 public class GeodataApplicationTests
 {
-    private static final Logger logger = LoggerFactory.getLogger(GeodataApplicationTests.class);
-    
     private static boolean initialized = false;
     
     @Autowired
@@ -47,9 +47,13 @@ public class GeodataApplicationTests
     }
     
     @Test
-    public void testBuildHierarchy()
+    public void testLoadHierarchy() throws IOException
     {
+        this.geodataService.loadHierarchy();
         
+        final long locationId = 3144096;
+        final Collection<Location> children = geodataService.getChildren(locationId);
+        System.out.println(StringUtils.collectionToCommaDelimitedString(children));
     }
     
     @Test
@@ -72,13 +76,9 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForLocationByIp()
     {
-        for (int i = 0; i < 5; i++)
-        {
-            assertThat(geodataService.findByIp("77.88.103.250")).isNotNull();
-            assertThat(geodataService.findByIp("103.199.40.241")).isNotNull();
-            assertThat(geodataService.findByIp("136.1.107.78")).isNotNull();
-            logger.info("Pass {}", i+1);
-        }
+        assertThat(geodataService.findByIp("77.88.103.250")).isNotNull();
+        assertThat(geodataService.findByIp("103.199.40.241")).isNotNull();
+        assertThat(geodataService.findByIp("136.1.107.78")).isNotNull();
     }
 
     @Test
@@ -91,7 +91,6 @@ public class GeodataApplicationTests
     public void testQueryForNearestLocationByPoint()
     {
         final Location location = geodataService.findNear(new Point(62, 11), 100);
-        System.out.println(location);
         assertThat(location).isNotNull();
     }
     
@@ -99,10 +98,39 @@ public class GeodataApplicationTests
     public void testQueryForPointInsideArea()
     {
         final Location location = geodataService.findWithin(new Point(10, 62), 1_000);
-        System.out.println(location);
         assertThat(location).isNotNull();
     }
 
+    @Ignore
+    @Test
+    public void testListCountriesOnContinent()
+    {
+        final Collection<Location> countriesInAfrica = geodataService.findCountriesOnContinent("AF");
+        assertThat(countriesInAfrica).isNotNull();
+    }
+    
+    @Test
+    public void testGetCountryByCode()
+    {
+        final Country country = geodataService.findCountryByCode("NO");
+        assertThat(country).isNotNull();
+    }
+    
+    @Test
+    public void testListContinents()
+    {
+        final Collection<Location> continents = geodataService.getContinents();
+        assertThat(continents).hasSize(7);
+    }
+    
+    @Test
+    public void testListChildrenOfCountry()
+    {
+        final Collection<Location> counties = geodataService.getChildren(new Country().setCode("NO"));
+        assertThat(counties).hasSize(19);
+    }
+    
+    @SuppressWarnings("unchecked")
     @Test
     public void testQueryForBoundaries()
     {

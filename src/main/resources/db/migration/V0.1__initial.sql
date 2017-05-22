@@ -6,6 +6,12 @@ create table metadata (
 	last_modified datetime not null
 );
 
+
+create table geohierarchy (
+	data longblob not null
+);
+
+
 create table geonames (
 	id bigint not null primary key,
 	parent_id bigint,
@@ -21,6 +27,7 @@ create table geonames (
 	lng double not null,
 	coord point not null
 ) engine=myisam;
+ALTER TABLE geonames ADD INDEX idx_filter(country_code, feature_code);
 CREATE SPATIAL INDEX geonames_coord ON geonames(coord);
 
 create table geoip (

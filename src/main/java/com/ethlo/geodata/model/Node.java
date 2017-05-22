@@ -1,21 +1,47 @@
 package com.ethlo.geodata.model;
 
-import org.apache.commons.lang3.ArrayUtils;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.stream.Collectors;
 
+import org.springframework.util.StringUtils;
+
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
+
+@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
 public class Node
 {
-    private final Node parent;
-    private final long self;
-    private Node[] children = new Node[0];
+    private Long id;
     
-    public Node(Node parent, long self)
+    private List<Node> children;
+    
+    private Node parent;
+
+    public Node(Long id)
+    {
+        this.id = id;
+        children = new LinkedList<>();
+    }
+
+    public void addChild(Node child)
+    {
+        this.children.add(child);
+    }
+
+    public void setParent(Node parent)
     {
         this.parent = parent;
-        if (parent != null)
-        {
-            parent.children = ArrayUtils.add(children, this);
-        }
-        this.self = self;
+    }
+
+    public Long getId()
+    {
+        return id;
+    }
+
+    public List<Node> getChildren()
+    {
+        return children;
     }
 
     public Node getParent()
@@ -23,18 +49,54 @@ public class Node
         return parent;
     }
     
-    public Node[] getChildren()
+    @Override
+    public int hashCode()
     {
-        return children;
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((children == null) ? 0 : children.hashCode());
+        result = prime * result + ((id == null) ? 0 : id.hashCode());
+        result = prime * result + ((parent == null) ? 0 : parent.id.hashCode());
+        return result;
     }
 
-    public long getSelf()
+    @Override
+    public boolean equals(Object obj)
     {
-        return self;
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        Node other = (Node) obj;
+        if (children == null)
+        {
+            if (other.children != null)
+                return false;
+        }
+        else if (!children.equals(other.children))
+            return false;
+        if (id == null)
+        {
+            if (other.id != null)
+                return false;
+        }
+        else if (!id.equals(other.id))
+            return false;
+        if (parent == null)
+        {
+            if (other.parent != null)
+                return false;
+        }
+        else if (!parent.equals(other.parent))
+            return false;
+        return true;
     }
 
-    public void addChild(Long child)
+    @Override
+    public String toString()
     {
-        parent.children = ArrayUtils.add(children, this);        
+        return "Node [" + (id != null ? "id=" + id + ", " : "") + (children != null ? "children=" + StringUtils.collectionToCommaDelimitedString(children.stream().map(c->c.getId()).collect(Collectors.toList())) : "") + (parent != null ? "parent=" + parent.getId() : "") + "]";
     }
 }

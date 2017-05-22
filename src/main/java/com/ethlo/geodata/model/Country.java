@@ -5,6 +5,9 @@ import javax.validation.constraints.NotNull;
 public class Country
 {
     @NotNull
+    private Long id;
+
+    @NotNull
     private String code;
     
     @NotNull
@@ -14,10 +17,17 @@ public class Country
     {
         return code;
     }
+    
+    public Country setId(Long id)
+    {
+        this.id = id;
+        return this;
+    }
 
-    public void setCode(String code)
+    public Country setCode(String code)
     {
         this.code = code;
+        return this;
     }
     
     public String getName()
@@ -25,9 +35,10 @@ public class Country
         return name;
     }
 
-    public void setName(String name)
+    public Country setName(String name)
     {
         this.name = name;
+        return this;
     }
 
     public Country withCode(String countryCode)
@@ -40,5 +51,10 @@ public class Country
     {
         this.name = name;
         return this;
+    }
+
+    public long getId()
+    {
+        return this.id;
     }
 }

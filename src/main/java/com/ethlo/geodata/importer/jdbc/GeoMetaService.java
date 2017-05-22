@@ -12,8 +12,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import com.ethlo.geodata.util.ResourceUtil;
-
 @Service
 public class GeoMetaService
 {
@@ -29,6 +27,9 @@ public class GeoMetaService
     private JdbcGeonamesBoundaryImporter boundaryImporter;
     
     @Autowired
+    private JdbcGeonamesHierarchyImporter hierarchyImporter;
+    
+    @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
     
     public Date getLastModified(String alias) throws IOException
@@ -36,7 +37,7 @@ public class GeoMetaService
         final String sql = "SELECT last_modified from metadata where alias = :alias";
         return jdbcTemplate.query(sql, Collections.singletonMap("alias", alias), rs->
         {
-            if(rs.next())
+            if (rs.next())
             {
                 return rs.getTimestamp("last_modified");
             }
@@ -55,6 +56,14 @@ public class GeoMetaService
 
     public void update() throws IOException
     {
+        final Date geonamesHierarchyTimestamp = hierarchyImporter.lastRemoteModified();
+        if (geonamesHierarchyTimestamp.after(getLastModified("geonames_hierarchy")))
+        {
+            hierarchyImporter.purge();
+            hierarchyImporter.importData();
+            setLastModified("geonames_hierarchy", geonamesHierarchyTimestamp);
+        }
+        
         final Date geonamesTimestamp = geonamesImporter.lastRemoteModified();
         if (geonamesTimestamp.after(getLastModified("geonames")))
         {

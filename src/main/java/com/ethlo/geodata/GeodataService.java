@@ -1,17 +1,25 @@
 package com.ethlo.geodata;
 
+import java.io.File;
+import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,10 +31,14 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
 
+import com.ethlo.geodata.importer.HierarchyImporter;
 import com.ethlo.geodata.model.Coordinate;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.Location;
+import com.ethlo.geodata.model.Node;
+import com.google.common.io.Files;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
 import com.vividsolutions.jts.geom.Geometry;
@@ -37,7 +49,35 @@ import com.vividsolutions.jts.io.WKBReader;
 public class GeodataService
 {
     private NamedParameterJdbcTemplate jdbcTemplate;
+    
+    private static final Map<String, Long> CONTINENT_IDS = new LinkedHashMap<>();
+    private final RowMapper<Location> GEONAMES_ROW_MAPPER = new RowMapper<Location>()
+    {
+        @Override
+        public Location mapRow(ResultSet rs, int rowNum) throws SQLException
+        {
+            return mapLocation(rs);
+        }
+    };
+    
+    static
+    {
+        CONTINENT_IDS.put("AF", 6255146L);
+        CONTINENT_IDS.put("AS", 6255147L);
+        CONTINENT_IDS.put("EU", 6255148L);
+        CONTINENT_IDS.put("NA", 6255149L);
+        CONTINENT_IDS.put("OC", 6255151L);
+        CONTINENT_IDS.put("SA", 6255150L);
+        CONTINENT_IDS.put("AN", 6255152L);
+    }
+    
+    private Set<Location> continents;
+    
+    private Set<Node> roots;
+    private Map<Long, Node> nodes;
 
+    private Map<String, Country> countries = new HashMap<>(0);
+    
     @Autowired
     public void setDataSource(DataSource dataSource)
     {
@@ -81,7 +121,7 @@ public class GeodataService
             //.address(rs.getString("address"))
             .coordinates(new Coordinate().setLat(rs.getDouble("lat")).setLng(rs.getDouble("lng")))
             .parentLocationId(rs.getLong("parent_id"))
-            .country(findCountryByCode(rs.getString("country_code")))
+            .country(countries.get(rs.getString("country_code")))
             .build();
     }
 
@@ -175,17 +215,10 @@ public class GeodataService
         return locations.stream().map(l->new AbstractMap.SimpleEntry<>(l, idAndDistance.get(l.getId()))).collect(Collectors.toList());
     }
 
-    private List<Location> findByIds(List<Long> ids)
+    private List<Location> findByIds(Collection<Long> ids)
     {
         final String sql = "SELECT * from geonames WHERE id in (:ids)";
-        return jdbcTemplate.query(sql, Collections.singletonMap("ids", ids), new RowMapper<Location>()
-        {
-            @Override
-            public Location mapRow(ResultSet rs, int rowNum) throws SQLException
-            {
-                return mapLocation(rs);
-            }
-        });
+        return jdbcTemplate.query(sql, Collections.singletonMap("ids", ids), GEONAMES_ROW_MAPPER);
     }
 
     public Geometry findBoundaries(long id)
@@ -211,31 +244,110 @@ public class GeodataService
 
     public Collection<Location> getChildren(long locationId)
     {
-        // TODO: Implement me
-        return null;
+        final Node node = nodes.get(locationId);
+        final List<Long> ids = node.getChildren().stream().map(n->n.getId()).collect(Collectors.toList());
+        return findByIds(ids);
     }
 
     public Collection<Location> getContinents()
     {
-        // TODO Auto-generated method stub
-        return null;
+        if (continents == null)
+        {
+            continents = new LinkedHashSet<>(findByIds(CONTINENT_IDS.values()));
+        }
+        return continents;
     }
 
-    public Collection<Location> findCountriesOnContinent(String continentName)
+    public Collection<Location> findCountriesOnContinent(String continentCode)
     {
-        // TODO Auto-generated method stub
+        //final Long continentId = CONTINENT_IDS.get(continentCode);
+        // TODO: Implement me 
         return null;
     }
 
     public Country findCountryByCode(String countryCode)
     {
-        // TODO Auto-generated method stub
-        return null;
+        return countries.get(countryCode);
     }
 
-    public List<Location> getChildren(Country country)
+    public Collection<Location> getChildren(Country country)
     {
-        // TODO Auto-generated method stub
-        return null;
-    }    
+        return jdbcTemplate.query("select * from geonames where country_code = :cc and feature_code = 'ADM1'", Collections.singletonMap("cc", country.getCode()), GEONAMES_ROW_MAPPER);
+    }
+    
+    @PostConstruct
+    public int loadCountries()
+    {
+        countries = new HashMap<>();
+        final Collection<Country> countryList = jdbcTemplate.query("select parent_id, country_code from geonames where feature_code = \"ADM1\" group by country_code having parent_id is not null", new RowMapper<Country>()
+        {
+            @Override
+            public Country mapRow(ResultSet rs, int rowNum) throws SQLException
+            {
+                final long id = rs.getLong("parent_id");
+                final Location l = findById(id);
+                Assert.notNull(l, "location should not be null for " + id);
+                return new Country().setId(id).setCode(rs.getString("country_code")).setName(l.getName());
+            }            
+        });
+        countryList.forEach(c->countries.put(c.getCode(), c));
+        return countryList.size();
+    }
+    
+    @PostConstruct
+    public int loadHierarchy() throws IOException
+    {
+        final byte[] data = fetchHierarchy();
+        
+        final File hierarchyFile = File.createTempFile("hierarchy", ".tsv");
+        Files.write(data, hierarchyFile);
+        nodes = new HashMap<>();
+        final Map<Long, Long> childToParent = new HashMap<>();
+        new HierarchyImporter(hierarchyFile).processFile(r->
+        {
+            final long parentId = Long.parseLong(r.get("parent_id"));
+            final long childId = Long.parseLong(r.get("child_id"));
+            final Node parent = nodes.getOrDefault(parentId, new Node(parentId));
+            final Node child = nodes.getOrDefault(childId, new Node(childId));
+            nodes.put(parent.getId(), parent);
+            nodes.put(child.getId(), child);
+            
+            childToParent.put(childId, parentId);
+        });
+        
+        // Process hierarchy after, as we do not know the order of the pairs
+        childToParent.entrySet().forEach(e->
+        {
+            final long child = e.getKey();
+            final long parent = e.getValue();
+            final Node childNode = nodes.get(child);
+            final Node parentNode = nodes.get(parent);
+            parentNode.addChild(childNode);
+            childNode.setParent(parentNode);
+        });
+        
+        roots = new HashSet<>();
+        for (Entry<Long, Node> e : nodes.entrySet())
+        {
+            if (e.getValue().getParent() == null)
+            {
+                roots.add(e.getValue());
+            }
+        }
+        
+        return childToParent.size();
+    }
+
+    private byte[] fetchHierarchy()
+    {
+        final String sql = "SELECT data FROM geohierarchy";
+        return jdbcTemplate.query(sql, rs->
+        {
+           if (rs.next())
+           {
+               return rs.getBytes("data");
+           }
+           return null;
+        });
+    }
 }
