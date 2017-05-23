@@ -9,7 +9,6 @@ import java.util.Collection;
 import java.util.Date;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,16 +46,6 @@ public class GeodataApplicationTests
     }
     
     @Test
-    public void testLoadHierarchy() throws IOException
-    {
-        this.geodataService.loadHierarchy();
-        
-        final long locationId = 3144096;
-        final Collection<Location> children = geodataService.getChildren(locationId);
-        System.out.println(StringUtils.collectionToCommaDelimitedString(children));
-    }
-    
-    @Test
     @Transactional
     public void metadataTest() throws IOException
     {
@@ -90,7 +79,7 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForNearestLocationByPoint()
     {
-        final Location location = geodataService.findNear(new Point(62, 11), 100);
+        final Location location = geodataService.findNear(new Point(10, 64), 100);
         assertThat(location).isNotNull();
     }
     
@@ -101,13 +90,22 @@ public class GeodataApplicationTests
         assertThat(location).isNotNull();
     }
 
-    @Ignore
     @Test
-    public void testListCountriesOnContinent()
+    public void testListCountriesOnContinentAfrica()
     {
         final Collection<Location> countriesInAfrica = geodataService.findCountriesOnContinent("AF");
         assertThat(countriesInAfrica).isNotNull();
+        assertThat(countriesInAfrica).hasSize(58);
     }
+    
+    @Test
+    public void testListCountriesOnContinentEurope()
+    {
+        final Collection<Location> countriesInEurope = geodataService.findCountriesOnContinent("EU");
+        assertThat(countriesInEurope).isNotNull();
+        assertThat(countriesInEurope).hasSize(54);
+    }
+
     
     @Test
     public void testGetCountryByCode()

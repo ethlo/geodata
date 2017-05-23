@@ -2,6 +2,8 @@ package com.ethlo.geodata.model;
 
 import javax.validation.constraints.NotNull;
 
+import org.springframework.util.Assert;
+
 public class Location
 {
     @NotNull
@@ -12,13 +14,18 @@ public class Location
     @NotNull
     private String name;
 
-    private String city;
-
-    private String address;
-
     private Country country;
 
+    @NotNull
     private Coordinate coordinates;
+
+    @NotNull
+    private String featureCode;
+    
+    public String getFeatureCode()
+    {
+        return featureCode;
+    }
 
     public Long getId()
     {
@@ -28,16 +35,6 @@ public class Location
     public String getName()
     {
         return name;
-    }
-
-    public String getCity()
-    {
-        return city;
-    }
-
-    public String getAddress()
-    {
-        return address;
     }
 
     public Country getCountry()
@@ -61,9 +58,8 @@ public class Location
         private Long parentLocationId;
         private Coordinate coordinates;
         private String name;
-        private String city;
-        private String address;
         private Country country;
+        private String featureCode;
 
         public Builder id(Long id)
         {
@@ -89,18 +85,6 @@ public class Location
             return this;
         }
 
-        public Builder city(String city)
-        {
-            this.city = city;
-            return this;
-        }
-
-        public Builder address(String address)
-        {
-            this.address = address;
-            return this;
-        }
-
         public Builder country(Country country)
         {
             this.country = country;
@@ -111,16 +95,24 @@ public class Location
         {
             return new Location(this);
         }
+
+        public Builder featureCode(String featureCode)
+        {
+            this.featureCode = featureCode;
+            return this;
+        }
     }
 
     private Location(Builder builder)
     {
+        Assert.notNull(builder.id, "id must not be null");
+        Assert.notNull(builder.name, "name must not be null");
+        
         this.id = builder.id;
         this.parentLocationId = builder.parentLocationId;
         this.coordinates = builder.coordinates;
         this.name = builder.name;
-        this.city = builder.city;
-        this.address = builder.address;
+        this.featureCode = builder.featureCode;
         this.country = builder.country;
     }
 
@@ -128,7 +120,7 @@ public class Location
     public String toString()
     {
         return "Location [" + (id != null ? "id=" + id + ", " : "") + (parentLocationId != null ? "parentLocationId=" + parentLocationId + ", " : "") + (name != null ? "name=" + name + ", " : "")
-                        + (city != null ? "city=" + city + ", " : "") + (address != null ? "address=" + address + ", " : "") + (country != null ? "country=" + country + ", " : "")
+                        + (country != null ? "country=" + country + ", " : "")
                         + (coordinates != null ? "coordinates=" + coordinates : "") + "]";
     }
 }

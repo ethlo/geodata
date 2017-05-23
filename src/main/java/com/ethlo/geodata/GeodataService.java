@@ -19,7 +19,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +30,6 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.stereotype.Service;
-import org.springframework.util.Assert;
 
 import com.ethlo.geodata.importer.HierarchyImporter;
 import com.ethlo.geodata.model.Coordinate;
@@ -72,11 +70,9 @@ public class GeodataService
     }
     
     private Set<Location> continents;
-    
     private Set<Node> roots;
     private Map<Long, Node> nodes;
-
-    private Map<String, Country> countries = new HashMap<>(0);
+    private Map<String, Country> countries;
     
     @Autowired
     public void setDataSource(DataSource dataSource)
@@ -114,14 +110,16 @@ public class GeodataService
 
     private Location mapLocation(ResultSet rs) throws SQLException
     {
+        final Long parentId = rs.getLong("parent_id") != 0 ? rs.getLong("parent_id") : null;
+        final String countryCode = rs.getString("country_code");
+        
         return new Location.Builder()
             .id(rs.getLong("id"))
             .name(rs.getString("name"))
-            //.city(rs.getString("city"))
-            //.address(rs.getString("address"))
+            .featureCode(rs.getString("feature_code"))
             .coordinates(new Coordinate().setLat(rs.getDouble("lat")).setLng(rs.getDouble("lng")))
-            .parentLocationId(rs.getLong("parent_id"))
-            .country(countries.get(rs.getString("country_code")))
+            .parentLocationId(parentId)
+            .country(findCountryByCode(countryCode))
             .build();
     }
 
@@ -192,7 +190,7 @@ public class GeodataService
     
     private List<Entry<Location, Long>> doFindNearest(Point point, int distance, Pageable pageable)
     {
-        final Map<String, Object> params = createParams(point, distance, pageable);
+        final Map<String, Object> params = createParams(new Point(point.getY(), point.getX()), distance, pageable);
         final String sql = "SELECT id, st_distance(POINT(:x, :y), coord) AS distance " 
                         + "FROM geonames "
                         + "WHERE st_within(coord, st_envelope(linestring(point(:minX, :minY), point(:maxX,:maxY)))) "
@@ -244,6 +242,18 @@ public class GeodataService
 
     public Collection<Location> getChildren(long locationId)
     {
+        if (nodes == null)
+        {
+            try
+            {
+                loadHierarchy();
+            }
+            catch (IOException exc)
+            {
+                throw new DataAccessResourceFailureException(exc.getMessage(), exc);
+            }
+        }
+        
         final Node node = nodes.get(locationId);
         final List<Long> ids = node.getChildren().stream().map(n->n.getId()).collect(Collectors.toList());
         return findByIds(ids);
@@ -260,13 +270,15 @@ public class GeodataService
 
     public Collection<Location> findCountriesOnContinent(String continentCode)
     {
-        //final Long continentId = CONTINENT_IDS.get(continentCode);
-        // TODO: Implement me 
-        return null;
+        return jdbcTemplate.query("SELECT n.* FROM geocountry c, geonames n WHERE c.geoname_id = n.id AND continent = :continentCode", Collections.singletonMap("continentCode", continentCode), GEONAMES_ROW_MAPPER);
     }
 
     public Country findCountryByCode(String countryCode)
     {
+        if (countries == null)
+        {
+            loadCountries();
+        }
         return countries.get(countryCode);
     }
 
@@ -275,26 +287,21 @@ public class GeodataService
         return jdbcTemplate.query("select * from geonames where country_code = :cc and feature_code = 'ADM1'", Collections.singletonMap("cc", country.getCode()), GEONAMES_ROW_MAPPER);
     }
     
-    @PostConstruct
     public int loadCountries()
     {
-        countries = new HashMap<>();
-        final Collection<Country> countryList = jdbcTemplate.query("select parent_id, country_code from geonames where feature_code = \"ADM1\" group by country_code having parent_id is not null", new RowMapper<Country>()
+        countries = new LinkedHashMap<>();
+        final Collection<Country> countryList = jdbcTemplate.query("SELECT * FROM geocountry ORDER BY iso ASC", new RowMapper<Country>()
         {
             @Override
             public Country mapRow(ResultSet rs, int rowNum) throws SQLException
             {
-                final long id = rs.getLong("parent_id");
-                final Location l = findById(id);
-                Assert.notNull(l, "location should not be null for " + id);
-                return new Country().setId(id).setCode(rs.getString("country_code")).setName(l.getName());
+                return new Country().setId(rs.getLong("geoname_id")).setCode(rs.getString("iso")).setName(rs.getString("country"));
             }            
         });
         countryList.forEach(c->countries.put(c.getCode(), c));
         return countryList.size();
     }
     
-    @PostConstruct
     public int loadHierarchy() throws IOException
     {
         final byte[] data = fetchHierarchy();

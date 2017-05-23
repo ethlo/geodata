@@ -6,8 +6,6 @@ import java.util.Date;
 import java.util.Map;
 import java.util.TreeMap;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -15,7 +13,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class GeoMetaService
 {
-    private static final Logger logger = LoggerFactory.getLogger(GeoMetaService.class);
+    @Autowired
+    private JdbcCountryImporter countryImporter;
     
     @Autowired
     private JdbcIpLookupImporter ipLookupImporter;
@@ -56,6 +55,14 @@ public class GeoMetaService
 
     public void update() throws IOException
     {
+        final Date countryTimestamp = countryImporter.lastRemoteModified();
+        if (countryTimestamp.after(getLastModified("geonames_country")))
+        {
+            countryImporter.purge();
+            countryImporter.importData();
+            setLastModified("geonames_country", countryTimestamp);
+        }
+        
         final Date geonamesHierarchyTimestamp = hierarchyImporter.lastRemoteModified();
         if (geonamesHierarchyTimestamp.after(getLastModified("geonames_hierarchy")))
         {
