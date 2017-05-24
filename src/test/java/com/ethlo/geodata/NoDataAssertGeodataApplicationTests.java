@@ -5,16 +5,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Calendar;
-import java.util.Collection;
 import java.util.Date;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.geo.Point;
 import org.springframework.test.context.TestPropertySource;
@@ -23,14 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ethlo.geodata.importer.jdbc.GeoMetaService;
 import com.ethlo.geodata.model.Country;
-import com.ethlo.geodata.model.Location;
 import com.vividsolutions.jts.geom.Geometry;
 
-@Ignore
 @RunWith(SpringRunner.class)
 @SpringBootTest
 @TestPropertySource(locations="classpath:test-application.properties")
-public class GeodataApplicationTests
+public class NoDataAssertGeodataApplicationTests
 {
     private static boolean initialized = false;
     
@@ -70,53 +65,45 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForLocationByIp()
     {
-        assertThat(geodataService.findByIp("77.88.103.250")).isNotNull();
-        assertThat(geodataService.findByIp("103.199.40.241")).isNotNull();
-        assertThat(geodataService.findByIp("136.1.107.78")).isNotNull();
+        geodataService.findByIp("77.88.103.250");
+        geodataService.findByIp("103.199.40.241");
+        geodataService.findByIp("136.1.107.78");
     }
 
     @Test
     public void testFindLocationById()
     {
-        assertThat(geodataService.findById(1581130)).isNotNull();
+        geodataService.findById(1581130);
     }
         
     @Test
     public void testQueryForNearestLocationByPoint()
     {
-        final Location location = geodataService.findNear(new Point(10, 64), 100);
-        assertThat(location).isNotNull();
+        geodataService.findNear(new Point(10, 64), 100);
     }
     
     @Test
     public void testQueryForPointInsideArea()
     {
-        final Location location = geodataService.findWithin(new Point(10, 62), 1_000);
-        assertThat(location).isNotNull();
+        geodataService.findWithin(new Point(10, 62), 1_000);
     }
 
     @Test
     public void testListCountriesOnContinentAfrica()
     {
-        final Page<Location> countriesInAfrica = geodataService.findCountriesOnContinent("AF", new PageRequest(0, 100));
-        assertThat(countriesInAfrica).isNotNull();
-        assertThat(countriesInAfrica).hasSize(58);
+        geodataService.findCountriesOnContinent("AF", new PageRequest(0, 100));
     }
     
     @Test
     public void testListCountriesOnContinentEurope()
     {
-        final Page<Location> countriesInEurope = geodataService.findCountriesOnContinent("EU", new PageRequest(0, 100));
-        assertThat(countriesInEurope).isNotNull();
-        assertThat(countriesInEurope).hasSize(54);
+        geodataService.findCountriesOnContinent("EU", new PageRequest(0, 100));
     }
     
     @Test
     public void testListCountriesOnContinentEuropeWithLimit()
     {
-        final Page<Location> countriesInEurope = geodataService.findCountriesOnContinent("EU", new PageRequest(0, 10));
-        assertThat(countriesInEurope).isNotNull();
-        assertThat(countriesInEurope).hasSize(10);
+        geodataService.findCountriesOnContinent("EU", new PageRequest(0, 10));
     }
     
     @Test
@@ -129,15 +116,13 @@ public class GeodataApplicationTests
     @Test
     public void testListContinents()
     {
-        final Collection<Location> continents = geodataService.getContinents();
-        assertThat(continents).hasSize(7);
+        geodataService.getContinents();
     }
     
     @Test
     public void testListChildrenOfCountry()
     {
-        final Collection<Location> counties = geodataService.getChildren(new Country().setCode("NO"));
-        assertThat(counties).hasSize(19);
+        geodataService.getChildren(new Country().setCode("NO"));
     }
     
     @SuppressWarnings("unchecked")

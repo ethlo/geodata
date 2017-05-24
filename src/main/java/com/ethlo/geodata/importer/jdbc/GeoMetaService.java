@@ -1,12 +1,15 @@
 package com.ethlo.geodata.importer.jdbc;
 
 import java.io.IOException;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
 import java.util.TreeMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -94,5 +97,21 @@ public class GeoMetaService
             ipLookupImporter.importData();
             setLastModified("geoip", ipTimestamp);
         }
+    }
+
+    public Map<String, Date> getLastModified()
+    {
+        final Map<String, Date> retVal = new TreeMap<>();
+        jdbcTemplate.query("SELECT alias, last_modified FROM metadata", Collections.emptyMap(), new RowMapper<Void>()
+        {
+            @Override
+            public Void mapRow(ResultSet rs, int rowNum) throws SQLException
+            {
+                retVal.put(rs.getString("alias"), rs.getTimestamp("last_modified"));
+                return null;
+            }
+            
+        });
+        return retVal;
     }
 }

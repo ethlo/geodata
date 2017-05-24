@@ -47,11 +47,9 @@ public class JdbcGeonamesImporter implements PersistentImporter
     @Override
     public void importData() throws IOException
     {
-        final String[] hierarchyUrlParts = StringUtils.split(geoNamesHierarchyUrl, "|");
-        final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchZipEntry("geonames_hierarchy", hierarchyUrlParts[0], hierarchyUrlParts[1]);
+        final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource("geonames_hierarchy", geoNamesHierarchyUrl);
         
-        final String[] geoUrlParts = StringUtils.split(geoNamesAllCountriesUrl, "|");
-        final Map.Entry<Date, File> allCountriesFile = ResourceUtil.fetchZipEntry("geonames", geoUrlParts[0], geoUrlParts[1]);
+        final Map.Entry<Date, File> allCountriesFile = ResourceUtil.fetchResource("geonames", geoNamesAllCountriesUrl);
         
         doUpdate(allCountriesFile.getValue(), hierarchyFile.getValue());
     }

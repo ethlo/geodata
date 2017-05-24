@@ -29,7 +29,7 @@ public class JdbcCountryImporter implements PersistentImporter
     @Override
     public void importData() throws IOException
     {
-        final Map.Entry<Date, File> countryFile = ResourceUtil.fetch("geocountry", url);
+        final Map.Entry<Date, File> countryFile = ResourceUtil.fetchResource("geocountry", url);
         
         final CountryImporter importer = new CountryImporter(countryFile.getValue());
         importer.processFile(entry->

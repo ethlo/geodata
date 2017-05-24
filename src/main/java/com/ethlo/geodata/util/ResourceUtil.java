@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
@@ -19,6 +18,7 @@ import java.util.zip.ZipInputStream;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -43,8 +43,8 @@ public class ResourceUtil
     private static Resource openConnection(String urlStr) throws MalformedURLException, IOException
     {
         final String[] urlParts = StringUtils.split(urlStr, "|");
-        final URL url = new URL(urlParts[0]);
-        if (url.getProtocol().equals("file"))
+        
+        if (urlStr.startsWith("file:"))
         {
             String path = urlStr.substring(7);
             if (path.startsWith("~" + File.separator))
@@ -58,32 +58,50 @@ public class ResourceUtil
             }
             return new FileSystemResource(file);
         }
+        else if (urlStr.startsWith("classpath:"))
+        {
+            return new ClassPathResource(urlParts[0].substring(10));
+        }
+            
         return new UrlResource(urlParts[0]);
     }
 
-    public static Map.Entry<Date, File> fetchZipEntry(String alias, String urlStr, String zipEntryName) throws IOException
+    public static Map.Entry<Date, File> fetchResource(String alias, String urlStr) throws IOException
     {
-        final Resource resource = openConnection(urlStr);
-
-        return downloadIfNewer(alias, resource, f -> {
+        final String[] urlParts = StringUtils.split(urlStr, "|");
+        if (urlParts[0].endsWith(".zip"))
+        {
+            return fetchZip(alias, urlParts[0], urlParts[1]);
+        }
+        else
+        {
+            return fetch(alias, urlStr);
+        }
+    }
+    
+    private static Map.Entry<Date,File> fetchZip(String alias, String url, String zipEntry) throws MalformedURLException, IOException
+    {
+        final Resource resource = openConnection(url);
+        return downloadIfNewer(alias, resource, f ->
+        {
             final ZipInputStream zipIn = new ZipInputStream(resource.getInputStream());
             ZipEntry entry = null;
             do
             {
                 entry = zipIn.getNextEntry();
             }
-            while (entry != null && !entry.getName().endsWith(zipEntryName));
-            Assert.notNull(entry, "Zip entry cannot be found: " + zipEntryName);
+            while (entry != null && !entry.getName().endsWith(zipEntry));
+            Assert.notNull(entry, "Zip entry cannot be found: " + zipEntry);
             return zipIn;
         });
     }
 
     private static Entry<Date, File> downloadIfNewer(String alias, Resource resource, CheckedFunction<InputStream, InputStream> fun) throws IOException
     {
-        final File file = new File(tmpDir, alias + ".txt");
+        final File file = new File(tmpDir, alias + resource.getURL().hashCode() + ".txt");
         final Date remoteLastModified = new Date(resource.lastModified());
         final long localLastModified = file.exists() ? file.lastModified() : -2;
-        logger.debug("Local file for " + "alias {}" + "\nPath: {}" + "\nExists: {}" + "\nLast-Modified: {}", alias, file.getAbsolutePath(), file.exists(), formatDate(localLastModified));
+        logger.info("Local file for " + "alias {}" + "\nPath: {}" + "\nExists: {}" + "\nLast-Modified: {}", alias, file.getAbsolutePath(), file.exists(), formatDate(localLastModified));
 
         if (remoteLastModified.getTime() > localLastModified)
         {
@@ -104,7 +122,7 @@ public class ResourceUtil
         return LocalDateTime.ofEpochSecond(timestamp / 1_000, 0, ZoneOffset.UTC);
     }
 
-    public static Entry<Date, File> fetch(String alias, String url) throws IOException
+    private static Entry<Date, File> fetch(String alias, String url) throws IOException
     {
         final Resource resource = openConnection(url);
         return downloadIfNewer(alias, resource, in -> in);

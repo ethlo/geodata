@@ -23,6 +23,8 @@ import javax.sql.DataSource;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.geo.Point;
@@ -82,7 +84,16 @@ public class GeodataService
 
     public Location findByIp(String ip)
     {
-        final long ipLong = UnsignedInteger.fromIntBits(InetAddresses.coerceToInteger(InetAddresses.forString(ip))).longValue();
+        long ipLong;
+        try
+        {
+            ipLong = UnsignedInteger.fromIntBits(InetAddresses.coerceToInteger(InetAddresses.forString(ip))).longValue();
+        }
+        catch (IllegalArgumentException exc)
+        {
+            throw new InvalidIpException(ip, exc.getMessage(), exc);
+        }
+        
         final String sql = "SELECT geoname_id, geoname_country_id from geoip WHERE :ip BETWEEN first and last LIMIT 1";
         return jdbcTemplate.query(sql, Collections.singletonMap("ip", ipLong), rs -> 
         {
@@ -215,6 +226,11 @@ public class GeodataService
 
     private List<Location> findByIds(Collection<Long> ids)
     {
+        if (ids.isEmpty())
+        {
+            return Collections.emptyList();
+        }
+        
         final String sql = "SELECT * from geonames WHERE id in (:ids)";
         return jdbcTemplate.query(sql, Collections.singletonMap("ids", ids), GEONAMES_ROW_MAPPER);
     }
@@ -240,7 +256,7 @@ public class GeodataService
         });
     }
 
-    public Collection<Location> getChildren(long locationId)
+    public Page<Location> getChildren(long locationId, Pageable pageable)
     {
         if (nodes == null)
         {
@@ -255,8 +271,14 @@ public class GeodataService
         }
         
         final Node node = nodes.get(locationId);
-        final List<Long> ids = node.getChildren().stream().map(n->n.getId()).collect(Collectors.toList());
-        return findByIds(ids);
+        final long total = node.getChildren().size();
+        final List<Long> ids = node.getChildren()
+            .stream()
+            .skip(pageable.getOffset())
+            .limit(pageable.getPageSize())
+            .map(n->n.getId())
+            .collect(Collectors.toList());
+        return new PageImpl<>(findByIds(ids), pageable, total);
     }
 
     public Collection<Location> getContinents()
@@ -268,9 +290,15 @@ public class GeodataService
         return continents;
     }
 
-    public Collection<Location> findCountriesOnContinent(String continentCode)
+    public Page<Location> findCountriesOnContinent(String continentCode, Pageable pageable)
     {
-        return jdbcTemplate.query("SELECT n.* FROM geocountry c, geonames n WHERE c.geoname_id = n.id AND continent = :continentCode", Collections.singletonMap("continentCode", continentCode), GEONAMES_ROW_MAPPER);
+        final Map<String, Object> params = new TreeMap<>();
+        params.put("continentCode", continentCode);
+        params.put("offset", pageable.getOffset());
+        params.put("max", pageable.getPageSize());
+        final List<Location> locations = jdbcTemplate.query("SELECT n.* FROM geocountry c, geonames n WHERE c.geoname_id = n.id AND continent = :continentCode LIMIT :offset,:max", params, GEONAMES_ROW_MAPPER);
+        final long count = jdbcTemplate.queryForObject("SELECT COUNT(iso) FROM geocountry WHERE continent = :continentCode", params, Long.class);
+        return new PageImpl<>(locations, pageable, count);
     }
 
     public Country findCountryByCode(String countryCode)
