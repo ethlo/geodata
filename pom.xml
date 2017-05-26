@@ -86,6 +86,11 @@
 			<artifactId>hibernate-validator</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>com.googlecode.libphonenumber</groupId>
+			<artifactId>geocoder</artifactId>
+			<version>2.70</version>
+		</dependency>
+		<dependency>
 			<groupId>commons-net</groupId>
 			<artifactId>commons-net</artifactId>
 			<version>3.6</version>
@@ -121,10 +126,8 @@
 	</dependencies>
 	<build>
 		<plugins>
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-			</plugin>
+			<!-- <plugin> <groupId>org.springframework.boot</groupId> <artifactId>spring-boot-maven-plugin</artifactId> 
+				</plugin> -->
 			<plugin>
 				<groupId>org.sonatype.plugins</groupId>
 				<artifactId>nexus-staging-maven-plugin</artifactId>
@@ -199,6 +202,4 @@
 			</plugin>
 		</plugins>
 	</build>
-
-
 </project>

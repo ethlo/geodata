@@ -1,5 +1,25 @@
 package com.ethlo.geodata;
 
+/*-
+ * #%L
+ * geodata
+ * %%
+ * Copyright (C) 2017 Morten Haraldsen (ethlo)
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
@@ -23,7 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ethlo.geodata.importer.jdbc.GeoMetaService;
 import com.ethlo.geodata.model.Country;
-import com.ethlo.geodata.model.Location;
+import com.ethlo.geodata.model.GeoLocation;
 import com.vividsolutions.jts.geom.Geometry;
 
 @Ignore
@@ -84,21 +104,21 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForNearestLocationByPoint()
     {
-        final Location location = geodataService.findNear(new Point(10, 64), 100);
+        final GeoLocation location = geodataService.findNear(new Point(10, 64), 100);
         assertThat(location).isNotNull();
     }
     
     @Test
     public void testQueryForPointInsideArea()
     {
-        final Location location = geodataService.findWithin(new Point(10, 62), 1_000);
+        final GeoLocation location = geodataService.findWithin(new Point(10, 62), 1_000);
         assertThat(location).isNotNull();
     }
 
     @Test
     public void testListCountriesOnContinentAfrica()
     {
-        final Page<Location> countriesInAfrica = geodataService.findCountriesOnContinent("AF", new PageRequest(0, 100));
+        final Page<GeoLocation> countriesInAfrica = geodataService.findCountriesOnContinent("AF", new PageRequest(0, 100));
         assertThat(countriesInAfrica).isNotNull();
         assertThat(countriesInAfrica).hasSize(58);
     }
@@ -106,7 +126,7 @@ public class GeodataApplicationTests
     @Test
     public void testListCountriesOnContinentEurope()
     {
-        final Page<Location> countriesInEurope = geodataService.findCountriesOnContinent("EU", new PageRequest(0, 100));
+        final Page<GeoLocation> countriesInEurope = geodataService.findCountriesOnContinent("EU", new PageRequest(0, 100));
         assertThat(countriesInEurope).isNotNull();
         assertThat(countriesInEurope).hasSize(54);
     }
@@ -114,7 +134,7 @@ public class GeodataApplicationTests
     @Test
     public void testListCountriesOnContinentEuropeWithLimit()
     {
-        final Page<Location> countriesInEurope = geodataService.findCountriesOnContinent("EU", new PageRequest(0, 10));
+        final Page<GeoLocation> countriesInEurope = geodataService.findCountriesOnContinent("EU", new PageRequest(0, 10));
         assertThat(countriesInEurope).isNotNull();
         assertThat(countriesInEurope).hasSize(10);
     }
@@ -129,14 +149,14 @@ public class GeodataApplicationTests
     @Test
     public void testListContinents()
     {
-        final Collection<Location> continents = geodataService.getContinents();
+        final Collection<GeoLocation> continents = geodataService.getContinents();
         assertThat(continents).hasSize(7);
     }
     
     @Test
     public void testListChildrenOfCountry()
     {
-        final Collection<Location> counties = geodataService.getChildren(new Country().setCode("NO"));
+        final Collection<GeoLocation> counties = geodataService.getChildren(new Country().setCode("NO"));
         assertThat(counties).hasSize(19);
     }
     

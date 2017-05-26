@@ -1,4 +1,4 @@
-package com.ethlo.geodata.importer.jdbc;
+package com.ethlo.geodata.model;
 
 /*-
  * #%L
@@ -20,14 +20,20 @@ package com.ethlo.geodata.importer.jdbc;
  * #L%
  */
 
-import java.io.IOException;
-import java.util.Date;
+import javax.validation.constraints.NotNull;
 
-public interface PersistentImporter
+public class CountryInfo extends Country
 {
-    void purge() throws IOException;
+    @NotNull
+    private Coordinate coordinate;
     
-    void importData() throws IOException;
+    public void setCoordinate(Coordinate coordinate)
+    {
+        this.coordinate = coordinate;
+    }
     
-    Date lastRemoteModified() throws IOException;
+    public Coordinate getCoordinate()
+    {
+        return coordinate;
+    }    
 }
