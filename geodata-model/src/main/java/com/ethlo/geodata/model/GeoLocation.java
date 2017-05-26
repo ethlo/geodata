@@ -22,7 +22,7 @@ package com.ethlo.geodata.model;
 
 import javax.validation.constraints.NotNull;
 
-import org.springframework.util.Assert;
+import com.ethlo.geodata.util.Assert;
 
 public class GeoLocation
 {

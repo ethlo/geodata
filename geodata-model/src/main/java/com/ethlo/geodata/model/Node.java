@@ -24,12 +24,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.springframework.util.StringUtils;
-
-import com.fasterxml.jackson.annotation.JsonIdentityInfo;
-import com.fasterxml.jackson.annotation.ObjectIdGenerators;
-
-@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
 public class Node
 {
     private Long id;
@@ -117,6 +111,8 @@ public class Node
     @Override
     public String toString()
     {
-        return "Node [" + (id != null ? "id=" + id + ", " : "") + (children != null ? "children=" + StringUtils.collectionToCommaDelimitedString(children.stream().map(c->c.getId()).collect(Collectors.toList())) : "") + (parent != null ? "parent=" + parent.getId() : "") + "]";
+        return "Node [" + (id != null ? "id=" + id + ", " : "") + 
+            (children != null ? "children=" + children.stream().map(c->c.getId().toString()).collect(Collectors.joining(",")) : "") + 
+            (parent != null ? "parent=" + parent.getId() : "") + "]";
     }
 }
