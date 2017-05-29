@@ -58,13 +58,9 @@ import com.ethlo.geodata.model.Coordinate;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.Node;
-import com.google.common.base.Optional;
 import com.google.common.io.Files;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
-import com.google.i18n.phonenumbers.NumberParseException;
-import com.google.i18n.phonenumbers.PhoneNumberUtil;
-import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.ParseException;
 import com.vividsolutions.jts.io.WKBReader;
@@ -74,8 +70,8 @@ public class GeodataService
 {
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
-    private final PhoneNumberUtil phoneNumberUtil = PhoneNumberUtil.getInstance();
-    private Map<Integer, GeoLocation> countryCodeMap;
+    //private final PhoneNumberUtil phoneNumberUtil = PhoneNumberUtil.getInstance();
+    //private Map<Integer, GeoLocation> countryCodeMap;
     
     private static final Map<String, Long> CONTINENT_IDS = new LinkedHashMap<>();
     private final RowMapper<GeoLocation> GEONAMES_ROW_MAPPER = new RowMapper<GeoLocation>()
@@ -329,10 +325,7 @@ public class GeodataService
 
     public Country findCountryByCode(String countryCode)
     {
-        if (countries == null)
-        {
-            loadCountries();
-        }
+        loadCountries();
         return countries.get(countryCode);
     }
 
@@ -343,27 +336,32 @@ public class GeodataService
     
     public int loadCountries()
     {
-        countries = new LinkedHashMap<>();
-        final Collection<Country> countryList = jdbcTemplate.query("SELECT * FROM geocountry ORDER BY iso ASC", new RowMapper<Country>()
+        if (countries == null)
         {
-            @Override
-            public Country mapRow(ResultSet rs, int rowNum) throws SQLException
+            countries = new LinkedHashMap<>();
+            final Collection<Country> countryList = jdbcTemplate.query("SELECT * FROM geocountry ORDER BY iso ASC", new RowMapper<Country>()
             {
-                return new Country().setId(rs.getLong("geoname_id")).setCode(rs.getString("iso")).setName(rs.getString("country"));
-            }            
-        });
-        countryList.forEach(c->countries.put(c.getCode(), c));
-        return countryList.size();
+                @Override
+                public Country mapRow(ResultSet rs, int rowNum) throws SQLException
+                {
+                    return new Country().setId(rs.getLong("geoname_id")).setCode(rs.getString("iso")).setName(rs.getString("country"));
+                }            
+            });
+            countryList.forEach(c->countries.put(c.getCode(), c));
+            return countryList.size();
+        }
+        return 0;
     }
     
     public int loadHierarchy() throws IOException
     {
         final byte[] data = fetchHierarchy();
+
+        nodes = new HashMap<>();
+        final Map<Long, Long> childToParent = new HashMap<>();
         
         final File hierarchyFile = File.createTempFile("hierarchy", ".tsv");
         Files.write(data, hierarchyFile);
-        nodes = new HashMap<>();
-        final Map<Long, Long> childToParent = new HashMap<>();
         new HierarchyImporter(hierarchyFile).processFile(r->
         {
             final long parentId = Long.parseLong(r.get("parent_id"));
@@ -374,6 +372,18 @@ public class GeodataService
             nodes.put(child.getId(), child);
             
             childToParent.put(childId, parentId);
+        });
+
+        // Connect children directly to continents
+        jdbcTemplate.query("SELECT * FROM geocountry", new RowMapper<Object>()
+        {
+            @Override
+            public Object mapRow(ResultSet rs, int rowNum) throws SQLException
+            {
+                final Long id = CONTINENT_IDS.get(rs.getString("continent"));
+                childToParent.put(rs.getLong("geoname_id"), id);
+                return null;
+            }            
         });
         
         // Process hierarchy after, as we do not know the order of the pairs
@@ -412,43 +422,25 @@ public class GeodataService
         });
     }
     
-    public Optional<GeoLocation> findPhoneLocation(String phoneNumber)
+    public Country findPhoneLocation(String phoneNumber)
     {
-        if (countryCodeMap == null)
+        final List<Country> countries = jdbcTemplate.query("SELECT iso, phone, geoname_id, country FROM geocountry "
+                + "WHERE :phone like CONCAT(phone, '%') "
+                + "ORDER BY population DESC", 
+                Collections.singletonMap("phone", phoneNumber.replaceAll("[^\\d.]", "")), new RowMapper<Country>()
         {
-            countryCodeMap = new HashMap<>();
-            jdbcTemplate.query("SELECT iso, phone FROM geocountry", new RowMapper<Void>()
+            @Override
+            public Country mapRow(ResultSet rs, int rowNum) throws SQLException
             {
-                @Override
-                public Void mapRow(ResultSet rs, int rowNum) throws SQLException
-                {
-                    final PhoneNumber p = phoneNumberUtil.getExampleNumber(rs.getString("phone"));
-                    final int countryCode = p.getCountryCode();
-                    countryCodeMap.put(countryCode, findLocationByCountryCode(rs.getString("iso")));
-                    return null;
-                }                
-            });
-        }
-        
-        PhoneNumber res;
-        try
-        {
-            if (! phoneNumber.startsWith("+"))
-            {
-                phoneNumber = "+" + phoneNumber;
+                return new Country().setCode(rs.getString("iso")).setName(rs.getString("country")).setId(rs.getLong("geoname_id"));
             }
-            res = phoneNumberUtil.parse(phoneNumber, "");
-        }
-        catch (NumberParseException exc)
-        {
-            return Optional.absent();
-        }
-        
-        return Optional.fromNullable(countryCodeMap.get(res.getCountryCode()));
+        });
+        return countries.isEmpty() ? null : countries.get(0);
     }
 
     public GeoLocation findLocationByCountryCode(String cc)
     {
+        loadCountries();
         final Country country = countries.get(cc);
         if (country != null)
         {
