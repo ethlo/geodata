@@ -41,6 +41,12 @@ public class GeoLocation
 
     @NotNull
     private String featureCode;
+
+    
+    protected GeoLocation()
+    {
+        // Required for de-serialization 
+    }
     
     public String getFeatureCode()
     {
@@ -123,7 +129,7 @@ public class GeoLocation
         }
     }
 
-    private GeoLocation(Builder builder)
+    protected GeoLocation(Builder builder)
     {
         Assert.notNull(builder.id, "id must not be null");
         Assert.notNull(builder.name, "name must not be null");

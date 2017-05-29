@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -52,6 +53,7 @@ import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.stereotype.Service;
 
 import com.ethlo.geodata.importer.HierarchyImporter;
+import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinate;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.GeoLocation;
@@ -277,6 +279,21 @@ public class GeodataService
 
     public Page<GeoLocation> getChildren(long locationId, Pageable pageable)
     {
+        loadNodes();
+        
+        final Node node = nodes.get(locationId);
+        final long total = node.getChildren().size();
+        final List<Long> ids = node.getChildren()
+            .stream()
+            .skip(pageable.getOffset())
+            .limit(pageable.getPageSize())
+            .map(n->n.getId())
+            .collect(Collectors.toList());
+        return new PageImpl<>(findByIds(ids), pageable, total);
+    }
+
+    private void loadNodes()
+    {
         if (nodes == null)
         {
             try
@@ -288,16 +305,6 @@ public class GeodataService
                 throw new DataAccessResourceFailureException(exc.getMessage(), exc);
             }
         }
-        
-        final Node node = nodes.get(locationId);
-        final long total = node.getChildren().size();
-        final List<Long> ids = node.getChildren()
-            .stream()
-            .skip(pageable.getOffset())
-            .limit(pageable.getPageSize())
-            .map(n->n.getId())
-            .collect(Collectors.toList());
-        return new PageImpl<>(findByIds(ids), pageable, total);
     }
 
     public Collection<GeoLocation> getContinents()
@@ -440,9 +447,78 @@ public class GeodataService
         return Optional.fromNullable(countryCodeMap.get(res.getCountryCode()));
     }
 
-    private GeoLocation findLocationByCountryCode(String cc)
+    public GeoLocation findLocationByCountryCode(String cc)
     {
-        // TODO Auto-generated method stub
+        final Country country = countries.get(cc);
+        if (country != null)
+        {
+            return findById(country.getId());
+        }
         return null;
     }    
+    
+    public boolean isInsideAny(List<Long> locations, long location)
+    {
+        final GeoLocation loc = findById(location);
+        if (loc == null)
+        {
+            throw new EmptyResultDataAccessException("No such location found " + location, 1);
+        }
+        
+        for (Long l : locations)
+        {
+            if (l.equals(location) || locationContains(l, location))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    public boolean isOutsideAll(List<Long> locations, Long location)
+    {
+        for (Long l : locations)
+        {
+            if (location.equals(l) || locationContains(location, l))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean isLocationInside(long locationId, long suspectedParentId)
+    {
+        final List<Long> path = getPath(locationId);
+        return path.contains(suspectedParentId);
+    }
+    
+    public boolean locationContains(long parentId, long suspectedChild)
+    {
+        return isLocationInside(suspectedChild, parentId);
+    }
+    
+    private List<Long> getPath(long id)
+    {
+        loadNodes();
+        
+        Node node = this.nodes.get(id);
+        final List<Long> path = new LinkedList<>();
+        while (node != null)
+        {
+            path.add(node.getId());
+            node = node.getParent();
+        }
+        return path;
+    }
+
+    public Continent findContinent(String continentCode)
+    {
+        final Long id = CONTINENT_IDS.get(continentCode.toUpperCase());
+        if (id != null)
+        {
+            return new Continent(continentCode.toUpperCase(), findById(id));
+        }
+        return null;
+    }
 }
