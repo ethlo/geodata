@@ -1,5 +1,7 @@
 package com.ethlo.geodata.model;
 
+import java.io.Serializable;
+
 /*-
  * #%L
  * geodata
@@ -22,10 +24,11 @@ package com.ethlo.geodata.model;
 
 import javax.validation.constraints.NotNull;
 
-import com.ethlo.geodata.util.Assert;
-
-public class GeoLocation
+import org.springframework.util.Assert;
+public class GeoLocation implements Serializable
 {
+    private static final long serialVersionUID = -4591909310445372923L;
+
     @NotNull
     private Long id;
 

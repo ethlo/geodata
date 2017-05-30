@@ -1,5 +1,7 @@
 package com.ethlo.geodata.model;
 
+import java.io.Serializable;
+
 /*-
  * #%L
  * geodata
@@ -22,8 +24,10 @@ package com.ethlo.geodata.model;
 
 import javax.validation.constraints.NotNull;
 
-public class Country
+public class Country implements Serializable
 {
+    private static final long serialVersionUID = 3805294728456474230L;
+
     @NotNull
     private Long id;
 

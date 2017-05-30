@@ -1,5 +1,7 @@
 package com.ethlo.geodata.model;
 
+import java.io.Serializable;
+
 /*-
  * #%L
  * geodata
@@ -23,9 +25,10 @@ package com.ethlo.geodata.model;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
-
-public class Coordinate
+public class Coordinate implements Serializable
 {
+    private static final long serialVersionUID = -3056995518191959558L;
+
     @NotNull
     @Min(-90)
     @Max(90)
@@ -41,7 +44,7 @@ public class Coordinate
         return lat;
     }
     
-    public Coordinate setLat(double latitude)
+    private Coordinate setLat(double latitude)
     {
         this.lat = latitude;
         return this;
@@ -52,7 +55,7 @@ public class Coordinate
         return lng;
     }
     
-    public Coordinate setLng(double longitude)
+    private Coordinate setLng(double longitude)
     {
         this.lng = longitude;
         return this;
@@ -62,5 +65,10 @@ public class Coordinate
     public String toString()
     {
         return "Coordinate [lat=" + lat + ", lng=" + lng + "]";
+    }
+
+    public static Coordinate from(double lat, double lng)
+    {
+        return new Coordinate().setLat(lat).setLng(lng);
     }
 }

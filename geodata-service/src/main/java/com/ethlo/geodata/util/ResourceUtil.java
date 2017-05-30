@@ -21,6 +21,7 @@ package com.ethlo.geodata.util;
  */
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
@@ -66,7 +67,7 @@ public class ResourceUtil
         
         if (urlStr.startsWith("file:"))
         {
-            String path = urlStr.substring(7);
+            String path = urlParts[0].substring(7);
             if (path.startsWith("~" + File.separator))
             {
                 path = System.getProperty("user.home") + path.substring(1);
@@ -74,7 +75,7 @@ public class ResourceUtil
             final File file = new File(path);
             if (!file.exists())
             {
-                throw new IOException("File " + file.getAbsolutePath() + " does not exist");
+                throw new FileNotFoundException(file.getAbsolutePath());
             }
             return new FileSystemResource(file);
         }

@@ -1,4 +1,4 @@
-package com.ethlo.geodata.model;
+package com.ethlo.geodata;
 
 /*-
  * #%L

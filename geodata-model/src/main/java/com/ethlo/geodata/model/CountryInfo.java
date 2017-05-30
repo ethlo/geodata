@@ -24,6 +24,8 @@ import javax.validation.constraints.NotNull;
 
 public class CountryInfo extends Country
 {
+    private static final long serialVersionUID = -4692269307453103789L;
+ 
     @NotNull
     private Coordinate coordinate;
     

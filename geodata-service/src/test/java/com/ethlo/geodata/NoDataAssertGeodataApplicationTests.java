@@ -33,14 +33,12 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.geo.Point;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.ethlo.geodata.importer.jdbc.GeoMetaService;
+import com.ethlo.geodata.model.Coordinate;
 import com.ethlo.geodata.model.Country;
-import com.vividsolutions.jts.geom.Geometry;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -99,13 +97,13 @@ public class NoDataAssertGeodataApplicationTests
     @Test
     public void testQueryForNearestLocationByPoint()
     {
-        geodataService.findNear(new Point(10, 64), 100);
+        geodataService.findNear(Coordinate.from(10, 64), 100);
     }
     
     @Test
     public void testQueryForPointInsideArea()
     {
-        geodataService.findWithin(new Point(10, 62), 1_000);
+        geodataService.findWithin(Coordinate.from(10, 62), 100);
     }
 
     @Test
@@ -142,14 +140,13 @@ public class NoDataAssertGeodataApplicationTests
     @Test
     public void testListChildrenOfCountry()
     {
-        geodataService.getChildren(new Country().setCode("NO"));
+        geodataService.getChildren(new Country().setCode("NO"), new PageRequest(0, 10));
     }
     
-    @SuppressWarnings("unchecked")
     @Test
     public void testQueryForBoundaries()
     {
-        final Geometry boundaries = geodataService.findBoundaries(7626836);
+        final byte[] boundaries = geodataService.findBoundaries(7626836);
         assertThat(boundaries).isNotNull();
     }
 }

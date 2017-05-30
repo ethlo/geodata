@@ -25,7 +25,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Calendar;
-import java.util.Collection;
 import java.util.Date;
 
 import org.junit.Before;
@@ -36,15 +35,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.geo.Point;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.ethlo.geodata.importer.jdbc.GeoMetaService;
+import com.ethlo.geodata.model.Continent;
+import com.ethlo.geodata.model.Coordinate;
 import com.ethlo.geodata.model.Country;
+import com.ethlo.geodata.model.CountryInfo;
 import com.ethlo.geodata.model.GeoLocation;
-import com.vividsolutions.jts.geom.Geometry;
 
 @Ignore
 @RunWith(SpringRunner.class)
@@ -104,21 +103,21 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForNearestLocationByPoint()
     {
-        final GeoLocation location = geodataService.findNear(new Point(10, 64), 100);
+        final GeoLocation location = geodataService.findNear(Coordinate.from(10, 64), 100);
         assertThat(location).isNotNull();
     }
     
     @Test
     public void testQueryForPointInsideArea()
     {
-        final GeoLocation location = geodataService.findWithin(new Point(10, 62), 1_000);
+        final GeoLocation location = geodataService.findWithin(Coordinate.from(10, 62), 1_000);
         assertThat(location).isNotNull();
     }
 
     @Test
     public void testListCountriesOnContinentAfrica()
     {
-        final Page<GeoLocation> countriesInAfrica = geodataService.findCountriesOnContinent("AF", new PageRequest(0, 100));
+        final Page<CountryInfo> countriesInAfrica = geodataService.findCountriesOnContinent("AF", new PageRequest(0, 100));
         assertThat(countriesInAfrica).isNotNull();
         assertThat(countriesInAfrica).hasSize(58);
     }
@@ -126,7 +125,7 @@ public class GeodataApplicationTests
     @Test
     public void testListCountriesOnContinentEurope()
     {
-        final Page<GeoLocation> countriesInEurope = geodataService.findCountriesOnContinent("EU", new PageRequest(0, 100));
+        final Page<CountryInfo> countriesInEurope = geodataService.findCountriesOnContinent("EU", new PageRequest(0, 100));
         assertThat(countriesInEurope).isNotNull();
         assertThat(countriesInEurope).hasSize(54);
     }
@@ -134,7 +133,7 @@ public class GeodataApplicationTests
     @Test
     public void testListCountriesOnContinentEuropeWithLimit()
     {
-        final Page<GeoLocation> countriesInEurope = geodataService.findCountriesOnContinent("EU", new PageRequest(0, 10));
+        final Page<CountryInfo> countriesInEurope = geodataService.findCountriesOnContinent("EU", new PageRequest(0, 10));
         assertThat(countriesInEurope).isNotNull();
         assertThat(countriesInEurope).hasSize(10);
     }
@@ -149,22 +148,21 @@ public class GeodataApplicationTests
     @Test
     public void testListContinents()
     {
-        final Collection<GeoLocation> continents = geodataService.getContinents();
+        final Page<Continent> continents = geodataService.getContinents();
         assertThat(continents).hasSize(7);
     }
     
     @Test
     public void testListChildrenOfCountry()
     {
-        final Collection<GeoLocation> counties = geodataService.getChildren(new Country().setCode("NO"));
+        final Page<GeoLocation> counties = geodataService.getChildren(new Country().setCode("NO"), new PageRequest(0, 10));
         assertThat(counties).hasSize(19);
     }
     
-    @SuppressWarnings("unchecked")
     @Test
     public void testQueryForBoundaries()
     {
-        final Geometry boundaries = geodataService.findBoundaries(7626836);
+        final byte[] boundaries = geodataService.findBoundaries(7626836);
         assertThat(boundaries).isNotNull();
     }
 }

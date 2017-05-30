@@ -2,6 +2,8 @@ package com.ethlo.geodata.model;
 
 public class Continent extends GeoLocation
 {
+    private static final long serialVersionUID = -1858011430618536247L;
+    
     private String continentCode;
 
     public Continent(String continentCode, GeoLocation location)
