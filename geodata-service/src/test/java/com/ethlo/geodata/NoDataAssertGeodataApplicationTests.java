@@ -127,8 +127,7 @@ public class NoDataAssertGeodataApplicationTests
     @Test
     public void testGetCountryByCode()
     {
-        final Country country = geodataService.findCountryByCode("NO");
-        assertThat(country).isNotNull();
+        geodataService.findCountryByCode("NO");
     }
     
     @Test
