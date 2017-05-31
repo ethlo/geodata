@@ -25,7 +25,7 @@ import java.io.Serializable;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
-public class Coordinate implements Serializable
+public class Coordinates implements Serializable
 {
     private static final long serialVersionUID = -3056995518191959558L;
 
@@ -44,7 +44,7 @@ public class Coordinate implements Serializable
         return lat;
     }
     
-    private Coordinate setLat(double latitude)
+    private Coordinates setLat(double latitude)
     {
         this.lat = latitude;
         return this;
@@ -55,7 +55,7 @@ public class Coordinate implements Serializable
         return lng;
     }
     
-    private Coordinate setLng(double longitude)
+    private Coordinates setLng(double longitude)
     {
         this.lng = longitude;
         return this;
@@ -67,8 +67,8 @@ public class Coordinate implements Serializable
         return "Coordinate [lat=" + lat + ", lng=" + lng + "]";
     }
 
-    public static Coordinate from(double lat, double lng)
+    public static Coordinates from(double lat, double lng)
     {
-        return new Coordinate().setLat(lat).setLng(lng);
+        return new Coordinates().setLat(lat).setLng(lng);
     }
 }

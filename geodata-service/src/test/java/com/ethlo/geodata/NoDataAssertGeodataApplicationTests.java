@@ -37,7 +37,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.ethlo.geodata.model.Coordinate;
+import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 
 @RunWith(SpringRunner.class)
@@ -97,13 +97,13 @@ public class NoDataAssertGeodataApplicationTests
     @Test
     public void testQueryForNearestLocationByPoint()
     {
-        geodataService.findNear(Coordinate.from(10, 64), 100);
+        geodataService.findNear(Coordinates.from(10, 64), 100);
     }
     
     @Test
     public void testQueryForPointInsideArea()
     {
-        geodataService.findWithin(Coordinate.from(10, 62), 100);
+        geodataService.findWithin(Coordinates.from(10, 62), 100);
     }
 
     @Test
@@ -134,13 +134,13 @@ public class NoDataAssertGeodataApplicationTests
     @Test
     public void testListContinents()
     {
-        geodataService.getContinents();
+        geodataService.findContinents();
     }
     
     @Test
     public void testListChildrenOfCountry()
     {
-        geodataService.getChildren(new Country().setCode("NO"), new PageRequest(0, 10));
+        geodataService.findChildren("nO", new PageRequest(0, 10));
     }
     
     @Test

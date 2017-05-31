@@ -6,15 +6,19 @@ public class Continent extends GeoLocation
     
     private String continentCode;
 
+    protected Continent()
+    {
+        
+    }
+    
     public Continent(String continentCode, GeoLocation location)
     {
-        super(new GeoLocation.Builder()
-             .coordinates(location.getCoordinates())
-             .country(location.getCountry())
-             .featureCode(location.getFeatureCode())
-             .id(location.getId())
-             .name(location.getName())
-             .parentLocationId(location.getParentLocationId()));
+        setCoordinates(location.getCoordinates());
+        setCountry(location.getCountry());
+        setFeatureCode(location.getFeatureCode());
+        setId(location.getId());
+        setName(location.getName());
+        setParentLocationId(location.getParentLocationId());
         this.continentCode = continentCode;
     }
 

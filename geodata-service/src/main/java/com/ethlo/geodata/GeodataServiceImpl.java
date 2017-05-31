@@ -52,9 +52,9 @@ import org.springframework.stereotype.Service;
 
 import com.ethlo.geodata.importer.HierarchyImporter;
 import com.ethlo.geodata.model.Continent;
-import com.ethlo.geodata.model.Coordinate;
+import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
-import com.ethlo.geodata.model.CountryInfo;
+import com.ethlo.geodata.model.CountrySummary;
 import com.ethlo.geodata.model.GeoLocation;
 import com.google.common.io.Files;
 import com.google.common.net.InetAddresses;
@@ -68,17 +68,15 @@ public class GeodataServiceImpl implements GeodataService
     
     private static final Map<String, Long> CONTINENT_IDS = new LinkedHashMap<>();
 
-    private static final RowMapper<CountryInfo> COUNTRY_INFO_MAPPER = new RowMapper<CountryInfo>()
+    private final RowMapper<Country> COUNTRY_INFO_MAPPER = new RowMapper<Country>()
     {
         @Override
-        public CountryInfo mapRow(ResultSet rs, int rowNum) throws SQLException
+        public Country mapRow(ResultSet rs, int rowNum) throws SQLException
         {
-            final CountryInfo c = new CountryInfo();
-            c.setCoordinate(Coordinate.from(rs.getDouble("lat"), rs.getDouble("lng")));
-            
-            c.setId(rs.getLong("geoname_id"))
-                .setCode(rs.getString("iso"))
-                .setName(rs.getString("country"));
+            final GeoLocation location = new GeoLocation();
+            mapLocation(location, rs);            
+            final Country c = Country.from(location);
+            c.setCountry(c.toSummary(rs.getString("iso")));
             return c;
         }            
     };
@@ -88,7 +86,9 @@ public class GeodataServiceImpl implements GeodataService
         @Override
         public GeoLocation mapRow(ResultSet rs, int rowNum) throws SQLException
         {
-            return mapLocation(rs);
+            final GeoLocation location = new GeoLocation();
+            mapLocation(location, rs);
+            return location;
         }
     };
     
@@ -106,7 +106,7 @@ public class GeodataServiceImpl implements GeodataService
     private List<Continent> continents;
     private Set<Node> roots;
     private Map<Long, Node> nodes;
-    private Map<String, CountryInfo> countries;
+    private Map<String, Country> countries;
 
     @Override
     public GeoLocation findByIp(String ip)
@@ -141,29 +141,33 @@ public class GeodataServiceImpl implements GeodataService
         {
             if (rs.next())
             {
-                return mapLocation(rs);
+                final GeoLocation location = new GeoLocation();
+                mapLocation(location, rs);
+                return location;
             }
             return null;
         });
     }
 
-    private GeoLocation mapLocation(ResultSet rs) throws SQLException
+    private <T extends GeoLocation> void mapLocation(T t, ResultSet rs) throws SQLException
     {
         final Long parentId = rs.getLong("parent_id") != 0 ? rs.getLong("parent_id") : null;
         final String countryCode = rs.getString("country_code");
+
+        final Country country = findCountryByCode(countryCode);
+        final CountrySummary countrySummary = country != null ? country.toSummary(countryCode) : null;
         
-        return new GeoLocation.Builder()
-            .id(rs.getLong("id"))
-            .name(rs.getString("name"))
-            .featureCode(rs.getString("feature_code"))
-            .coordinates(Coordinate.from(rs.getDouble("lat"), rs.getDouble("lng")))
-            .parentLocationId(parentId)
-            .country(findCountryByCode(countryCode))
-            .build();
+        t
+            .setId(rs.getLong("id"))
+            .setName(rs.getString("name"))
+            .setFeatureCode(rs.getString("feature_code"))
+            .setCoordinates(Coordinates.from(rs.getDouble("lat"), rs.getDouble("lng")))
+            .setParentLocationId(parentId)
+            .setCountry(countrySummary);
     }
 
     @Override
-    public GeoLocation findWithin(Coordinate point, int maxDistanceInKilometers)
+    public GeoLocation findWithin(Coordinates point, int maxDistanceInKilometers)
     {
         final List<Long> locationIds = doFindContaining(point, maxDistanceInKilometers, new PageRequest(0, 10));
         if (! locationIds.isEmpty())
@@ -174,7 +178,7 @@ public class GeodataServiceImpl implements GeodataService
     }
     
     @Override
-    public GeoLocation findNear(Coordinate point, int maxDistanceInKilometers)
+    public GeoLocation findNear(Coordinates point, int maxDistanceInKilometers)
     {
         final List<Entry<GeoLocation, Long>> locations = doFindNearest(point, maxDistanceInKilometers, new PageRequest(0, 1));
         if (! locations.isEmpty())
@@ -184,7 +188,7 @@ public class GeodataServiceImpl implements GeodataService
         return null;
     }
     
-    private Map<String, Object> createParams(Coordinate point, int maxDistanceInKm, Pageable pageable)
+    private Map<String, Object> createParams(Coordinates point, int maxDistanceInKm, Pageable pageable)
     {
         final double lat = point.getLat();
         final double lon = point.getLng();
@@ -209,7 +213,7 @@ public class GeodataServiceImpl implements GeodataService
         return params;
     }
     
-    private List<Long> doFindContaining(Coordinate point, int maxDistanceInKm, Pageable pageable)
+    private List<Long> doFindContaining(Coordinates point, int maxDistanceInKm, Pageable pageable)
     {
         final Map<String, Object> params = createParams(point, maxDistanceInKm, pageable);
         final String sql = "SELECT id "
@@ -229,7 +233,7 @@ public class GeodataServiceImpl implements GeodataService
         });
     }
     
-    private List<Entry<GeoLocation, Long>> doFindNearest(Coordinate point, int distance, Pageable pageable)
+    private List<Entry<GeoLocation, Long>> doFindNearest(Coordinates point, int distance, Pageable pageable)
     {
         final Map<String, Object> params = createParams(point, distance, pageable);
         final String sql = "SELECT id, st_distance(POINT(:x, :y), coord) AS distance " 
@@ -312,7 +316,7 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public Page<Continent> getContinents()
+    public Page<Continent> findContinents()
     {
         if (continents == null)
         {
@@ -321,7 +325,7 @@ public class GeodataServiceImpl implements GeodataService
                 .map(l->new Continent(getContinentCode(l.getId()), l))
                 .collect(Collectors.toList());
         }
-        return new PageImpl<>(continents);
+        return new PageImpl<>(continents, new PageRequest(0, continents.size()), continents.size());
     }
 
     private String getContinentCode(Long id)
@@ -337,28 +341,28 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public Page<CountryInfo> findCountriesOnContinent(String continentCode, Pageable pageable)
+    public Page<Country> findCountriesOnContinent(String continentCode, Pageable pageable)
     {
         final Map<String, Object> params = new TreeMap<>();
         params.put("continentCode", continentCode);
         params.put("offset", pageable.getOffset());
         params.put("max", pageable.getPageSize());
-        final List<CountryInfo> locations = jdbcTemplate.query("SELECT * FROM geocountry c, geonames n WHERE c.geoname_id = n.id AND continent = :continentCode LIMIT :offset,:max", params, COUNTRY_INFO_MAPPER);
+        final List<Country> locations = jdbcTemplate.query("SELECT * FROM geocountry c, geonames n WHERE c.geoname_id = n.id AND continent = :continentCode LIMIT :offset,:max", params, COUNTRY_INFO_MAPPER);
         final long count = jdbcTemplate.queryForObject("SELECT COUNT(iso) FROM geocountry WHERE continent = :continentCode", params, Long.class);
         return new PageImpl<>(locations, pageable, count);
     }
     
     @Override
-    public Page<CountryInfo> findCountries(Pageable pageable)
+    public Page<Country> findCountries(Pageable pageable)
     {
         loadCountries();
-        final List<CountryInfo> content = countries.values().stream().skip(pageable.getOffset()).limit(pageable.getPageSize()).collect(Collectors.toList());
+        final List<Country> content = countries.values().stream().skip(pageable.getOffset()).limit(pageable.getPageSize()).collect(Collectors.toList());
         return new PageImpl<>(content, pageable, countries.size());
     }
 
 
     @Override
-    public CountryInfo findCountryByCode(String countryCode)
+    public Country findCountryByCode(String countryCode)
     {
         loadCountries();
         
@@ -370,13 +374,13 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public Page<GeoLocation> getChildren(Country country, Pageable pageable)
+    public Page<GeoLocation> findChildren(String countryCode, Pageable pageable)
     {
         final Map<String, Object> params = new TreeMap<>();
-        params.put("cc", country.getCode());
+        params.put("cc", countryCode);
         params.put("offset", pageable.getOffset());
         params.put("max", pageable.getPageSize());
-        final long total = jdbcTemplate.queryForObject("select * from geonames where country_code = :cc and feature_code = 'ADM1'", Collections.emptyMap(), Long.class);
+        final long total = jdbcTemplate.queryForObject("select COUNT(id) from geonames where country_code = :cc and feature_code = 'ADM1'", params, Long.class);
         final List<GeoLocation> content = jdbcTemplate.query("select * from geonames where country_code = :cc and feature_code = 'ADM1' LIMIT :offset,:max", params, GEONAMES_ROW_MAPPER);
         return new PageImpl<>(content, pageable, total);
     }
@@ -386,11 +390,11 @@ public class GeodataServiceImpl implements GeodataService
         if (countries == null)
         {
             countries = new LinkedHashMap<>();
-            final Collection<CountryInfo> countryList = jdbcTemplate.query(
+            final Collection<Country> countryList = jdbcTemplate.query(
                 "SELECT * FROM geocountry c, geonames n "
                 + "WHERE c.geoname_id = n.id "
                 + "ORDER BY iso ASC", COUNTRY_INFO_MAPPER);
-            countryList.forEach(c->countries.put(c.getCode(), c));
+            countryList.forEach(c->countries.put(c.getCountry().getCode(), c));
             return countryList.size();
         }
         return 0;
@@ -466,13 +470,14 @@ public class GeodataServiceImpl implements GeodataService
     }
     
     @Override
-    public CountryInfo findPhoneLocation(String phoneNumber)
+    public Country findByPhonenumber(String phoneNumber)
     {
         String stripped = phoneNumber.replaceAll("[^\\d.]", "");
         stripped = stripped.replaceFirst("^0+(?!$)", "");
         
-        final List<CountryInfo> countries = jdbcTemplate.query("SELECT iso, phone, geoname_id, country FROM geocountry "
-                + "WHERE :phone like CONCAT(phone, '%') "
+        final List<Country> countries = jdbcTemplate.query("SELECT n.*, c.iso, c.geoname_id, c.country FROM geocountry c, geonames n "
+                + "WHERE c.geoname_id = n.id "
+                + "AND :phone like CONCAT(phone, '%') "
                 + "ORDER BY population DESC", 
                 Collections.singletonMap("phone", stripped), COUNTRY_INFO_MAPPER);
         return countries.isEmpty() ? null : countries.get(0);
@@ -509,15 +514,18 @@ public class GeodataServiceImpl implements GeodataService
         return false;
     }
     
-    /* (non-Javadoc)
-     * @see com.ethlo.geodata.Geodata#isOutsideAll(java.util.List, java.lang.Long)
-     */
     @Override
-    public boolean isOutsideAll(List<Long> locations, Long location)
+    public boolean isOutsideAll(List<Long> locations, long location)
     {
-        for (Long l : locations)
+        final GeoLocation loc = findById(location);
+        if (loc == null)
         {
-            if (location.equals(l) || locationContains(location, l))
+            throw new EmptyResultDataAccessException("No such location found " + location, 1);
+        }
+        
+        for (long l : locations)
+        {
+            if (locationContains(location, l))
             {
                 return true;
             }
@@ -525,9 +533,6 @@ public class GeodataServiceImpl implements GeodataService
         return false;
     }
 
-    /* (non-Javadoc)
-     * @see com.ethlo.geodata.Geodata#isLocationInside(long, long)
-     */
     @Override
     public boolean isLocationInside(long locationId, long suspectedParentId)
     {
@@ -535,9 +540,6 @@ public class GeodataServiceImpl implements GeodataService
         return path.contains(suspectedParentId);
     }
     
-    /* (non-Javadoc)
-     * @see com.ethlo.geodata.Geodata#locationContains(long, long)
-     */
     @Override
     public boolean locationContains(long parentId, long suspectedChild)
     {
@@ -569,6 +571,20 @@ public class GeodataServiceImpl implements GeodataService
         {
             return new Continent(continentCode.toUpperCase(), findById(id));
         }
+        return null;
+    }
+
+    @Override
+    public GeoLocation findParent(long id)
+    {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public GeoLocation findbyCoordinate(Coordinates point)
+    {
+        // TODO Auto-generated method stub
         return null;
     }
 }

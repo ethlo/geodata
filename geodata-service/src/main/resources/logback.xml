@@ -9,11 +9,8 @@
 		</encoder>
 	</appender>
 
-	<!-- 
-	<logger name="org.springframework.jdbc.core.JdbcTemplate" level="trace" />
-	<logger name="org.springframework.jdbc.core.StatementCreatorUtils" level="trace" />
-	-->
-
+	<logger name="cz.jirutka.spring.exhandler.handlers.RestExceptionHandler" level="debug" />
+	
 	<root level="info">
 		<appender-ref ref="stdout" />
 	</root>

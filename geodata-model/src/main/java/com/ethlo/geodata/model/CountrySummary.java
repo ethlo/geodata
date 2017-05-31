@@ -24,7 +24,7 @@ import java.io.Serializable;
 
 import javax.validation.constraints.NotNull;
 
-public class Country implements Serializable
+public class CountrySummary implements Serializable
 {
     private static final long serialVersionUID = 3805294728456474230L;
 
@@ -42,13 +42,13 @@ public class Country implements Serializable
         return code;
     }
     
-    public Country setId(Long id)
+    public CountrySummary setId(Long id)
     {
         this.id = id;
         return this;
     }
 
-    public Country setCode(String code)
+    public CountrySummary setCode(String code)
     {
         this.code = code;
         return this;
@@ -59,19 +59,19 @@ public class Country implements Serializable
         return name;
     }
 
-    public Country setName(String name)
+    public CountrySummary setName(String name)
     {
         this.name = name;
         return this;
     }
 
-    public Country withCode(String countryCode)
+    public CountrySummary withCode(String countryCode)
     {
         this.code = countryCode;
         return this;
     }
     
-    public Country withName(String name)
+    public CountrySummary withName(String name)
     {
         this.name = name;
         return this;
@@ -102,7 +102,7 @@ public class Country implements Serializable
             return false;
         if (getClass() != obj.getClass())
             return false;
-        Country other = (Country) obj;
+        CountrySummary other = (CountrySummary) obj;
         if (code == null)
         {
             if (other.code != null)
@@ -130,6 +130,6 @@ public class Country implements Serializable
     @Override
     public String toString()
     {
-        return "Country [" + (id != null ? "id=" + id + ", " : "") + (code != null ? "code=" + code + ", " : "") + (name != null ? "name=" + name : "") + "]";
+        return "CountrySummary [" + (id != null ? "id=" + id + ", " : "") + (code != null ? "code=" + code + ", " : "") + (name != null ? "name=" + name : "") + "]";
     }
 }

@@ -23,8 +23,6 @@ import java.io.Serializable;
  */
 
 import javax.validation.constraints.NotNull;
-
-import org.springframework.util.Assert;
 public class GeoLocation implements Serializable
 {
     private static final long serialVersionUID = -4591909310445372923L;
@@ -37,19 +35,13 @@ public class GeoLocation implements Serializable
     @NotNull
     private String name;
 
-    private Country country;
+    private CountrySummary country;
 
     @NotNull
-    private Coordinate coordinates;
+    private Coordinates coordinates;
 
     @NotNull
     private String featureCode;
-
-    
-    protected GeoLocation()
-    {
-        // Required for de-serialization 
-    }
     
     public String getFeatureCode()
     {
@@ -66,7 +58,7 @@ public class GeoLocation implements Serializable
         return name;
     }
 
-    public Country getCountry()
+    public CountrySummary getCountry()
     {
         return country;
     }
@@ -76,79 +68,51 @@ public class GeoLocation implements Serializable
         return parentLocationId;
     }
     
-    public Coordinate getCoordinates()
+    public Coordinates getCoordinates()
     {
         return this.coordinates;
     }
-
-    public static class Builder
+    
+    public GeoLocation setId(Long id)
     {
-        private Long id;
-        private Long parentLocationId;
-        private Coordinate coordinates;
-        private String name;
-        private Country country;
-        private String featureCode;
-
-        public Builder id(Long id)
-        {
-            this.id = id;
-            return this;
-        }
-
-        public Builder parentLocationId(Long parentLocationId)
-        {
-            this.parentLocationId = parentLocationId;
-            return this;
-        }
-
-        public Builder name(String name)
-        {
-            this.name = name;
-            return this;
-        }
-        
-        public Builder coordinates(Coordinate coordinates)
-        {
-            this.coordinates = coordinates;
-            return this;
-        }
-
-        public Builder country(Country country)
-        {
-            this.country = country;
-            return this;
-        }
-
-        public GeoLocation build()
-        {
-            return new GeoLocation(this);
-        }
-
-        public Builder featureCode(String featureCode)
-        {
-            this.featureCode = featureCode;
-            return this;
-        }
+        this.id = id;
+        return this;
     }
 
-    protected GeoLocation(Builder builder)
+    public GeoLocation setParentLocationId(Long parentLocationId)
     {
-        Assert.notNull(builder.id, "id must not be null");
-        Assert.notNull(builder.name, "name must not be null");
-        
-        this.id = builder.id;
-        this.parentLocationId = builder.parentLocationId;
-        this.coordinates = builder.coordinates;
-        this.name = builder.name;
-        this.featureCode = builder.featureCode;
-        this.country = builder.country;
+        this.parentLocationId = parentLocationId;
+        return this;
+    }
+
+    public GeoLocation setName(String name)
+    {
+        this.name = name;
+        return this;
+    }
+
+    public GeoLocation setCountry(CountrySummary country)
+    {
+        this.country = country;
+        return this;
+    }
+
+    public GeoLocation setCoordinates(Coordinates coordinates)
+    {
+        this.coordinates = coordinates;
+        return this;
+    }
+
+    public GeoLocation setFeatureCode(String featureCode)
+    {
+        this.featureCode = featureCode;
+        return this;
     }
 
     @Override
     public String toString()
     {
-        return "Location [" + (id != null ? "id=" + id + ", " : "") + (parentLocationId != null ? "parentLocationId=" + parentLocationId + ", " : "") + (name != null ? "name=" + name + ", " : "")
+        return "GeoLocation [" + (id != null ? "id=" + id + ", " : "") + (parentLocationId != null ? "parentLocationId=" + parentLocationId + ", " : "") + (name != null ? "name=" + name + ", " : "")
                         + (country != null ? "country=" + country + ", " : "")
                         + (coordinates != null ? "coordinates=" + coordinates : "") + "]";
     }
