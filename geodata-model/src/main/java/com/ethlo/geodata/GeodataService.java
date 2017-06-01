@@ -42,7 +42,7 @@ public interface GeodataService
     
     GeoLocation findParent(long id);
     
-    GeoLocation findbyCoordinate(Coordinates point); 
+    GeoLocation findbyCoordinate(Coordinates point, int distance); 
 
     boolean isInsideAny(List<Long> locations, long location);
 

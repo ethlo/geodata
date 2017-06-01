@@ -168,12 +168,14 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public GeoLocation findWithin(Coordinates point, int maxDistanceInKilometers)
     {
-        final List<Long> locationIds = doFindContaining(point, maxDistanceInKilometers, new PageRequest(0, 10));
-        if (! locationIds.isEmpty())
+        int range = 25;
+        GeoLocation location = null; 
+        while (range <= maxDistanceInKilometers && location == null)
         {
-            return findById(locationIds.get(0));
+            location = doFindContaining(point, range);
+            range *= 2;
         }
-        return null;
+        return location;
     }
     
     @Override
@@ -181,7 +183,7 @@ public class GeodataServiceImpl implements GeodataService
     {
         final List<GeoLocationDistance> locations = doFindNearest(point, maxDistanceInKilometers, new PageRequest(0, 1));
         
-        // TODO: Do we care about total number?
+        // TODO: Do we care about total number of results?
         return new PageImpl<>(locations, pageable, locations.size());
     }
     
@@ -210,9 +212,10 @@ public class GeodataServiceImpl implements GeodataService
         return params;
     }
     
-    private List<Long> doFindContaining(Coordinates point, int maxDistanceInKm, Pageable pageable)
+    private GeoLocation doFindContaining(Coordinates point, int maxDistanceInKm)
     {
-        final Map<String, Object> params = createParams(point, maxDistanceInKm, pageable);
+        final Map<String, Object> params = createParams(point, maxDistanceInKm, new PageRequest(0, 1));
+        
         final String sql = "SELECT id "
                         + "FROM geoboundaries "
                         + "WHERE st_within(coord, st_envelope(linestring(point(:minX, :minY), point(:maxX, :maxY)))) "
@@ -220,14 +223,16 @@ public class GeodataServiceImpl implements GeodataService
                         + "ORDER BY area ASC " 
                         + "LIMIT :limit";
         
-        return jdbcTemplate.query(sql, params, new RowMapper<Long>()
+        final List<GeoLocation> res = jdbcTemplate.query(sql, params, new RowMapper<GeoLocation>()
         {
             @Override
-            public Long mapRow(ResultSet rs, int rowNum) throws SQLException
+            public GeoLocation mapRow(ResultSet rs, int rowNum) throws SQLException
             {
-                return rs.getLong("id");
+                return findById(rs.getLong("id"));
             }
         });
+        
+        return res.isEmpty() ? null : res.get(0);
     }
     
     private List<GeoLocationDistance> doFindNearest(Coordinates point, int distance, Pageable pageable)
@@ -576,9 +581,21 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public GeoLocation findbyCoordinate(Coordinates point)
+    public GeoLocation findbyCoordinate(Coordinates point, int distance)
     {
-        // TODO Auto-generated method stub
-        return null;
+        GeoLocation location = findWithin(point, distance);
+        
+        // Fall back to nearest match
+        if (location == null)
+        {
+            final Page<GeoLocationDistance> nearest = findNear(point, distance, new PageRequest(0, 1));
+            location = nearest.hasContent() ? nearest.getContent().get(0).getLocation() : null;
+        }
+        
+        if (location != null)
+        {
+            return location;
+        }
+        throw new EmptyResultDataAccessException("Cannot find a location for position lat=" + point.getLat() + ", lng=" + point.getLng(), 1);
     }
 }
