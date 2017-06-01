@@ -10,6 +10,7 @@ import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.GeoLocation;
+import com.ethlo.geodata.model.GeoLocationDistance;
 
 public interface GeodataService
 {
@@ -19,7 +20,7 @@ public interface GeodataService
 
     GeoLocation findWithin(Coordinates point, int maxDistanceInKilometers);
 
-    GeoLocation findNear(Coordinates point, int maxDistanceInKilometers);
+    public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable);
 
     byte[] findBoundaries(long id);
 

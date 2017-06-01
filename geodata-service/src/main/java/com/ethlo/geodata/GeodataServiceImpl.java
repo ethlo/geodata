@@ -24,7 +24,6 @@ import java.io.File;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -47,7 +46,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.stereotype.Service;
 
 import com.ethlo.geodata.importer.HierarchyImporter;
@@ -56,6 +54,7 @@ import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.CountrySummary;
 import com.ethlo.geodata.model.GeoLocation;
+import com.ethlo.geodata.model.GeoLocationDistance;
 import com.google.common.io.Files;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
@@ -178,14 +177,12 @@ public class GeodataServiceImpl implements GeodataService
     }
     
     @Override
-    public GeoLocation findNear(Coordinates point, int maxDistanceInKilometers)
+    public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable)
     {
-        final List<Entry<GeoLocation, Long>> locations = doFindNearest(point, maxDistanceInKilometers, new PageRequest(0, 1));
-        if (! locations.isEmpty())
-        {
-            return locations.get(0).getKey();
-        }
-        return null;
+        final List<GeoLocationDistance> locations = doFindNearest(point, maxDistanceInKilometers, new PageRequest(0, 1));
+        
+        // TODO: Do we care about total number?
+        return new PageImpl<>(locations, pageable, locations.size());
     }
     
     private Map<String, Object> createParams(Coordinates point, int maxDistanceInKm, Pageable pageable)
@@ -233,29 +230,26 @@ public class GeodataServiceImpl implements GeodataService
         });
     }
     
-    private List<Entry<GeoLocation, Long>> doFindNearest(Coordinates point, int distance, Pageable pageable)
+    private List<GeoLocationDistance> doFindNearest(Coordinates point, int distance, Pageable pageable)
     {
         final Map<String, Object> params = createParams(point, distance, pageable);
-        final String sql = "SELECT id, st_distance(POINT(:x, :y), coord) AS distance " 
+        final String sql = "SELECT *, st_distance(POINT(:x, :y), coord) AS distance " 
                         + "FROM geonames "
                         + "WHERE st_within(coord, st_envelope(linestring(point(:minX, :minY), point(:maxX,:maxY)))) "
                         + "ORDER BY distance ASC "
                         + "LIMIT :offset, :limit";
         
-        final SqlRowSet rs = jdbcTemplate.queryForRowSet(sql, params);
-        final Map<Long, Long> idAndDistance = new TreeMap<>();
-        while (rs.next())
+        return jdbcTemplate.query(sql, params, new RowMapper<GeoLocationDistance>()
         {
-            idAndDistance.put(rs.getLong("id"), (long) rs.getDouble("distance") * 1000);
-        }
-        
-        if (idAndDistance.isEmpty())
-        {
-            return Collections.emptyList();
-        }
-        
-        final List<GeoLocation> locations = findByIds(new LinkedList<>(idAndDistance.keySet()));
-        return locations.stream().map(l->new AbstractMap.SimpleEntry<>(l, idAndDistance.get(l.getId()))).collect(Collectors.toList());
+            @Override
+            public GeoLocationDistance mapRow(ResultSet rs, int rowNum) throws SQLException
+            {
+                final GeoLocation location = new GeoLocation();
+                mapLocation(location, rs);
+                return new GeoLocationDistance().setLocation(location).setDistance(rs.getDouble("distance"));
+            }
+            
+        });
     }
 
     @Override

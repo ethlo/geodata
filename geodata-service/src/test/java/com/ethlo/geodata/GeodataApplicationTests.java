@@ -43,6 +43,7 @@ import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.GeoLocation;
+import com.ethlo.geodata.model.GeoLocationDistance;
 
 @Ignore
 @RunWith(SpringRunner.class)
@@ -102,7 +103,7 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForNearestLocationByPoint()
     {
-        final GeoLocation location = geodataService.findNear(Coordinates.from(10, 64), 100);
+        final Page<GeoLocationDistance> location = geodataService.findNear(Coordinates.from(10, 64), 100, new PageRequest(0, 10));
         assertThat(location).isNotNull();
     }
     

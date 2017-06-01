@@ -38,7 +38,6 @@ import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ethlo.geodata.model.Coordinates;
-import com.ethlo.geodata.model.Country;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -97,7 +96,7 @@ public class NoDataAssertGeodataApplicationTests
     @Test
     public void testQueryForNearestLocationByPoint()
     {
-        geodataService.findNear(Coordinates.from(10, 64), 100);
+        geodataService.findNear(Coordinates.from(10, 64), 100, new PageRequest(0, 10));
     }
     
     @Test
