@@ -337,7 +337,7 @@ public class GeodataServiceImpl implements GeodataService
                 .map(l->new Continent(getContinentCode(l.getId()), l))
                 .collect(Collectors.toList());
         }
-        return new PageImpl<>(continents, new PageRequest(0, continents.size()), continents.size());
+        return new PageImpl<>(continents, new PageRequest(0, 7), 7);
     }
 
     private String getContinentCode(Long id)
