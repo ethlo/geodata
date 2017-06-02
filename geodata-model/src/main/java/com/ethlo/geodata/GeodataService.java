@@ -40,8 +40,6 @@ public interface GeodataService
 
     Country findByPhonenumber(String phoneNumber);
 
-    GeoLocation findLocationByCountryCode(String cc);
-    
     GeoLocation findParent(long id);
     
     GeoLocation findbyCoordinate(Coordinates point, int distance); 

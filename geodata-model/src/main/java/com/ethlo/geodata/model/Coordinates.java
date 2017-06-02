@@ -64,7 +64,7 @@ public class Coordinates implements Serializable
     @Override
     public String toString()
     {
-        return "Coordinate [lat=" + lat + ", lng=" + lng + "]";
+        return "[lat=" + lat + ", lng=" + lng + "]";
     }
 
     public static Coordinates from(double lat, double lng)

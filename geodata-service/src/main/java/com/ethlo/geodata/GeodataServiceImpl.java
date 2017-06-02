@@ -22,6 +22,7 @@ package com.ethlo.geodata;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
@@ -111,6 +112,14 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public GeoLocation findByIp(String ip)
     {
+        final boolean isValid = InetAddresses.isInetAddress(ip);
+        final InetAddress address = InetAddresses.forString(ip);
+        final boolean isLocalAddress = address.isLoopbackAddress() || address.isAnyLocalAddress();
+        if (!isValid || isLocalAddress)
+        {
+            return null;
+        }
+        
         long ipLong;
         try
         {
@@ -493,18 +502,6 @@ public class GeodataServiceImpl implements GeodataService
                 Collections.singletonMap("phone", stripped), COUNTRY_INFO_MAPPER);
         return countries.isEmpty() ? null : countries.get(0);
     }
-
-    @Override
-    public GeoLocation findLocationByCountryCode(String cc)
-    {
-        loadCountries();
-        final Country country = countries.get(cc.toUpperCase());
-        if (country != null)
-        {
-            return findById(country.getId());
-        }
-        return null;
-    }    
     
     @Override
     public boolean isInsideAny(List<Long> locations, long location)
