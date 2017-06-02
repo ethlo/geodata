@@ -186,8 +186,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable)
     {
-        final List<GeoLocationDistance> locations = doFindNearest(point, maxDistanceInKilometers, new PageRequest(0, 1));
-        
+        final List<GeoLocationDistance> locations = doFindNearest(point, maxDistanceInKilometers, pageable);
         return new PageImpl<>(locations, pageable, getlocationCount());
     }
     
