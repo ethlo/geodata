@@ -514,7 +514,7 @@ public class GeodataServiceImpl implements GeodataService
         
         for (Long l : locations)
         {
-            if (l.equals(location) || isLocationInside(l, location))
+            if (l.equals(location) || isLocationInside(location, l))
             {
                 return true;
             }
