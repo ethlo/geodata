@@ -3,6 +3,8 @@ package com.ethlo.geodata;
 import java.util.Collection;
 import java.util.List;
 
+import javax.validation.Valid;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -18,13 +20,13 @@ public interface GeodataService
 
     GeoLocation findById(long geoNameId);
 
-    GeoLocation findWithin(Coordinates point, int maxDistanceInKilometers);
+    GeoLocation findWithin(@Valid Coordinates point, int maxDistanceInKilometers);
 
     public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable);
 
     byte[] findBoundaries(long id);
 
-    Page<GeoLocation> getChildren(long locationId, Pageable pageable);
+    Page<GeoLocation> findChildren(long locationId, Pageable pageable);
 
     Page<Continent> findContinents();
 
@@ -49,8 +51,6 @@ public interface GeodataService
     boolean isOutsideAll(List<Long> locations, long location);
 
     boolean isLocationInside(long locationId, long suspectedParentId);
-
-    boolean locationContains(long parentId, long suspectedChild);
 
     Continent findContinent(String continentCode);
 

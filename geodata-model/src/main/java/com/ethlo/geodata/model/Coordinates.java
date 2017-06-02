@@ -44,7 +44,7 @@ public class Coordinates implements Serializable
         return lat;
     }
     
-    private Coordinates setLat(double latitude)
+    public Coordinates setLat(double latitude)
     {
         this.lat = latitude;
         return this;
@@ -55,7 +55,7 @@ public class Coordinates implements Serializable
         return lng;
     }
     
-    private Coordinates setLng(double longitude)
+    public Coordinates setLng(double longitude)
     {
         this.lng = longitude;
         return this;

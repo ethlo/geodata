@@ -106,6 +106,7 @@ public class GeodataServiceImpl implements GeodataService
     private Set<Node> roots;
     private Map<Long, Node> nodes;
     private Map<String, Country> countries;
+    private Long locationCount;
 
     @Override
     public GeoLocation findByIp(String ip)
@@ -175,7 +176,11 @@ public class GeodataServiceImpl implements GeodataService
             location = doFindContaining(point, range);
             range *= 2;
         }
-        return location;
+        if (location != null)
+        {
+            return location;
+        }
+        throw new EmptyResultDataAccessException("Cannot find location for " + point, 1);
     }
     
     @Override
@@ -183,10 +188,18 @@ public class GeodataServiceImpl implements GeodataService
     {
         final List<GeoLocationDistance> locations = doFindNearest(point, maxDistanceInKilometers, new PageRequest(0, 1));
         
-        // TODO: Do we care about total number of results?
-        return new PageImpl<>(locations, pageable, locations.size());
+        return new PageImpl<>(locations, pageable, getlocationCount());
     }
     
+    private long getlocationCount()
+    {
+        if (this.locationCount == null)
+        {
+            locationCount = jdbcTemplate.queryForObject("SELECT COUNT(id) FROM geonames", Collections.emptyMap(), Long.class);
+        }
+        return locationCount;
+    }
+
     private Map<String, Object> createParams(Coordinates point, int maxDistanceInKm, Pageable pageable)
     {
         final double lat = point.getLat();
@@ -284,7 +297,7 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public Page<GeoLocation> getChildren(long locationId, Pageable pageable)
+    public Page<GeoLocation> findChildren(long locationId, Pageable pageable)
     {
         loadNodes();
         
@@ -505,7 +518,7 @@ public class GeodataServiceImpl implements GeodataService
         
         for (Long l : locations)
         {
-            if (l.equals(location) || locationContains(l, location))
+            if (l.equals(location) || isLocationInside(l, location))
             {
                 return true;
             }
@@ -524,7 +537,7 @@ public class GeodataServiceImpl implements GeodataService
         
         for (long l : locations)
         {
-            if (locationContains(location, l))
+            if (isLocationInside(l, loc.getId()))
             {
                 return true;
             }
@@ -538,13 +551,7 @@ public class GeodataServiceImpl implements GeodataService
         final List<Long> path = getPath(locationId);
         return path.contains(suspectedParentId);
     }
-    
-    @Override
-    public boolean locationContains(long parentId, long suspectedChild)
-    {
-        return isLocationInside(suspectedChild, parentId);
-    }
-    
+        
     private List<Long> getPath(long id)
     {
         loadNodes();
@@ -559,9 +566,6 @@ public class GeodataServiceImpl implements GeodataService
         return path;
     }
 
-    /* (non-Javadoc)
-     * @see com.ethlo.geodata.Geodata#findContinent(java.lang.String)
-     */
     @Override
     public Continent findContinent(String continentCode)
     {
@@ -576,8 +580,8 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public GeoLocation findParent(long id)
     {
-        // TODO Auto-generated method stub
-        return null;
+        final GeoLocation location = findById(id);
+        return location.getParentLocationId() != null ? findById(location.getParentLocationId()) : null;
     }
 
     @Override
