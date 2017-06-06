@@ -39,6 +39,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.PropertySource;
@@ -59,14 +61,22 @@ import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.CountrySummary;
 import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
+import com.google.common.base.Stopwatch;
 import com.google.common.io.Files;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
+import com.vividsolutions.jts.geom.Geometry;
+import com.vividsolutions.jts.io.ParseException;
+import com.vividsolutions.jts.io.WKBReader;
+import com.vividsolutions.jts.io.WKBWriter;
+import com.vividsolutions.jts.simplify.TopologyPreservingSimplifier;
 
 @Service
 @PropertySource("queries.sql.properties")
 public class GeodataServiceImpl implements GeodataService
 {
+    private final Logger logger = LoggerFactory.getLogger(GeodataServiceImpl.class);
+    
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
     
@@ -623,4 +633,29 @@ public class GeodataServiceImpl implements GeodataService
         }
         throw new EmptyResultDataAccessException("Cannot find a location for position lat=" + point.getLat() + ", lng=" + point.getLng(), 1);
     }
+    
+    @Override
+    public byte[] findBoundaries(long id, double maxTolerance)
+    {
+        final byte[] fullWkb = findBoundaries(id);
+        if (fullWkb != null)
+        {
+            try
+            {
+                final Stopwatch stopwatch = Stopwatch.createStarted();
+                final WKBReader reader = new WKBReader();
+                final Geometry full = reader.read(fullWkb);
+                final Geometry simple = TopologyPreservingSimplifier.simplify(full, maxTolerance / RAD_TO_KM_RATIO);
+                final byte[] res = new WKBWriter().write(simple);
+                logger.debug("WKB length: {}, reduced WKB length: {}, ratio: {}, timing: {}", fullWkb.length, res.length, fullWkb.length / (double)res.length, stopwatch.toString());
+                return res;
+            }
+            catch (ParseException exc)
+            {
+                throw new DataAccessResourceFailureException(exc.getMessage(), exc);
+            }
+        }
+        return null;
+    }
+
 }

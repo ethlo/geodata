@@ -25,6 +25,8 @@ public interface GeodataService
     public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable);
 
     byte[] findBoundaries(long id);
+    
+    byte[] findBoundaries(long id, double maxTolerance);
 
     Page<GeoLocation> findChildren(long locationId, Pageable pageable);
 
