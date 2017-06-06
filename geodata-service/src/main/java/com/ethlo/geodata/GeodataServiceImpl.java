@@ -22,6 +22,7 @@ package com.ethlo.geodata;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.InetAddress;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -70,6 +71,8 @@ public class GeodataServiceImpl implements GeodataService
     private NamedParameterJdbcTemplate jdbcTemplate;
     
     private static final Map<String, Long> CONTINENT_IDS = new LinkedHashMap<>();
+
+    public static final double RAD_TO_KM_RATIO = 111.195D;;
 
     private final RowMapper<Country> COUNTRY_INFO_MAPPER = new RowMapper<Country>()
     {
@@ -287,7 +290,10 @@ public class GeodataServiceImpl implements GeodataService
     
     private List<GeoLocationDistance> doFindNearest(Coordinates point, int distance, Pageable pageable)
     {
-        final Map<String, Object> params = createParams(point, distance, pageable);
+        // Switch Lat/long
+        final Coordinates coordinates = new Coordinates().setLat(point.getLng()).setLng(point.getLat());
+        
+        final Map<String, Object> params = createParams(coordinates, distance, pageable);
         return jdbcTemplate.query(nearestSql, params, new RowMapper<GeoLocationDistance>()
         {
             @Override
@@ -295,9 +301,11 @@ public class GeodataServiceImpl implements GeodataService
             {
                 final GeoLocation location = new GeoLocation();
                 mapLocation(location, rs);
-                return new GeoLocationDistance().setLocation(location).setDistance(rs.getDouble("distance"));
+                
+                final double distance = BigDecimal.valueOf(rs.getDouble("distance") * RAD_TO_KM_RATIO).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue();
+                
+                return new GeoLocationDistance().setLocation(location).setDistance(distance);
             }
-            
         });
     }
 
