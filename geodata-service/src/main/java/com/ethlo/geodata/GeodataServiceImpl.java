@@ -39,6 +39,8 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
@@ -61,6 +63,7 @@ import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
 
 @Service
+@PropertySource("queries.sql.properties")
 public class GeodataServiceImpl implements GeodataService
 {
     @Autowired
@@ -109,6 +112,42 @@ public class GeodataServiceImpl implements GeodataService
     private Map<String, Country> countries;
     private Long locationCount;
 
+    @Value("${geodata.sql.ipLookup}")
+    private String ipLookupSql;
+    
+    @Value("${geodata.sql.geonamesbyid}")
+    private String geoNamesByIdSql;
+    
+    @Value("${geodata.sql.geonamescount}")
+    private String geoNamesCountSql;
+
+    @Value("${geodata.sql.findcountrybyphone}")
+    private String findCountryByPhoneNumberSql;
+
+    @Value("${geodata.sql.findwithinboundaries}")
+    private String findWithinBoundariesSql;
+
+    @Value("${geodata.sql.findnearest}")
+    private String nearestSql;
+
+    @Value("${geodata.sql.findbyids}")
+    private String findByIdsSql;
+
+    @Value("${geodata.sql.findboundariesbyid}")
+    private String findBoundariesByIdSql;
+
+    @Value("${geodata.sql.findcountriesoncontinent}")
+    private String findCountriesOnContinentSql;
+
+    @Value("${geodata.sql.countcountriesoncontinent}")
+    private String countCountriesOnContinentSql;
+
+    @Value("${geodata.sql.countcountrychildren}")
+    private String countCountryChildrenSql;
+
+    @Value("${geodata.sql.findcountrychildren}")
+    private String findCountryChildrenSql;
+    
     @Override
     public GeoLocation findByIp(String ip)
     {
@@ -130,8 +169,7 @@ public class GeodataServiceImpl implements GeodataService
             throw new InvalidIpException(ip, exc.getMessage(), exc);
         }
         
-        final String sql = "SELECT geoname_id, geoname_country_id from geoip WHERE :ip BETWEEN first and last LIMIT 1";
-        return jdbcTemplate.query(sql, Collections.singletonMap("ip", ipLong), rs -> 
+        return jdbcTemplate.query(ipLookupSql, Collections.singletonMap("ip", ipLong), rs -> 
         {
             if (rs.next())
             {
@@ -145,8 +183,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public GeoLocation findById(long geoNameId)
     {
-        final String sql = "SELECT * from geonames WHERE id = :id";
-        return jdbcTemplate.query(sql, Collections.singletonMap("id", geoNameId), rs ->
+        return jdbcTemplate.query(geoNamesByIdSql, Collections.singletonMap("id", geoNameId), rs ->
         {
             if (rs.next())
             {
@@ -203,7 +240,7 @@ public class GeodataServiceImpl implements GeodataService
     {
         if (this.locationCount == null)
         {
-            locationCount = jdbcTemplate.queryForObject("SELECT COUNT(id) FROM geonames", Collections.emptyMap(), Long.class);
+            locationCount = jdbcTemplate.queryForObject(geoNamesCountSql, Collections.emptyMap(), Long.class);
         }
         return locationCount;
     }
@@ -236,15 +273,7 @@ public class GeodataServiceImpl implements GeodataService
     private GeoLocation doFindContaining(Coordinates point, int maxDistanceInKm)
     {
         final Map<String, Object> params = createParams(point, maxDistanceInKm, new PageRequest(0, 1));
-        
-        final String sql = "SELECT id "
-                        + "FROM geoboundaries "
-                        + "WHERE st_within(coord, st_envelope(linestring(point(:minX, :minY), point(:maxX, :maxY)))) "
-                        + "AND st_contains(raw_polygon, POINT(:x,:y)) "
-                        + "ORDER BY area ASC " 
-                        + "LIMIT :limit";
-        
-        final List<GeoLocation> res = jdbcTemplate.query(sql, params, new RowMapper<GeoLocation>()
+        final List<GeoLocation> res = jdbcTemplate.query(findWithinBoundariesSql, params, new RowMapper<GeoLocation>()
         {
             @Override
             public GeoLocation mapRow(ResultSet rs, int rowNum) throws SQLException
@@ -259,13 +288,7 @@ public class GeodataServiceImpl implements GeodataService
     private List<GeoLocationDistance> doFindNearest(Coordinates point, int distance, Pageable pageable)
     {
         final Map<String, Object> params = createParams(point, distance, pageable);
-        final String sql = "SELECT *, st_distance(POINT(:x, :y), coord) AS distance " 
-                        + "FROM geonames "
-                        + "WHERE st_within(coord, st_envelope(linestring(point(:minX, :minY), point(:maxX,:maxY)))) "
-                        + "ORDER BY distance ASC "
-                        + "LIMIT :offset, :limit";
-        
-        return jdbcTemplate.query(sql, params, new RowMapper<GeoLocationDistance>()
+        return jdbcTemplate.query(nearestSql, params, new RowMapper<GeoLocationDistance>()
         {
             @Override
             public GeoLocationDistance mapRow(ResultSet rs, int rowNum) throws SQLException
@@ -285,16 +308,13 @@ public class GeodataServiceImpl implements GeodataService
         {
             return Collections.emptyList();
         }
-        
-        final String sql = "SELECT * from geonames WHERE id in (:ids)";
-        return jdbcTemplate.query(sql, Collections.singletonMap("ids", ids), GEONAMES_ROW_MAPPER);
+        return jdbcTemplate.query(findByIdsSql, Collections.singletonMap("ids", ids), GEONAMES_ROW_MAPPER);
     }
 
     @Override
     public byte[] findBoundaries(long id)
     {
-        final String sql = "SELECT ST_AsBinary(raw_polygon) as wkb FROM geoboundaries WHERE id = :id";
-        return jdbcTemplate.query(sql, Collections.singletonMap("id", id), rse ->
+        return jdbcTemplate.query(findBoundariesByIdSql, Collections.singletonMap("id", id), rse ->
         {
             if (rse.next())
             {
@@ -367,8 +387,8 @@ public class GeodataServiceImpl implements GeodataService
         params.put("continentCode", continentCode);
         params.put("offset", pageable.getOffset());
         params.put("max", pageable.getPageSize());
-        final List<Country> locations = jdbcTemplate.query("SELECT * FROM geocountry c, geonames n WHERE c.geoname_id = n.id AND continent = :continentCode LIMIT :offset,:max", params, COUNTRY_INFO_MAPPER);
-        final long count = jdbcTemplate.queryForObject("SELECT COUNT(iso) FROM geocountry WHERE continent = :continentCode", params, Long.class);
+        final List<Country> locations = jdbcTemplate.query(findCountriesOnContinentSql, params, COUNTRY_INFO_MAPPER);
+        final long count = jdbcTemplate.queryForObject(countCountriesOnContinentSql, params, Long.class);
         return new PageImpl<>(locations, pageable, count);
     }
     
@@ -400,8 +420,8 @@ public class GeodataServiceImpl implements GeodataService
         params.put("cc", countryCode);
         params.put("offset", pageable.getOffset());
         params.put("max", pageable.getPageSize());
-        final long total = jdbcTemplate.queryForObject("select COUNT(id) from geonames where country_code = :cc and feature_code = 'ADM1'", params, Long.class);
-        final List<GeoLocation> content = jdbcTemplate.query("select * from geonames where country_code = :cc and feature_code = 'ADM1' LIMIT :offset,:max", params, GEONAMES_ROW_MAPPER);
+        final List<GeoLocation> content = jdbcTemplate.query(findCountryChildrenSql, params, GEONAMES_ROW_MAPPER);
+        final long total = jdbcTemplate.queryForObject(countCountryChildrenSql, params, Long.class);
         return new PageImpl<>(content, pageable, total);
     }
     
@@ -495,10 +515,7 @@ public class GeodataServiceImpl implements GeodataService
         String stripped = phoneNumber.replaceAll("[^\\d.]", "");
         stripped = stripped.replaceFirst("^0+(?!$)", "");
         
-        final List<Country> countries = jdbcTemplate.query("SELECT n.*, c.iso, c.geoname_id, c.country FROM geocountry c, geonames n "
-                + "WHERE c.geoname_id = n.id "
-                + "AND :phone like CONCAT(phone, '%') "
-                + "ORDER BY population DESC", 
+        final List<Country> countries = jdbcTemplate.query(findCountryByPhoneNumberSql, 
                 Collections.singletonMap("phone", stripped), COUNTRY_INFO_MAPPER);
         return countries.isEmpty() ? null : countries.get(0);
     }
