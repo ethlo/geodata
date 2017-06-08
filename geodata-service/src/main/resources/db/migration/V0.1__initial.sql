@@ -50,6 +50,7 @@ create table geonames (
 ) engine=myisam;
 ALTER TABLE geonames ADD INDEX idx_filter(country_code, feature_code);
 CREATE SPATIAL INDEX geonames_coord ON geonames(coord);
+CREATE FULLTEXT INDEX ft_name_geonames on geonames(name);
 
 create table geoip (
 	geoname_id bigint not null,

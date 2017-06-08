@@ -161,6 +161,12 @@ public class GeodataServiceImpl implements GeodataService
     @Value("${geodata.sql.findcountrychildren}")
     private String findCountryChildrenSql;
     
+    @Value("${geodata.sql.findbyname}")
+    private String findByNameSql;
+    
+    @Value("${geodata.sql.countbyname}")
+    private String countByNameSql;
+    
     @Override
     public GeoLocation findByIp(String ip)
     {
@@ -220,6 +226,7 @@ public class GeodataServiceImpl implements GeodataService
             .setId(rs.getLong("id"))
             .setName(rs.getString("name"))
             .setFeatureCode(rs.getString("feature_code"))
+            .setPopulation(rs.getLong("population"))
             .setCoordinates(Coordinates.from(rs.getDouble("lat"), rs.getDouble("lng")))
             .setParentLocationId(parentId)
             .setCountry(countrySummary);
@@ -658,4 +665,15 @@ public class GeodataServiceImpl implements GeodataService
         return null;
     }
 
+    @Override
+    public Page<GeoLocation> findByName(String name, Pageable pageable)
+    {
+        final Map<String, Object> params = new TreeMap<>();
+        params.put("name", name);
+        params.put("offset", pageable.getOffset());
+        params.put("limit", pageable.getPageSize());
+        final List<GeoLocation> content = jdbcTemplate.query(findByNameSql, params, GEONAMES_ROW_MAPPER);
+        final long total = jdbcTemplate.queryForObject(countByNameSql, params, Long.class);
+        return new PageImpl<>(content, pageable, total);
+    }
 }

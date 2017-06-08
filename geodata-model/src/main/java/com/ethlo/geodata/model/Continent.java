@@ -19,6 +19,7 @@ public class Continent extends GeoLocation
         setId(location.getId());
         setName(location.getName());
         setParentLocationId(location.getParentLocationId());
+        setPopulation(location.getPopulation());
         this.continentCode = continentCode;
     }
 

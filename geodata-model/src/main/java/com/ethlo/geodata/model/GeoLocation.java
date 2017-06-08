@@ -43,6 +43,8 @@ public class GeoLocation implements Serializable
     @NotNull
     private String featureCode;
     
+    private long population;
+    
     public String getFeatureCode()
     {
         return featureCode;
@@ -115,5 +117,16 @@ public class GeoLocation implements Serializable
         return "GeoLocation [" + (id != null ? "id=" + id + ", " : "") + (parentLocationId != null ? "parentLocationId=" + parentLocationId + ", " : "") + (name != null ? "name=" + name + ", " : "")
                         + (country != null ? "country=" + country + ", " : "")
                         + (coordinates != null ? "coordinates=" + coordinates : "") + "]";
+    }
+
+    public long getPopulation()
+    {
+        return population;
+    }
+
+    public GeoLocation setPopulation(long population)
+    {
+        this.population = population;
+        return this;
     }
 }
