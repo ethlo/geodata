@@ -47,6 +47,9 @@ public class JdbcGeonamesImporter implements PersistentImporter
     @Value("${geodata.geonames.source.names}")
     private String geoNamesAllCountriesUrl;
     
+    @Value("${geodata.geonames.source.alternatenames}")
+    private String geoNamesAlternateNamesUrl;
+    
     @Value("${geodata.geonames.source.hierarchy}")
     private String geoNamesHierarchyUrl;
     
@@ -69,9 +72,11 @@ public class JdbcGeonamesImporter implements PersistentImporter
     {
         final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource("geonames_hierarchy", geoNamesHierarchyUrl);
         
+        final Map.Entry<Date, File> alternateNamesFile = ResourceUtil.fetchResource("geonames_alternatenames", geoNamesAlternateNamesUrl);
+        
         final Map.Entry<Date, File> allCountriesFile = ResourceUtil.fetchResource("geonames", geoNamesAllCountriesUrl);
         
-        doUpdate(allCountriesFile.getValue(), hierarchyFile.getValue());
+        doUpdate(allCountriesFile.getValue(), alternateNamesFile.getValue(), hierarchyFile.getValue());
     }
 
     @Override
@@ -80,13 +85,14 @@ public class JdbcGeonamesImporter implements PersistentImporter
         jdbcTemplate.update("DELETE FROM geonames", Collections.emptyMap());
     }
 
-    private void doUpdate(File allCountriesFile, File hierarchyFile) throws IOException
+    private void doUpdate(File allCountriesFile, File alternateNamesFile, File hierarchyFile) throws IOException
     {
         final String sql = "INSERT INTO geonames (id, parent_id, name, feature_class, feature_code, country_code, population, elevation_meters, timezone, last_modified, lat, lng, coord) VALUES ("
                         + ":id, :parent_id, :name, :feature_class, :feature_code, :country_code, :population, :elevation_meters, :timezone, :last_modified, :lat, :lng, ST_GeomFromText(:poly))";
 
         final GeonamesImporter geonamesImporter = new GeonamesImporter.Builder()
             .allCountriesFile(allCountriesFile)
+            .alternateNamesFile(alternateNamesFile)
             .onlyHierarchical(false)
             .exclusions(exclusions)
             .hierarchyFile(hierarchyFile)

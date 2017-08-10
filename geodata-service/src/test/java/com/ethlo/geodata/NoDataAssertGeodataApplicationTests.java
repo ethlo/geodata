@@ -138,6 +138,12 @@ public class NoDataAssertGeodataApplicationTests
     }
     
     @Test
+    public void testFindCountryItaly()
+    {
+        geodataService.findByName("italy", new PageRequest(0,  10));
+    }
+    
+    @Test
     public void testListContinents()
     {
         geodataService.findContinents();

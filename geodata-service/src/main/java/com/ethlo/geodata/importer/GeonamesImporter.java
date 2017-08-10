@@ -48,6 +48,8 @@ public class GeonamesImporter implements DataImporter
     private final File allCountriesFile;
 
     private final File hierarchyFile;
+    
+    private final File alternateNamesFile;
 
     @Override
     public void processFile(Consumer<Map<String, String>> sink) throws IOException
@@ -63,6 +65,9 @@ public class GeonamesImporter implements DataImporter
                 inHierarchy.add(Long.parseLong(h.get("parent_id")));
             });
         }
+        
+        // Load alternate names
+        final Map<Long, String> preferredNames = loadPreferredNames("EN");
         
         int count = 0;
         try (final BufferedReader reader = new BufferedReader(new FileReader(allCountriesFile)))
@@ -85,7 +90,10 @@ public class GeonamesImporter implements DataImporter
                     
                     paramMap.put("id", stripToNull(entry[0]));
                     paramMap.put("parent_id", parent != null ? parent.toString() : null);
-                    paramMap.put("name", stripToNull(entry[1]));
+                    
+                    final String preferredName = preferredNames.get(id);
+                    
+                    paramMap.put("name", preferredName != null ? preferredName : stripToNull(entry[1]));
                     paramMap.put("lat", lat);
                     paramMap.put("lng", lng);
                     paramMap.put("poly", "POINT(" + lat + " " + lng + ")");
@@ -117,7 +125,55 @@ public class GeonamesImporter implements DataImporter
         }
     }
 
-    protected boolean isIncluded(String featureCode)
+    private Map<Long, String> loadPreferredNames(String preferredLanguage) throws IOException
+    {
+        final Map<Long, String> preferredNames = new HashMap<>();  
+        try (final BufferedReader alternateReader = new BufferedReader(new FileReader(alternateNamesFile)))
+        {
+        	String line;
+            while ((line = alternateReader.readLine()) != null)
+            {
+                final String[] entry = StringUtils.delimitedListToStringArray(line, "\t");
+
+                if (entry.length == 8)
+                {
+                	final long geonameId = Long.parseLong(stripToNull(entry[1]));
+                	final String languageCode = stripToNull(entry[2]);
+                	final String preferredName = stripToNull(entry[3]);
+                	final boolean isShort = "1".equals(stripToNull(entry[5]));
+                	if (preferredLanguage.equalsIgnoreCase(languageCode) && isShort)
+                	{
+                		preferredNames.put(geonameId, preferredName);
+                	}
+                }
+            }
+        }
+        
+        // Run through again, but use the "preferred" if not "short" name was found in the previous round
+        try (final BufferedReader alternateReader = new BufferedReader(new FileReader(alternateNamesFile)))
+        {
+        	String line;
+            while ((line = alternateReader.readLine()) != null)
+            {
+                final String[] entry = StringUtils.delimitedListToStringArray(line, "\t");
+
+                if (entry.length == 8)
+                {
+                	final long geonameId = Long.parseLong(stripToNull(entry[1]));
+                	final String languageCode = stripToNull(entry[2]);
+                	final String preferredName = stripToNull(entry[3]);
+                	final boolean isPreferred = "1".equals(stripToNull(entry[4]));
+                	if (! preferredNames.containsKey(geonameId) && preferredLanguage.equalsIgnoreCase(languageCode) && isPreferred)
+                	{
+                		preferredNames.put(geonameId, preferredName);
+                	}
+                }
+            }
+        }
+        return preferredNames;
+	}
+
+	protected boolean isIncluded(String featureCode)
     {
         return exclusions == null || !exclusions.contains(featureCode);
     }
@@ -128,6 +184,7 @@ public class GeonamesImporter implements DataImporter
         private boolean onlyHierarchical;
         private File allCountriesFile;
         private File hierarchyFile;
+		public File alternateNamesFile;
 
         public Builder exclusions(Set<String> exclusions)
         {
@@ -144,6 +201,12 @@ public class GeonamesImporter implements DataImporter
         public Builder allCountriesFile(File allCountriesFile)
         {
             this.allCountriesFile = allCountriesFile;
+            return this;
+        }
+        
+        public Builder alternateNamesFile(File alternateNamesFile)
+        {
+            this.alternateNamesFile = alternateNamesFile;
             return this;
         }
 
@@ -165,5 +228,6 @@ public class GeonamesImporter implements DataImporter
         this.onlyHierarchical = builder.onlyHierarchical;
         this.allCountriesFile = builder.allCountriesFile;
         this.hierarchyFile = builder.hierarchyFile;
+        this.alternateNamesFile = builder.alternateNamesFile;
     }
 }
