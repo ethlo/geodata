@@ -26,6 +26,8 @@ public interface GeodataService
 
     byte[] findBoundaries(long id);
     
+	byte[] findPreviewBoundaries(long id);
+    
     byte[] findBoundaries(long id, double maxTolerance);
 
     Page<GeoLocation> findChildren(long locationId, Pageable pageable);
@@ -56,5 +58,5 @@ public interface GeodataService
 
     List<GeoLocation> findByIds(Collection<Long> ids);
     
-    Page<GeoLocation> findByName(String name, Pageable pageable); 
+    Page<GeoLocation> findByName(String name, Pageable pageable);
 }

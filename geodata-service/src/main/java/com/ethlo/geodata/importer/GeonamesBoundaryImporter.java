@@ -77,6 +77,10 @@ public class GeonamesBoundaryImporter implements DataImporter
                             logger.warn("Cannot parse geometry for location {}: {}", fields[0], exc.getMessage());
                         }
                     }
+                    else
+                    {
+                    	logger.warn("Unexpected field count for {}", StringUtils.abbreviate(line, 100));
+                    }
                 }
                 
                 if (count % 1_000 == 0)

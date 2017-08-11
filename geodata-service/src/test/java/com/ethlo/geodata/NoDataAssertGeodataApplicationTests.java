@@ -138,6 +138,15 @@ public class NoDataAssertGeodataApplicationTests
     }
     
     @Test
+    public void findPreviewBoundary()
+    {
+    	final long id = 6255151;
+    	final byte[] boundaries = geodataService.findBoundaries(id);
+    	final byte[] simplifiedBoundaries = geodataService.findPreviewBoundaries(id);
+    	assertThat(boundaries.length).isGreaterThan(simplifiedBoundaries.length);  
+    }
+    
+    @Test
     public void testFindCountryItaly()
     {
         geodataService.findByName("italy", new PageRequest(0,  10));

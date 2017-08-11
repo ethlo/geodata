@@ -65,6 +65,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.io.Files;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
+import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.ParseException;
 import com.vividsolutions.jts.io.WKBReader;
@@ -166,6 +167,12 @@ public class GeodataServiceImpl implements GeodataService
     
     @Value("${geodata.sql.countbyname}")
     private String countByNameSql;
+
+    @Value("${geodata.previewfactor}")
+    private int previewFactor;
+    
+    @Value("${geodata.previewLowerThresholdSize}")
+	private int previewLowerThresholdSize;
     
     @Override
     public GeoLocation findByIp(String ip)
@@ -641,6 +648,44 @@ public class GeodataServiceImpl implements GeodataService
             return location;
         }
         throw new EmptyResultDataAccessException("Cannot find a location for position lat=" + point.getLat() + ", lng=" + point.getLng(), 1);
+    }
+    
+    @Override
+    public byte[] findPreviewBoundaries(long id)
+    {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+    	
+        final byte[] fullWkb = this.findBoundaries(id);
+    	
+    	if (fullWkb == null)
+    	{
+    		return null;
+    	}
+    	
+    	// If too small, do not care to process it
+    	if (fullWkb.length <= previewLowerThresholdSize)
+    	{
+    		return fullWkb;
+    	}
+    	
+        final WKBReader reader = new WKBReader();
+        try
+        {
+	        final Geometry full = reader.read(fullWkb);
+	        
+	        final Envelope envelope = full.getEnvelopeInternal();
+	        final double maxExtent = envelope.maxExtent();
+	        final double factor = previewFactor / maxExtent;
+	        final Geometry simple = TopologyPreservingSimplifier.simplify(full, factor);
+	        
+	        final byte[] res = new WKBWriter().write(simple);
+            logger.debug("WKB length: {}, reduced WKB length: {}, ratio: {}, timing: {}", fullWkb.length, res.length, fullWkb.length / (double)res.length, stopwatch.toString());
+            return res;
+        }
+        catch (ParseException exc)
+        {
+            throw new DataAccessResourceFailureException(exc.getMessage(), exc);
+        }
     }
     
     @Override
