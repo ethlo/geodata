@@ -110,7 +110,7 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForPointInsideArea()
     {
-        final GeoLocation location = geodataService.findWithin(Coordinates.from(10, 62), 1_000);
+        final GeoLocation location = geodataService.findWithin(Coordinates.from(10, 64), 1_000);
         assertThat(location).isNotNull();
     }
 
@@ -155,7 +155,7 @@ public class GeodataApplicationTests
     @Test
     public void testListChildrenOfCountry()
     {
-        final Page<GeoLocation> counties = geodataService.findChildren("No", new PageRequest(0, 10));
+        final Page<GeoLocation> counties = geodataService.findChildren("No", new PageRequest(0, 20));
         assertThat(counties).hasSize(19);
     }
     

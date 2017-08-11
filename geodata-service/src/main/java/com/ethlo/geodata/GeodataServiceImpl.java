@@ -362,7 +362,9 @@ public class GeodataServiceImpl implements GeodataService
             .limit(pageable.getPageSize())
             .map(n->n.getId())
             .collect(Collectors.toList());
-        return new PageImpl<>(findByIds(ids), pageable, total);
+        final List<GeoLocation> locations = findByIds(ids);
+        locations.sort((a, b)->a.getName().compareTo(b.getName()));
+        return new PageImpl<>(locations, pageable, total);
     }
 
     private void loadNodes()
