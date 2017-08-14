@@ -83,7 +83,7 @@ public class GeodataApplicationTests
         cal.set(Calendar.MILLISECOND, 0);
         final Date expected = cal.getTime();
         geoMetaService.setLastModified("foo", expected);
-        assertThat(geoMetaService.getLastModified("foo").getTime()).isEqualTo(expected.getTime());
+        assertThat(geoMetaService.getLastModified("foo")).isEqualTo(expected.getTime());
     }
     
     @Test

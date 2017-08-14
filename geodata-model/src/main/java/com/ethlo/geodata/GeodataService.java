@@ -13,6 +13,7 @@ import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
+import com.ethlo.geodata.model.View;
 
 public interface GeodataService
 {
@@ -26,9 +27,9 @@ public interface GeodataService
 
     byte[] findBoundaries(long id);
     
-	byte[] findPreviewBoundaries(long id);
-    
     byte[] findBoundaries(long id, double maxTolerance);
+    
+    byte[] findBoundaries(long id, View view);
 
     Page<GeoLocation> findChildren(long locationId, Pageable pageable);
 

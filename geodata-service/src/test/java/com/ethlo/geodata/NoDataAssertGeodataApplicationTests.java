@@ -39,6 +39,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ethlo.geodata.model.Coordinates;
+import com.ethlo.geodata.model.View;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -77,7 +78,7 @@ public class NoDataAssertGeodataApplicationTests
         cal.set(Calendar.MILLISECOND, 0);
         final Date expected = cal.getTime();
         geoMetaService.setLastModified("foo", expected);
-        assertThat(geoMetaService.getLastModified("foo").getTime()).isEqualTo(expected.getTime());
+        assertThat(geoMetaService.getLastModified("foo")).isEqualTo(expected.getTime());
     }
     
     @Test
@@ -142,8 +143,8 @@ public class NoDataAssertGeodataApplicationTests
     {
     	final long id = 6255151;
     	final byte[] boundaries = geodataService.findBoundaries(id);
-    	final byte[] simplifiedBoundaries = geodataService.findPreviewBoundaries(id);
-    	assertThat(boundaries.length).isGreaterThan(simplifiedBoundaries.length);  
+    	final byte[] simplifiedBoundaries = geodataService.findBoundaries(id, new View(5, 10, 55, 75, 1920, 1080));
+    	assertThat(boundaries.length).isGreaterThan(simplifiedBoundaries.length);
     }
     
     @Test

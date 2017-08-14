@@ -23,12 +23,14 @@ package com.ethlo.geodata;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
 import java.util.TreeMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -60,16 +62,25 @@ public class GeoMetaService
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
     
-    public Date getLastModified(String alias) throws IOException
+    private long maxDataAgeMillis;
+    
+    @Value("${geodata.max-data-age}")
+    public void setMaxDataAge(String age)
+    {
+    	final Duration d = Duration.parse("P" + age);
+    	maxDataAgeMillis = d.toMillis();
+    }
+    
+    public long getLastModified(String alias) throws IOException
     {
         final String sql = "SELECT last_modified from metadata where alias = :alias";
         return jdbcTemplate.query(sql, Collections.singletonMap("alias", alias), rs->
         {
             if (rs.next())
             {
-                return rs.getTimestamp("last_modified");
+                return rs.getTimestamp("last_modified").getTime();
             }
-            return new Date(0);
+            return 0L;
         });
     }
     
@@ -85,7 +96,7 @@ public class GeoMetaService
     public void update() throws IOException
     {
         final Date countryTimestamp = countryImporter.lastRemoteModified();
-        if (countryTimestamp.after(getLastModified("geonames_country")))
+        if (countryTimestamp.getTime() > getLastModified("geonames_country") + maxDataAgeMillis)
         {
             countryImporter.purge();
             countryImporter.importData();
@@ -93,7 +104,7 @@ public class GeoMetaService
         }
         
         final Date geonamesHierarchyTimestamp = hierarchyImporter.lastRemoteModified();
-        if (geonamesHierarchyTimestamp.after(getLastModified("geonames_hierarchy")))
+        if (geonamesHierarchyTimestamp.getTime() > getLastModified("geonames_hierarchy") + maxDataAgeMillis)
         {
             hierarchyImporter.purge();
             hierarchyImporter.importData();
@@ -101,7 +112,7 @@ public class GeoMetaService
         }
         
         final Date geonamesTimestamp = geonamesImporter.lastRemoteModified();
-        if (geonamesTimestamp.after(getLastModified("geonames")))
+        if (geonamesTimestamp.getTime() > getLastModified("geonames") + maxDataAgeMillis)
         {
             geonamesImporter.purge();
             geonamesImporter.importData();
@@ -109,7 +120,7 @@ public class GeoMetaService
         }
         
         final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
-        if (boundariesTimestamp.after(getLastModified("geoboundaries")))
+        if (boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)
         {
             boundaryImporter.purge();
             boundaryImporter.importData();
@@ -117,7 +128,7 @@ public class GeoMetaService
         }
         
         final Date ipTimestamp = ipLookupImporter.lastRemoteModified();
-        if (ipTimestamp.after(getLastModified("geoip")))
+        if (ipTimestamp.getTime() > getLastModified("geoip") + maxDataAgeMillis)
         {
             ipLookupImporter.purge();
             ipLookupImporter.importData();

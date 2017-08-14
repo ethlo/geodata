@@ -39,6 +39,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import javax.validation.Valid;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,16 +63,16 @@ import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.CountrySummary;
 import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
+import com.ethlo.geodata.model.View;
+import com.ethlo.geodata.util.GeometryUtil;
 import com.google.common.base.Stopwatch;
 import com.google.common.io.Files;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
-import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.ParseException;
 import com.vividsolutions.jts.io.WKBReader;
 import com.vividsolutions.jts.io.WKBWriter;
-import com.vividsolutions.jts.simplify.TopologyPreservingSimplifier;
 
 @Service
 @PropertySource("queries.sql.properties")
@@ -83,8 +85,8 @@ public class GeodataServiceImpl implements GeodataService
     
     private static final Map<String, Long> CONTINENT_IDS = new LinkedHashMap<>();
 
-    public static final double RAD_TO_KM_RATIO = 111.195D;;
-
+    public static final double RAD_TO_KM_RATIO = 111.195D;
+    
     private final RowMapper<Country> COUNTRY_INFO_MAPPER = new RowMapper<Country>()
     {
         @Override
@@ -651,10 +653,8 @@ public class GeodataServiceImpl implements GeodataService
     }
     
     @Override
-    public byte[] findPreviewBoundaries(long id)
+    public byte[] findBoundaries(long id, @Valid View view)
     {
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-    	
         final byte[] fullWkb = this.findBoundaries(id);
     	
     	if (fullWkb == null)
@@ -662,54 +662,45 @@ public class GeodataServiceImpl implements GeodataService
     		return null;
     	}
     	
-    	// If too small, do not care to process it
-    	if (fullWkb.length <= previewLowerThresholdSize)
-    	{
-    		return fullWkb;
-    	}
-    	
         final WKBReader reader = new WKBReader();
         try
         {
+	    	final Stopwatch stopwatch = Stopwatch.createStarted();
 	        final Geometry full = reader.read(fullWkb);
-	        
-	        final Envelope envelope = full.getEnvelopeInternal();
-	        final double maxExtent = envelope.maxExtent();
-	        final double factor = previewFactor / maxExtent;
-	        final Geometry simple = TopologyPreservingSimplifier.simplify(full, factor);
-	        
-	        final byte[] res = new WKBWriter().write(simple);
-            logger.debug("WKB length: {}, reduced WKB length: {}, ratio: {}, timing: {}", fullWkb.length, res.length, fullWkb.length / (double)res.length, stopwatch.toString());
-            return res;
+	        final Geometry simplified = GeometryUtil.simplify(full, view);
+	        logger.debug("Original points: {}, remaining points: {}, ratio: {}, elapsed: {}", full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double)simplified.getNumPoints(), stopwatch);
+	        return new WKBWriter().write(simplified);
         }
         catch (ParseException exc)
         {
             throw new DataAccessResourceFailureException(exc.getMessage(), exc);
         }
     }
-    
-    @Override
+
+	@Override
     public byte[] findBoundaries(long id, double maxTolerance)
     {
-        final byte[] fullWkb = findBoundaries(id);
-        if (fullWkb != null)
+        final byte[] fullWkb = this.findBoundaries(id);
+    	
+    	if (fullWkb == null)
+    	{
+    		return null;
+    	}
+    	
+        final WKBReader reader = new WKBReader();
+        try
         {
-            try
-            {
-                final Stopwatch stopwatch = Stopwatch.createStarted();
-                final WKBReader reader = new WKBReader();
-                final Geometry full = reader.read(fullWkb);
-                final Geometry simple = TopologyPreservingSimplifier.simplify(full, maxTolerance / RAD_TO_KM_RATIO);
-                final byte[] res = new WKBWriter().write(simple);
-                logger.debug("WKB length: {}, reduced WKB length: {}, ratio: {}, timing: {}", fullWkb.length, res.length, fullWkb.length / (double)res.length, stopwatch.toString());
-                return res;
-            }
-            catch (ParseException exc)
-            {
-                throw new DataAccessResourceFailureException(exc.getMessage(), exc);
-            }
+	    	final Stopwatch stopwatch = Stopwatch.createStarted();
+	        final Geometry full = reader.read(fullWkb);
+	        final Geometry simplified = GeometryUtil.simplify(full, maxTolerance);
+	        final double ratio = full.getNumPoints() / (double)simplified.getNumPoints();
+	        logger.info("Original points: {}, remaining points: {}, tolerance: {}, ratio: {}, timing: {}", full.getNumPoints(), simplified.getNumPoints(), ratio, stopwatch.toString());
+	        return new WKBWriter().write(simplified);
         }
-        return null;
+        catch (ParseException exc)
+        {
+            throw new DataAccessResourceFailureException(exc.getMessage(), exc);
+        }
     }
 
     @Override

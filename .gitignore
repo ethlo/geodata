@@ -3,4 +3,5 @@
 .classpath
 .settings
 .DS_Store
+*.versionsBackup
 /bin
