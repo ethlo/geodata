@@ -1,5 +1,25 @@
 package com.ethlo.geodata.util;
 
+/*-
+ * #%L
+ * Geodata service
+ * %%
+ * Copyright (C) 2017 Morten Haraldsen (ethlo)
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
+
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -33,13 +53,10 @@ public class GeometryUtil
 	public static int getBoundsZoomLevel(View view)
 	{
 	    final double latFraction = (latRad(view.getMaxLat()) - latRad(view.getMinLat())) / Math.PI;
-
 	    final double lngDiff = view.getMaxLng() - view.getMinLng();
 	    final double lngFraction = ((lngDiff < 0) ? (lngDiff + 360) : lngDiff) / 360;
-
 	    final double latZoom = zoom(view.getHeight(), TILE_RESOLUTION, latFraction);
 	    final double lngZoom = zoom(view.getWidth(), TILE_RESOLUTION, lngFraction);
-
 	    return (int) Math.min(latZoom, lngZoom);
 	}
 

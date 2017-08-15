@@ -169,13 +169,7 @@ public class GeodataServiceImpl implements GeodataService
     
     @Value("${geodata.sql.countbyname}")
     private String countByNameSql;
-
-    @Value("${geodata.previewfactor}")
-    private int previewFactor;
-    
-    @Value("${geodata.previewLowerThresholdSize}")
-	private int previewLowerThresholdSize;
-    
+        
     @Override
     public GeoLocation findByIp(String ip)
     {

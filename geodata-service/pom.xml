@@ -9,13 +9,13 @@
 	<parent>
 		<groupId>com.ethlo.geodata</groupId>
 		<artifactId>geodata</artifactId>
-		<version>0.2</version>
+		<version>0.2.1</version>
 	</parent>
 	<dependencies>
 		<dependency>
 			<groupId>com.ethlo.geodata</groupId>
 			<artifactId>geodata-model</artifactId>
-			<version>0.2</version>
+			<version>0.2.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
