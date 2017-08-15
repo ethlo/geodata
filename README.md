@@ -1,6 +1,60 @@
 Geodata
 =========================
-[![Hex.pm](https://img.shields.io/hexpm/l/plug.svg)](LICENSE)
+[![Maven central](https://maven-badges.herokuapp.com/maven-central/com.ethlo.geodata/geodata/badge.svg)](http://repo1.maven.org/maven2/com/ethlo/geodata/)
+[![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 [![Build Status](https://travis-ci.org/ethlo/geodata.svg?branch=master)](https://travis-ci.org/ethlo/geodata)
 
-Simple service built on top of free sources of geo data, like Geonames and Geo-Lite2 using Open-Source sofware using an embedded database (H2GIS) for super-simple deployment.
+Simple library that imports and manages Geonames and Geo-Lite2 data using Open-Source software. Currently requiring MySQL 5.7+/MariaDB 10.1+. Support for download and import of data.
+
+### License note
+I would very much like to release this under an even less restrictive license, but since the project relies on JTS, I unfortunately cannot use Apache2 licensing.
+
+### Method overview
+```
+public interface GeodataService
+{
+    GeoLocation findByIp(String ip);
+
+    GeoLocation findById(long geoNameId);
+
+    GeoLocation findWithin(@Valid Coordinates point, int maxDistanceInKilometers);
+
+    public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable);
+
+    byte[] findBoundaries(long id);
+    
+    byte[] findBoundaries(long id, double maxTolerance);
+    
+    byte[] findBoundaries(long id, View view);
+
+    Page<GeoLocation> findChildren(long locationId, Pageable pageable);
+
+    Page<Continent> findContinents();
+
+    Page<Country> findCountriesOnContinent(String continentCode, Pageable pageable);
+    
+    Page<Country> findCountries(Pageable pageable);
+
+    Country findCountryByCode(String countryCode);
+
+    Page<GeoLocation> findChildren(String countryCode, Pageable pageable);
+
+    Country findByPhonenumber(String phoneNumber);
+
+    GeoLocation findParent(long id);
+    
+    GeoLocation findbyCoordinate(Coordinates point, int distance); 
+
+    boolean isInsideAny(List<Long> locations, long location);
+
+    boolean isOutsideAll(List<Long> locations, long location);
+
+    boolean isLocationInside(long locationId, long suspectedParentId);
+
+    Continent findContinent(String continentCode);
+
+    List<GeoLocation> findByIds(Collection<Long> ids);
+    
+    Page<GeoLocation> findByName(String name, Pageable pageable);
+}
+```
