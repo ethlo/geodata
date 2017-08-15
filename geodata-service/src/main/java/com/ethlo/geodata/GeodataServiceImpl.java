@@ -6,17 +6,19 @@ package com.ethlo.geodata;
  * %%
  * Copyright (C) 2017 Morten Haraldsen (ethlo)
  * %%
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Lesser Public License for more details.
  * 
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU General Lesser Public
+ * License along with this program.  If not, see
+ * <http://www.gnu.org/licenses/lgpl-3.0.html>.
  * #L%
  */
 
@@ -69,6 +71,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.io.Files;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
+import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.ParseException;
 import com.vividsolutions.jts.io.WKBReader;
@@ -169,6 +172,9 @@ public class GeodataServiceImpl implements GeodataService
     
     @Value("${geodata.sql.countbyname}")
     private String countByNameSql;
+
+    @Value("${geodata.boundaries.quality}")
+    private int qualityConstant;
         
     @Override
     public GeoLocation findByIp(String ip)
@@ -661,8 +667,13 @@ public class GeodataServiceImpl implements GeodataService
         {
 	    	final Stopwatch stopwatch = Stopwatch.createStarted();
 	        final Geometry full = reader.read(fullWkb);
-	        final Geometry simplified = GeometryUtil.simplify(full, view);
-	        logger.debug("Original points: {}, remaining points: {}, ratio: {}, elapsed: {}", full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double)simplified.getNumPoints(), stopwatch);
+	        Geometry simplified = GeometryUtil.simplify(full, view, qualityConstant);
+	        final Geometry clipped = GeometryUtil.clip(new Envelope(view.getMinLng(),  view.getMaxLng(), view.getMinLat(), view.getMaxLat()), simplified);
+	        if (clipped != null)
+	        {
+	        	simplified = clipped;
+	        }
+	        logger.debug("locationId: {}, original points: {}, remaining points: {}, ratio: {}, elapsed: {}", id, full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double)simplified.getNumPoints(), stopwatch);
 	        return new WKBWriter().write(simplified);
         }
         catch (ParseException exc)
@@ -687,8 +698,7 @@ public class GeodataServiceImpl implements GeodataService
 	    	final Stopwatch stopwatch = Stopwatch.createStarted();
 	        final Geometry full = reader.read(fullWkb);
 	        final Geometry simplified = GeometryUtil.simplify(full, maxTolerance);
-	        final double ratio = full.getNumPoints() / (double)simplified.getNumPoints();
-	        logger.info("Original points: {}, remaining points: {}, tolerance: {}, ratio: {}, timing: {}", full.getNumPoints(), simplified.getNumPoints(), ratio, stopwatch.toString());
+	        logger.debug("locationId: {}, original points: {}, remaining points: {}, ratio: {}, elapsed: {}", id, full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double)simplified.getNumPoints(), stopwatch);
 	        return new WKBWriter().write(simplified);
         }
         catch (ParseException exc)

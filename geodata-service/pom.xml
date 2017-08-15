@@ -32,6 +32,21 @@
 			<version>1.14.0</version>
 		</dependency>
 		<dependency>
+			<groupId>org.geotools</groupId>
+			<artifactId>gt-geometry</artifactId>
+			<version>17.2</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.geotools</groupId>
+					<artifactId>gt-api</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>javax.media</groupId>
+					<artifactId>jai_core</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
 			<groupId>com.goebl</groupId>
 			<artifactId>simplify</artifactId>
 			<version>1.0.0</version>

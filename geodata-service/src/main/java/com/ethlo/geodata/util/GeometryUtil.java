@@ -6,17 +6,19 @@ package com.ethlo.geodata.util;
  * %%
  * Copyright (C) 2017 Morten Haraldsen (ethlo)
  * %%
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Lesser Public License for more details.
  * 
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU General Lesser Public
+ * License along with this program.  If not, see
+ * <http://www.gnu.org/licenses/lgpl-3.0.html>.
  * #L%
  */
 
@@ -24,9 +26,12 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.geotools.geometry.jts.GeometryClipper;
+
 import com.ethlo.geodata.model.View;
 import com.goebl.simplify.Simplify;
 import com.vividsolutions.jts.geom.Coordinate;
+import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.MultiPolygon;
@@ -60,12 +65,12 @@ public class GeometryUtil
 	    return (int) Math.min(latZoom, lngZoom);
 	}
 
-	public static Geometry simplify(Geometry full, View view)
+	public static Geometry simplify(Geometry full, View view, int qualityConstant)
 	{
         final double lat = full.getCentroid().getCoordinate().y;
         final int zoomLevel = getBoundsZoomLevel(view);
         final double meterPerPixel = 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoomLevel);
-        final double tolerance = (meterPerPixel / 100_000);
+        final double tolerance = (meterPerPixel / qualityConstant);
         return simplify(full, tolerance);
 	}
 	
@@ -111,5 +116,11 @@ public class GeometryUtil
         {
         	return geometryFactory.createPolygon(result);
         }
+	}
+	
+	public static Geometry clip(Envelope envelope, Geometry geometry)
+	{
+		final GeometryClipper clipper = new GeometryClipper(new Envelope(envelope.getMinX(), envelope.getMaxX(), envelope.getMinY(), envelope.getMaxY()));
+		return clipper.clipSafe(geometry, true, 0);
 	}
 }

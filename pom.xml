@@ -140,7 +140,7 @@
 						</goals>
 						<phase>process-sources</phase>
 						<configuration>
-							<licenseName>apache_v2</licenseName>
+							<licenseName>lgpl_v3</licenseName>
 							<inceptionYear>2017</inceptionYear>
 							<organizationName>Morten Haraldsen (ethlo)</organizationName>
 							<addSvnKeyWords>false</addSvnKeyWords>
@@ -171,4 +171,10 @@
 			</extension>
 		</extensions>
 	</build>
+	<repositories>
+		<repository>
+			<id>boundless</id>
+			<url>http://repo.boundlessgeo.com/main/</url>
+		</repository>
+	</repositories>
 </project>
