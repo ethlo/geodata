@@ -27,6 +27,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.geotools.geometry.jts.GeometryClipper;
+import org.springframework.util.Assert;
 
 import com.ethlo.geodata.model.View;
 import com.goebl.simplify.Simplify;
@@ -35,6 +36,7 @@ import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.MultiPolygon;
+import com.vividsolutions.jts.geom.Point;
 import com.vividsolutions.jts.geom.Polygon;
 
 public class GeometryUtil
@@ -95,9 +97,16 @@ public class GeometryUtil
         	return simplifyPolygon((Polygon)full, tolerance);
         }
 	}
+    
+    public static Point createPoint(double lat, double lon)
+    {
+    	return geometryFactory.createPoint(new Coordinate(lat, lon));
+    }
 
 	private static Geometry simplifyPolygon(Polygon polygon, double tolerance)
     {
+		Assert.notNull(polygon, "polygon cannot be null");
+		
 		tolerance = JtsPointExtractor.MULIPLICATOR * tolerance;
         final Simplify<Coordinate> simplify = new Simplify<Coordinate>(new Coordinate[0], new JtsPointExtractor());
         final Coordinate[] result = simplify.simplify(polygon.getExteriorRing().getCoordinates(), tolerance, false);

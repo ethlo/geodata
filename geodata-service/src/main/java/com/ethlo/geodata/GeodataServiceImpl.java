@@ -73,6 +73,7 @@ import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
+import com.vividsolutions.jts.geom.Point;
 import com.vividsolutions.jts.io.ParseException;
 import com.vividsolutions.jts.io.WKBReader;
 import com.vividsolutions.jts.io.WKBWriter;
@@ -670,7 +671,7 @@ public class GeodataServiceImpl implements GeodataService
 	        Geometry simplified = GeometryUtil.simplify(full, view, qualityConstant);
 	        if (simplified == null)
 	        {
-	        	return null;
+	        	return createPointGeometry(id);
 	        }
 	        
 	        final Geometry clipped = GeometryUtil.clip(new Envelope(view.getMinLng(), view.getMaxLng(), view.getMinLat(), view.getMaxLat()), simplified);
@@ -687,6 +688,18 @@ public class GeodataServiceImpl implements GeodataService
             throw new DataAccessResourceFailureException(exc.getMessage(), exc);
         }
     }
+
+	private byte[] createPointGeometry(long id)
+	{
+		final GeoLocation location = findById(id);
+        if (location == null)
+        {
+            throw new EmptyResultDataAccessException("No such location found " + location, 1);
+        }
+        
+		final Point point = GeometryUtil.createPoint(location.getCoordinates().getLat(), location.getCoordinates().getLng());
+		return new WKBWriter().write(point);
+	}
 
 	@Override
     public byte[] findBoundaries(long id, double maxTolerance)
@@ -706,7 +719,7 @@ public class GeodataServiceImpl implements GeodataService
 	        final Geometry simplified = GeometryUtil.simplify(full, maxTolerance);
 	        if (simplified == null)
 	        {
-	        	return null;
+	        	return createPointGeometry(id);
 	        }
 	        logger.debug("locationId: {}, original points: {}, remaining points: {}, ratio: {}, elapsed: {}", id, full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double)simplified.getNumPoints(), stopwatch);
 	        return new WKBWriter().write(simplified);
