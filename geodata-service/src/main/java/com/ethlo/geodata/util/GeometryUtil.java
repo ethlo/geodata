@@ -34,9 +34,9 @@ import com.goebl.simplify.Simplify;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
+import com.vividsolutions.jts.geom.GeometryCollection;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.MultiPolygon;
-import com.vividsolutions.jts.geom.Point;
 import com.vividsolutions.jts.geom.Polygon;
 
 public class GeometryUtil
@@ -98,9 +98,9 @@ public class GeometryUtil
         }
 	}
     
-    public static Point createPoint(double lat, double lon)
+    public static GeometryCollection createEmptyGeomtryCollection()
     {
-    	return geometryFactory.createPoint(new Coordinate(lat, lon));
+    	return geometryFactory.createGeometryCollection(null);
     }
 
 	private static Geometry simplifyPolygon(Polygon polygon, double tolerance)

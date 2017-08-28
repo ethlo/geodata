@@ -671,7 +671,7 @@ public class GeodataServiceImpl implements GeodataService
 	        Geometry simplified = GeometryUtil.simplify(full, view, qualityConstant);
 	        if (simplified == null)
 	        {
-	        	return createPointGeometry(id);
+	        	return createEmptyGeometry();
 	        }
 	        
 	        final Geometry clipped = GeometryUtil.clip(new Envelope(view.getMinLng(), view.getMaxLng(), view.getMinLat(), view.getMaxLat()), simplified);
@@ -689,16 +689,9 @@ public class GeodataServiceImpl implements GeodataService
         }
     }
 
-	private byte[] createPointGeometry(long id)
+	private byte[] createEmptyGeometry()
 	{
-		final GeoLocation location = findById(id);
-        if (location == null)
-        {
-            throw new EmptyResultDataAccessException("No such location found " + location, 1);
-        }
-        
-		final Point point = GeometryUtil.createPoint(location.getCoordinates().getLat(), location.getCoordinates().getLng());
-		return new WKBWriter().write(point);
+		return new WKBWriter().write(GeometryUtil.createEmptyGeomtryCollection());
 	}
 
 	@Override
@@ -719,7 +712,7 @@ public class GeodataServiceImpl implements GeodataService
 	        final Geometry simplified = GeometryUtil.simplify(full, maxTolerance);
 	        if (simplified == null)
 	        {
-	        	return createPointGeometry(id);
+	        	return createEmptyGeometry();
 	        }
 	        logger.debug("locationId: {}, original points: {}, remaining points: {}, ratio: {}, elapsed: {}", id, full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double)simplified.getNumPoints(), stopwatch);
 	        return new WKBWriter().write(simplified);
