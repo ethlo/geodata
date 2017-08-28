@@ -668,11 +668,17 @@ public class GeodataServiceImpl implements GeodataService
 	    	final Stopwatch stopwatch = Stopwatch.createStarted();
 	        final Geometry full = reader.read(fullWkb);
 	        Geometry simplified = GeometryUtil.simplify(full, view, qualityConstant);
-	        final Geometry clipped = GeometryUtil.clip(new Envelope(view.getMinLng(),  view.getMaxLng(), view.getMinLat(), view.getMaxLat()), simplified);
+	        if (simplified == null)
+	        {
+	        	return null;
+	        }
+	        
+	        final Geometry clipped = GeometryUtil.clip(new Envelope(view.getMinLng(), view.getMaxLng(), view.getMinLat(), view.getMaxLat()), simplified);
 	        if (clipped != null)
 	        {
 	        	simplified = clipped;
 	        }
+	        
 	        logger.debug("locationId: {}, original points: {}, remaining points: {}, ratio: {}, elapsed: {}", id, full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double)simplified.getNumPoints(), stopwatch);
 	        return new WKBWriter().write(simplified);
         }
@@ -698,6 +704,10 @@ public class GeodataServiceImpl implements GeodataService
 	    	final Stopwatch stopwatch = Stopwatch.createStarted();
 	        final Geometry full = reader.read(fullWkb);
 	        final Geometry simplified = GeometryUtil.simplify(full, maxTolerance);
+	        if (simplified == null)
+	        {
+	        	return null;
+	        }
 	        logger.debug("locationId: {}, original points: {}, remaining points: {}, ratio: {}, elapsed: {}", id, full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double)simplified.getNumPoints(), stopwatch);
 	        return new WKBWriter().write(simplified);
         }
