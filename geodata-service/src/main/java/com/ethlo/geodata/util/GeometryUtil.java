@@ -34,7 +34,6 @@ import com.goebl.simplify.Simplify;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.geom.GeometryCollection;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.MultiPolygon;
 import com.vividsolutions.jts.geom.Polygon;
@@ -43,7 +42,9 @@ public class GeometryUtil
 {
     private final static GeometryFactory geometryFactory = new GeometryFactory();
 
-    private final static int TILE_RESOLUTION = 256; 
+    private final static int TILE_RESOLUTION = 256;
+
+	public static final Geometry EMPTY_GEOMETRY = geometryFactory.createGeometryCollection(null); 
     
 	private static double latRad(double lat)
 	{
@@ -85,7 +86,7 @@ public class GeometryUtil
     		for (int i = 0; i < p.getNumGeometries(); i++)
     		{
     			final Geometry simpleP = simplifyPolygon((Polygon)p.getGeometryN(i), tolerance);
-    			if (simpleP != null)
+    			if (simpleP != EMPTY_GEOMETRY)
     			{
     				res.add(simpleP);
     			}
@@ -98,11 +99,6 @@ public class GeometryUtil
         }
 	}
     
-    public static GeometryCollection createEmptyGeomtryCollection()
-    {
-    	return geometryFactory.createGeometryCollection(null);
-    }
-
 	private static Geometry simplifyPolygon(Polygon polygon, double tolerance)
     {
 		Assert.notNull(polygon, "polygon cannot be null");
@@ -112,7 +108,7 @@ public class GeometryUtil
         final Coordinate[] result = simplify.simplify(polygon.getExteriorRing().getCoordinates(), tolerance, false);
         if (result.length < 4)
         {
-        	return null;
+        	return EMPTY_GEOMETRY;
         }
         
         if (! result[0].equals2D(result[result.length - 1]))
