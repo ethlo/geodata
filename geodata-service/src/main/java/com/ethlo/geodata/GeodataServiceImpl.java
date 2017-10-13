@@ -71,9 +71,9 @@ import com.ethlo.geodata.model.GeoLocationDistance;
 import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.util.GeometryUtil;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableRangeMap;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
+import com.google.common.collect.TreeRangeMap;
 import com.google.common.io.Files;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
@@ -91,7 +91,7 @@ public class GeodataServiceImpl implements GeodataService
     
     private RangeMap<Long, Long> ipRanges;
     
-    private final Map<Long, GeoLocation> locations = new HashMap<>();
+    private Map<Long, GeoLocation> locations;
     
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
@@ -187,10 +187,20 @@ public class GeodataServiceImpl implements GeodataService
     private int qualityConstant;
      
     @PostConstruct
+    public void load() throws IOException
+    {
+        loadCountries();
+        loadLocations();
+        loadIps();
+        loadHierarchy();
+    }
     public void loadLocations()
     {
-        logger.info("Loading locations into cache");
-        jdbcTemplate.query("SELECT * FROM geonames", new RowCallbackHandler()
+        final int locationCount = jdbcTemplate.queryForObject("SELECT COUNT(id) FROM geonames", Collections.emptyMap(), Integer.class);
+        logger.info("Loading {} locations into cache", locationCount);
+        locations = new HashMap<>(locationCount);
+        
+        jdbcTemplate.getJdbcOperations().query(new StreamingStatementCreator("SELECT * FROM geonames"), new RowCallbackHandler()
         {
             @Override
             public void processRow(ResultSet rs) throws SQLException
@@ -202,13 +212,12 @@ public class GeodataServiceImpl implements GeodataService
         logger.info("Loaded {} locations into cache", locations.size());
     }
     
-    @PostConstruct
     public void loadIps()
     {
-        logger.info("Loading IPs into cache");
+        logger.info("Loading IP ranges into cache");
         final AtomicInteger rangeCount = new AtomicInteger();
-        final ImmutableRangeMap.Builder<Long, Long> b = ImmutableRangeMap.builder();
-        jdbcTemplate.query("SELECT * FROM geoip", new RowCallbackHandler()
+        ipRanges = TreeRangeMap.create();
+        jdbcTemplate.getJdbcOperations().query(new StreamingStatementCreator("SELECT * FROM geoip"), new RowCallbackHandler()
         {
             @Override
             public void processRow(ResultSet rs) throws SQLException
@@ -216,13 +225,11 @@ public class GeodataServiceImpl implements GeodataService
                 final long id = rs.getLong("geoname_id");
                 final long first = rs.getLong("first");
                 final long last = rs.getLong("last");
-                b.put(Range.closed(first,  last), id);
+                ipRanges.put(Range.closed(first,  last), id);
                 rangeCount.incrementAndGet();
             }
         });
-        ipRanges = b.build();
-        
-        logger.info("Loaded {} IPs into cache", rangeCount.intValue());
+        logger.info("Loaded {} IP ranges into cache", rangeCount.intValue());
     }
     
     @Override

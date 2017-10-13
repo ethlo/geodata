@@ -1,6 +1,7 @@
 package com.ethlo.geodata.model;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 /*-
  * #%L
@@ -130,5 +131,29 @@ public class GeoLocation implements Serializable
     {
         this.population = population;
         return this;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return id == null ? 0 : Long.hashCode(id);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj)
+        {
+            return true;
+        }
+        if (obj == null)
+        {
+            return false;
+        }
+        if (obj instanceof GeoLocation)
+        {
+            return Objects.equals(id, ((GeoLocation) obj).id);
+        }
+        return false;
     }
 }
