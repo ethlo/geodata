@@ -39,8 +39,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import javax.annotation.PostConstruct;
 import javax.validation.Valid;
 
 import org.slf4j.Logger;
@@ -54,6 +56,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -68,12 +71,14 @@ import com.ethlo.geodata.model.GeoLocationDistance;
 import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.util.GeometryUtil;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableRangeMap;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeMap;
 import com.google.common.io.Files;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.geom.Point;
 import com.vividsolutions.jts.io.ParseException;
 import com.vividsolutions.jts.io.WKBReader;
 import com.vividsolutions.jts.io.WKBWriter;
@@ -84,13 +89,17 @@ public class GeodataServiceImpl implements GeodataService
 {
     private final Logger logger = LoggerFactory.getLogger(GeodataServiceImpl.class);
     
+    private RangeMap<Long, Long> ipRanges;
+    
+    private final Map<Long, GeoLocation> locations = new HashMap<>();
+    
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
     
     private static final Map<String, Long> CONTINENT_IDS = new LinkedHashMap<>();
 
     public static final double RAD_TO_KM_RATIO = 111.195D;
-    
+
     private final RowMapper<Country> COUNTRY_INFO_MAPPER = new RowMapper<Country>()
     {
         @Override
@@ -176,7 +185,46 @@ public class GeodataServiceImpl implements GeodataService
 
     @Value("${geodata.boundaries.quality}")
     private int qualityConstant;
+     
+    @PostConstruct
+    public void loadLocations()
+    {
+        logger.info("Loading locations into cache");
+        jdbcTemplate.query("SELECT * FROM geonames", new RowCallbackHandler()
+        {
+            @Override
+            public void processRow(ResultSet rs) throws SQLException
+            {
+                final GeoLocation location = GEONAMES_ROW_MAPPER.mapRow(rs, 0);
+                locations.put(location.getId(), location);
+            }
+        });
+        logger.info("Loaded {} locations into cache", locations.size());
+    }
+    
+    @PostConstruct
+    public void loadIps()
+    {
+        logger.info("Loading IPs into cache");
+        final AtomicInteger rangeCount = new AtomicInteger();
+        final ImmutableRangeMap.Builder<Long, Long> b = ImmutableRangeMap.builder();
+        jdbcTemplate.query("SELECT * FROM geoip", new RowCallbackHandler()
+        {
+            @Override
+            public void processRow(ResultSet rs) throws SQLException
+            {
+                final long id = rs.getLong("geoname_id");
+                final long first = rs.getLong("first");
+                final long last = rs.getLong("last");
+                b.put(Range.closed(first,  last), id);
+                rangeCount.incrementAndGet();
+            }
+        });
+        ipRanges = b.build();
         
+        logger.info("Loaded {} IPs into cache", rangeCount.intValue());
+    }
+    
     @Override
     public GeoLocation findByIp(String ip)
     {
@@ -198,30 +246,14 @@ public class GeodataServiceImpl implements GeodataService
             throw new InvalidIpException(ip, exc.getMessage(), exc);
         }
         
-        return jdbcTemplate.query(ipLookupSql, Collections.singletonMap("ip", ipLong), rs -> 
-        {
-            if (rs.next())
-            {
-                final Long geoNameId = rs.getLong("geoname_id") != 0 ? rs.getLong("geoname_id") : rs.getLong("geoname_country_id");
-                return findById(geoNameId);
-            }
-            return null;
-        });
+        final Long id = ipRanges.get(ipLong);
+        return id != null ? findById(id) : null;
     }
-
+    
     @Override
     public GeoLocation findById(long geoNameId)
     {
-        return jdbcTemplate.query(geoNamesByIdSql, Collections.singletonMap("id", geoNameId), rs ->
-        {
-            if (rs.next())
-            {
-                final GeoLocation location = new GeoLocation();
-                mapLocation(location, rs);
-                return location;
-            }
-            return null;
-        });
+        return locations.get(geoNameId);
     }
 
     private <T extends GeoLocation> void mapLocation(T t, ResultSet rs) throws SQLException
