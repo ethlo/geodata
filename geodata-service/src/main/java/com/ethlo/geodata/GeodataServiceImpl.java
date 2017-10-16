@@ -32,6 +32,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -74,7 +75,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
-import com.google.common.io.Files;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
 import com.vividsolutions.jts.geom.Envelope;
@@ -93,6 +93,8 @@ public class GeodataServiceImpl implements GeodataService
     
     private Map<Long, GeoLocation> locations;
     
+    private RtreeRepository rTree;
+    
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
     
@@ -100,7 +102,7 @@ public class GeodataServiceImpl implements GeodataService
 
     public static final double RAD_TO_KM_RATIO = 111.195D;
 
-    private final RowMapper<Country> COUNTRY_INFO_MAPPER = new RowMapper<Country>()
+    private final RowMapper<Country> countryInfoMapper = new RowMapper<Country>()
     {
         @Override
         public Country mapRow(ResultSet rs, int rowNum) throws SQLException
@@ -113,7 +115,7 @@ public class GeodataServiceImpl implements GeodataService
         }            
     };
     
-    private final RowMapper<GeoLocation> GEONAMES_ROW_MAPPER = new RowMapper<GeoLocation>()
+    private final RowMapper<GeoLocation> geonamesRowMapper = new RowMapper<GeoLocation>()
     {
         @Override
         public GeoLocation mapRow(ResultSet rs, int rowNum) throws SQLException
@@ -189,11 +191,36 @@ public class GeodataServiceImpl implements GeodataService
     @PostConstruct
     public void load() throws IOException
     {
+        loadMbr();
         loadCountries();
         loadLocations();
         loadIps();
         loadHierarchy();
     }
+    
+    private void loadMbr() throws IOException
+    {
+        logger.info("Loading MBR boundaries", locationCount);
+        rTree = new RtreeRepository();
+        
+        final Iterator<Map.Entry<Long, byte[]>> iter = rTree.getReader().iterator();
+        final WKBReader r = new WKBReader();
+        while (iter.hasNext())
+        {
+            final Entry<Long, byte[]> e = iter.next();
+            try
+            {
+                final Geometry g = r.read(e.getValue());
+                rTree = rTree.add(new RTreePayload(e.getKey(), g.getArea(), g.getEnvelopeInternal()));
+            }
+            catch (ParseException exc)
+            {
+                throw new DataAccessResourceFailureException(exc.getMessage(), exc);
+            }
+        }
+        logger.info("Loaded {} MBR boundaries", rTree.size());
+    }
+    
     public void loadLocations()
     {
         final int locationCount = jdbcTemplate.queryForObject("SELECT COUNT(id) FROM geonames", Collections.emptyMap(), Integer.class);
@@ -205,7 +232,7 @@ public class GeodataServiceImpl implements GeodataService
             @Override
             public void processRow(ResultSet rs) throws SQLException
             {
-                final GeoLocation location = GEONAMES_ROW_MAPPER.mapRow(rs, 0);
+                final GeoLocation location = geonamesRowMapper.mapRow(rs, 0);
                 locations.put(location.getId(), location);
             }
         });
@@ -284,18 +311,8 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public GeoLocation findWithin(Coordinates point, int maxDistanceInKilometers)
     {
-        int range = 25;
-        GeoLocation location = null; 
-        while (range <= maxDistanceInKilometers && location == null)
-        {
-            location = doFindContaining(point, range);
-            range *= 2;
-        }
-        if (location != null)
-        {
-            return location;
-        }
-        throw new EmptyResultDataAccessException("Cannot find location for " + point, 1);
+        final Long id = rTree.find(point);
+        return id != null ? findById(id) : null;
     }
     
     @Override
@@ -382,7 +399,7 @@ public class GeodataServiceImpl implements GeodataService
         {
             return Collections.emptyList();
         }
-        return jdbcTemplate.query(findByIdsSql, Collections.singletonMap("ids", ids), GEONAMES_ROW_MAPPER);
+        return jdbcTemplate.query(findByIdsSql, Collections.singletonMap("ids", ids), geonamesRowMapper);
     }
 
     @Override
@@ -463,7 +480,7 @@ public class GeodataServiceImpl implements GeodataService
         params.put("continentCode", continentCode);
         params.put("offset", pageable.getOffset());
         params.put("max", pageable.getPageSize());
-        final List<Country> locations = jdbcTemplate.query(findCountriesOnContinentSql, params, COUNTRY_INFO_MAPPER);
+        final List<Country> locations = jdbcTemplate.query(findCountriesOnContinentSql, params, countryInfoMapper);
         final long count = jdbcTemplate.queryForObject(countCountriesOnContinentSql, params, Long.class);
         return new PageImpl<>(locations, pageable, count);
     }
@@ -496,7 +513,7 @@ public class GeodataServiceImpl implements GeodataService
         params.put("cc", countryCode);
         params.put("offset", pageable.getOffset());
         params.put("max", pageable.getPageSize());
-        final List<GeoLocation> content = jdbcTemplate.query(findCountryChildrenSql, params, GEONAMES_ROW_MAPPER);
+        final List<GeoLocation> content = jdbcTemplate.query(findCountryChildrenSql, params, geonamesRowMapper);
         final long total = jdbcTemplate.queryForObject(countCountryChildrenSql, params, Long.class);
         return new PageImpl<>(content, pageable, total);
     }
@@ -509,7 +526,7 @@ public class GeodataServiceImpl implements GeodataService
             final Collection<Country> countryList = jdbcTemplate.query(
                 "SELECT * FROM geocountry c, geonames n "
                 + "WHERE c.geoname_id = n.id "
-                + "ORDER BY iso ASC", COUNTRY_INFO_MAPPER);
+                + "ORDER BY iso ASC", countryInfoMapper);
             countryList.forEach(c->countries.put(c.getCountry().getCode(), c));
             return countryList.size();
         }
@@ -518,13 +535,10 @@ public class GeodataServiceImpl implements GeodataService
     
     public int loadHierarchy() throws IOException
     {
-        final byte[] data = fetchHierarchy();
-
         nodes = new HashMap<>();
-        final Map<Long, Long> childToParent = new HashMap<>();
         
-        final File hierarchyFile = File.createTempFile("hierarchy", ".tsv");
-        Files.write(data, hierarchyFile);
+        final File hierarchyFile = new File("/tmp/hierarchy.tsv");
+        final Map<Long, Long> childToParent = new HashMap<>();
         new HierarchyImporter(hierarchyFile).processFile(r->
         {
             final long parentId = Long.parseLong(r.get("parent_id"));
@@ -532,21 +546,8 @@ public class GeodataServiceImpl implements GeodataService
             final Node parent = nodes.getOrDefault(parentId, new Node(parentId));
             final Node child = nodes.getOrDefault(childId, new Node(childId));
             nodes.put(parent.getId(), parent);
-            nodes.put(child.getId(), child);
-            
+            nodes.put(child.getId(), child);            
             childToParent.put(childId, parentId);
-        });
-
-        // Connect children directly to continents
-        jdbcTemplate.query("SELECT * FROM geocountry", new RowMapper<Object>()
-        {
-            @Override
-            public Object mapRow(ResultSet rs, int rowNum) throws SQLException
-            {
-                final Long id = CONTINENT_IDS.get(rs.getString("continent"));
-                childToParent.put(rs.getLong("geoname_id"), id);
-                return null;
-            }            
         });
         
         // Process hierarchy after, as we do not know the order of the pairs
@@ -572,19 +573,6 @@ public class GeodataServiceImpl implements GeodataService
         return childToParent.size();
     }
 
-    private byte[] fetchHierarchy()
-    {
-        final String sql = "SELECT data FROM geohierarchy";
-        return jdbcTemplate.query(sql, rs->
-        {
-           if (rs.next())
-           {
-               return rs.getBytes("data");
-           }
-           return null;
-        });
-    }
-    
     @Override
     public Country findByPhonenumber(String phoneNumber)
     {
@@ -592,7 +580,7 @@ public class GeodataServiceImpl implements GeodataService
         stripped = stripped.replaceFirst("^0+(?!$)", "");
         
         final List<Country> countries = jdbcTemplate.query(findCountryByPhoneNumberSql, 
-                Collections.singletonMap("phone", stripped), COUNTRY_INFO_MAPPER);
+                Collections.singletonMap("phone", stripped), countryInfoMapper);
         return countries.isEmpty() ? null : countries.get(0);
     }
     
@@ -769,7 +757,7 @@ public class GeodataServiceImpl implements GeodataService
         params.put("name", name);
         params.put("offset", pageable.getOffset());
         params.put("limit", pageable.getPageSize());
-        final List<GeoLocation> content = jdbcTemplate.query(findByNameSql, params, GEONAMES_ROW_MAPPER);
+        final List<GeoLocation> content = jdbcTemplate.query(findByNameSql, params, geonamesRowMapper);
         final long total = jdbcTemplate.queryForObject(countByNameSql, params, Long.class);
         return new PageImpl<>(content, pageable, total);
     }

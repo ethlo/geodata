@@ -51,11 +51,14 @@ public class HierarchyImporter implements DataImporter
             String line;
             while ((line = reader.readLine()) != null)
             {
-                final String[] entry = StringUtils.delimitedListToStringArray(line, "\t");
-                final Map<String, String> paramMap = new TreeMap<>();
-                paramMap.put("parent_id", stripToNull(entry[0]));
-                paramMap.put("child_id", stripToNull(entry[1]));
-                sink.accept(paramMap);
+                if (StringUtils.hasLength(line))
+                {
+                    final String[] entry = StringUtils.delimitedListToStringArray(line, "\t");
+                    final Map<String, String> paramMap = new TreeMap<>();
+                    paramMap.put("parent_id", stripToNull(entry[0]));
+                    paramMap.put("child_id", stripToNull(entry[1]));
+                    sink.accept(paramMap);
+                }
             }
         }        
     }

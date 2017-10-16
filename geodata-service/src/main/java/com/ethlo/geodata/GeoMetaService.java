@@ -37,9 +37,9 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import com.ethlo.geodata.importer.file.FileGeonamesBoundaryImporter;
+import com.ethlo.geodata.importer.file.FileGeonamesHierarchyImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcCountryImporter;
-import com.ethlo.geodata.importer.jdbc.JdbcGeonamesBoundaryImporter;
-import com.ethlo.geodata.importer.jdbc.JdbcGeonamesHierarchyImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcGeonamesImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcIpLookupImporter;
 
@@ -56,10 +56,10 @@ public class GeoMetaService
     private JdbcGeonamesImporter geonamesImporter;
     
     @Autowired
-    private JdbcGeonamesBoundaryImporter boundaryImporter;
+    private FileGeonamesBoundaryImporter boundaryImporter;
     
     @Autowired
-    private JdbcGeonamesHierarchyImporter hierarchyImporter;
+    private FileGeonamesHierarchyImporter hierarchyImporter;
     
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
