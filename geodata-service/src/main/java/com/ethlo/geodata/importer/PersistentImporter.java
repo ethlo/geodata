@@ -1,4 +1,4 @@
-package com.ethlo.geodata.importer.jdbc;
+package com.ethlo.geodata.importer;
 
 /*-
  * #%L

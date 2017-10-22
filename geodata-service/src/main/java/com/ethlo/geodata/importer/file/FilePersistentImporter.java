@@ -2,7 +2,7 @@ package com.ethlo.geodata.importer.file;
 
 /*-
  * #%L
- * geodata
+ * Geodata service
  * %%
  * Copyright (C) 2017 Morten Haraldsen (ethlo)
  * %%
@@ -23,43 +23,38 @@ package com.ethlo.geodata.importer.file;
  */
 
 import java.io.File;
-import java.io.IOException;
-import java.util.Date;
-import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
+import org.springframework.dao.DataAccessResourceFailureException;
 
-import com.ethlo.geodata.util.ResourceUtil;
-import com.google.common.io.Files;
+import com.ethlo.geodata.importer.PersistentImporter;
 
-@Component
-public class FileGeonamesHierarchyImporter extends FilePersistentImporter
+public abstract class FilePersistentImporter implements PersistentImporter
 {
-    @Value("${geodata.geonames.source.hierarchy}")
-    private String geoNamesHierarchyUrl;
-
-    public FileGeonamesHierarchyImporter()
+    @Value("${data.directory}")
+    private File basePath;
+    
+    private String name;
+    
+    public FilePersistentImporter(String name)
     {
-        super("hierarchy");
+        this.name = name;
     }
     
-    @Override
-    public void importData() throws IOException
+    protected File getFile()
     {
-        final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource("geonames_hierarchy", geoNamesHierarchyUrl);
-        Files.copy(hierarchyFile.getValue(), getFile());
+        return new File(basePath, name);
     }
-
-    @Override
-    public void purge()
+    
+    protected void delete()
     {
-        super.delete();
-    }
-
-    @Override
-    public Date lastRemoteModified() throws IOException
-    {
-        return new Date(ResourceUtil.getLastModified(geoNamesHierarchyUrl).getTime());
+        if (getFile().exists())
+        {
+            final boolean deleted = getFile().delete();
+            if (! deleted)
+            {
+                throw new DataAccessResourceFailureException("Could not delete " + getFile());
+            }
+        }
     }
 }

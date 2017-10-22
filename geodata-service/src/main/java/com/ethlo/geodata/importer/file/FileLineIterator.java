@@ -1,4 +1,4 @@
-package com.ethlo.geodata.boundaries;
+package com.ethlo.geodata.importer.file;
 
 /*-
  * #%L
@@ -22,56 +22,55 @@ package com.ethlo.geodata.boundaries;
  * #L%
  */
 
-import java.io.BufferedOutputStream;
-import java.io.DataOutputStream;
+import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.data.util.CloseableIterator;
 
-public class WkbDataWriter implements AutoCloseable
+import com.google.common.collect.AbstractIterator;
+
+public class FileLineIterator extends AbstractIterator<String> implements CloseableIterator<String>
 {
-    private BufferedOutputStream out;
-    private DataOutputStream indexOut;
-    private long offset = 0;
+    private BufferedReader in;
 
-    public WkbDataWriter(File file) throws FileNotFoundException
+    public FileLineIterator(File file) throws IOException
     {
-        final File indexFile = new File(file.getAbsolutePath() + ".index");
-        this.out = new BufferedOutputStream(new FileOutputStream(file)); 
-        this.indexOut = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile)));
+        this.in = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8));
     }
     
-    public void write(long id, byte[] wkb)
+    @Override
+    protected String computeNext()
     {
+        String line;
         try
         {
-            indexOut.writeLong(id);
-            indexOut.writeLong(offset);
-            indexOut.writeInt(wkb.length);
-            
-            out.write(wkb);
-            offset += wkb.length;
+            line = in.readLine();
         }
         catch (IOException exc)
         {
             throw new DataAccessResourceFailureException(exc.getMessage(), exc);
         }
+        return line != null ? line : endOfData();
     }
 
     @Override
-    public void close() throws IOException
+    public void close()
     {
-        if (this.out != null)
+        if (in != null)
         {
-            this.out.close();
-        }
-        
-        if (this.indexOut != null)
-        {
-            this.indexOut.close();
+            try
+            {
+                in.close();
+            }
+            catch (IOException exc)
+            {
+                throw new DataAccessResourceFailureException(exc.getMessage(), exc);
+            }
         }
     }
 }

@@ -1,5 +1,27 @@
 package com.ethlo.geodata.boundaries;
 
+/*-
+ * #%L
+ * Geodata service
+ * %%
+ * Copyright (C) 2017 Morten Haraldsen (ethlo)
+ * %%
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Lesser Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Lesser Public
+ * License along with this program.  If not, see
+ * <http://www.gnu.org/licenses/lgpl-3.0.html>.
+ * #L%
+ */
+
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.EOFException;
@@ -23,32 +45,34 @@ public class WkbDataReader implements AutoCloseable
 {
     // ID to offset map
     private final Map<Long, Map.Entry<Long, Integer>> offsetMap = new LinkedHashMap<>();
-    private final File file;
-    private final File indexFile;
     private RandomAccessFile raf;
+    private File file;
     
     public WkbDataReader(File file)
     {
         this.file = file;
-        this.indexFile = new File(file.getAbsolutePath() + ".index");
+        final File indexFile = new File(file.getAbsolutePath() + ".index");
         
-        try
+        if (file.exists() && indexFile.exists())
         {
-            openFile();
-            loadIndex();
-        }
-        catch (IOException exc)
-        {
-            throw new DataAccessResourceFailureException(exc.getMessage(), exc);
+            try
+            {
+                openFile(file);
+                loadIndexFile(indexFile);
+            }
+            catch (IOException exc)
+            {
+                throw new DataAccessResourceFailureException(exc.getMessage(), exc);
+            }
         }
     }
     
-    private void openFile() throws IOException
+    private void openFile(File file) throws IOException
     {
         this.raf = new RandomAccessFile(file,"r");
     }
 
-    private void loadIndex() throws IOException
+    private void loadIndexFile(File indexFile) throws IOException
     {
         try (final DataInputStream in = new DataInputStream(new BufferedInputStream(new FileInputStream(indexFile))))
         {
@@ -105,6 +129,28 @@ public class WkbDataReader implements AutoCloseable
     @SuppressWarnings("resource")
     public CloseableIterator<Entry<Long, byte[]>> iterator()
     {
+        if (! file.exists())
+        {
+            return new CloseableIterator<Map.Entry<Long,byte[]>>()
+            {
+                @Override
+                public boolean hasNext()
+                {
+                    return false;
+                }
+
+                @Override
+                public Entry<Long, byte[]> next()
+                {
+                    return null;
+                }
+
+                @Override
+                public void close()
+                {
+                }
+            };
+        }
         final Iterator<Entry<Long, Entry<Long, Integer>>> iter = offsetMap.entrySet().iterator();
         DataInputStream in;
         try

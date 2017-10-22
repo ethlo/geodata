@@ -1,4 +1,4 @@
-package com.ethlo.geodata.boundaries;
+package com.ethlo.geodata.importer.file;
 
 /*-
  * #%L
@@ -22,38 +22,36 @@ package com.ethlo.geodata.boundaries;
  * #L%
  */
 
-import java.io.BufferedOutputStream;
-import java.io.DataOutputStream;
+import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 
 import org.springframework.dao.DataAccessResourceFailureException;
 
-public class WkbDataWriter implements AutoCloseable
+public class JsonIoWriter<T> extends JsonIo<T> implements AutoCloseable
 {
-    private BufferedOutputStream out;
-    private DataOutputStream indexOut;
-    private long offset = 0;
+    private BufferedWriter writer;
 
-    public WkbDataWriter(File file) throws FileNotFoundException
+    public JsonIoWriter(File file, Class<T> type)
     {
-        final File indexFile = new File(file.getAbsolutePath() + ".index");
-        this.out = new BufferedOutputStream(new FileOutputStream(file)); 
-        this.indexOut = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile)));
+        super(file, type);
+        try
+        {
+            this.writer = new BufferedWriter(new FileWriter(file));
+        }
+        catch (IOException exc)
+        {
+            throw new DataAccessResourceFailureException(exc.getMessage(), exc);
+        }
     }
-    
-    public void write(long id, byte[] wkb)
+
+    public void write(T value)
     {
         try
         {
-            indexOut.writeLong(id);
-            indexOut.writeLong(offset);
-            indexOut.writeInt(wkb.length);
-            
-            out.write(wkb);
-            offset += wkb.length;
+            mapper.writeValue(writer, value);
+            writer.write(NEW_LINE);
         }
         catch (IOException exc)
         {
@@ -62,16 +60,15 @@ public class WkbDataWriter implements AutoCloseable
     }
 
     @Override
-    public void close() throws IOException
+    public void close()
     {
-        if (this.out != null)
+        try
         {
-            this.out.close();
+            writer.close();
         }
-        
-        if (this.indexOut != null)
+        catch (IOException exc)
         {
-            this.indexOut.close();
+            throw new DataAccessResourceFailureException(exc.getMessage(), exc);
         }
     }
 }

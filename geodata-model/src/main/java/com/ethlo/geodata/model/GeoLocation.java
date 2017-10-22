@@ -44,6 +44,9 @@ public class GeoLocation implements Serializable
     private Coordinates coordinates;
 
     @NotNull
+    private String featureClass;
+    
+    @NotNull
     private String featureCode;
     
     private long population;
@@ -130,6 +133,17 @@ public class GeoLocation implements Serializable
     public GeoLocation setPopulation(long population)
     {
         this.population = population;
+        return this;
+    }
+
+    public String getFeatureClass()
+    {
+        return featureClass;
+    }
+
+    public GeoLocation setFeatureClass(String featureClass)
+    {
+        this.featureClass = featureClass;
         return this;
     }
 

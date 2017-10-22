@@ -33,7 +33,6 @@ import org.springframework.stereotype.Component;
 
 import com.ethlo.geodata.boundaries.WkbDataWriter;
 import com.ethlo.geodata.importer.GeonamesBoundaryImporter;
-import com.ethlo.geodata.importer.jdbc.PersistentImporter;
 import com.ethlo.geodata.util.ResourceUtil;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.ParseException;
@@ -41,17 +40,20 @@ import com.vividsolutions.jts.io.WKBWriter;
 import com.vividsolutions.jts.io.WKTReader;
 
 @Component
-public class FileGeonamesBoundaryImporter implements PersistentImporter
+public class FileGeonamesBoundaryImporter extends FilePersistentImporter
 {
     @Value("${geodata.geonames.source.boundaries}")
     private String geoNamesBoundaryUrl;
     
-    private File file = new File("/tmp/boundaries.wkb");
+    public FileGeonamesBoundaryImporter()
+    {
+        super("boundaries.wkb");
+    }
     
     @Override
     public void importData() throws IOException
     {
-        try(final WkbDataWriter out = new WkbDataWriter(file))
+        try(final WkbDataWriter out = new WkbDataWriter(getFile()))
         {
             final WKTReader reader = new WKTReader();
             final WKBWriter writer = new WKBWriter();
@@ -81,6 +83,6 @@ public class FileGeonamesBoundaryImporter implements PersistentImporter
     @Override
     public void purge() throws IOException
     {
-        file.delete();
+        super.delete();
     }
 }

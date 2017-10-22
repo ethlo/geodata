@@ -36,6 +36,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +53,7 @@ import com.vividsolutions.jts.io.geojson.GeoJsonWriter;
 @RunWith(SpringRunner.class)
 @SpringBootTest
 @TestPropertySource(locations="classpath:test-application.properties")
+@ActiveProfiles("test")
 public class NoDataAssertGeodataApplicationTests
 {
     private static boolean initialized = false;
@@ -149,7 +151,7 @@ public class NoDataAssertGeodataApplicationTests
     @Test
     public void findPreviewBoundary()
     {
-    	final long id = 6255151;
+    	final long id = 6255151; // Oceania
     	final byte[] boundaries = geodataService.findBoundaries(id);
     	final byte[] simplifiedBoundaries = geodataService.findBoundaries(id, new View(5, 10, 55, 75, 1920, 1080));
     	assertThat(boundaries.length).isGreaterThan(simplifiedBoundaries.length);

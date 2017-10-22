@@ -1,4 +1,4 @@
-package com.ethlo.geodata.importer.jdbc;
+package com.ethlo.geodata.importer.file;
 
 /*-
  * #%L
@@ -24,16 +24,11 @@ package com.ethlo.geodata.importer.jdbc;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
 import java.util.Set;
 
-import javax.sql.DataSource;
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -41,10 +36,9 @@ import com.ethlo.geodata.importer.GeonamesImporter;
 import com.ethlo.geodata.util.ResourceUtil;
 
 @Component
-public class JdbcGeonamesImporter implements PersistentImporter
+public class FileGeonamesImporter extends FilePersistentImporter
 {
-    @Autowired
-    private NamedParameterJdbcTemplate jdbcTemplate;
+    public static final String FILENAME = "geonames.json";
     
     @Value("${geodata.geonames.source.names}")
     private String geoNamesAllCountriesUrl;
@@ -63,12 +57,11 @@ public class JdbcGeonamesImporter implements PersistentImporter
         exclusions = StringUtils.commaDelimitedListToSet(csv);
     }
     
-    @Autowired
-    public void setDataSource(DataSource dataSource)
+    public FileGeonamesImporter()
     {
-        this.jdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
+        super(FILENAME);
     }
-
+    
     @Override
     public void importData() throws IOException
     {
@@ -84,14 +77,11 @@ public class JdbcGeonamesImporter implements PersistentImporter
     @Override
     public void purge()
     {
-        jdbcTemplate.update("DELETE FROM geonames", Collections.emptyMap());
+        super.delete();
     }
 
     private void doUpdate(File allCountriesFile, File alternateNamesFile, File hierarchyFile) throws IOException
     {
-        final String sql = "INSERT INTO geonames (id, parent_id, name, feature_class, feature_code, country_code, population, elevation_meters, timezone, last_modified, lat, lng, coord) VALUES ("
-                        + ":id, :parent_id, :name, :feature_class, :feature_code, :country_code, :population, :elevation_meters, :timezone, :last_modified, :lat, :lng, ST_GeomFromText(:poly))";
-
         final GeonamesImporter geonamesImporter = new GeonamesImporter.Builder()
             .allCountriesFile(allCountriesFile)
             .alternateNamesFile(alternateNamesFile)
@@ -100,10 +90,10 @@ public class JdbcGeonamesImporter implements PersistentImporter
             .hierarchyFile(hierarchyFile)
             .build();
 
-        geonamesImporter.processFile(entry->
+        try (final JsonIoWriter<Map> jsonIo = new JsonIoWriter<Map>(getFile(), Map.class))
         {
-            jdbcTemplate.update(sql, entry);
-        });
+            geonamesImporter.processFile(map->jsonIo.write(map));
+        }
     }
 
     @Override

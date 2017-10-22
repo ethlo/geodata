@@ -1,5 +1,9 @@
 package com.ethlo.geodata;
 
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+
 /*-
  * #%L
  * geodata
@@ -23,37 +27,38 @@ package com.ethlo.geodata;
  */
 
 import java.io.IOException;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.io.Reader;
+import java.io.Writer;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import com.ethlo.geodata.importer.file.FileCountryImporter;
 import com.ethlo.geodata.importer.file.FileGeonamesBoundaryImporter;
 import com.ethlo.geodata.importer.file.FileGeonamesHierarchyImporter;
-import com.ethlo.geodata.importer.jdbc.JdbcCountryImporter;
-import com.ethlo.geodata.importer.jdbc.JdbcGeonamesImporter;
-import com.ethlo.geodata.importer.jdbc.JdbcIpLookupImporter;
+import com.ethlo.geodata.importer.file.FileGeonamesImporter;
+import com.ethlo.geodata.importer.file.FileIpLookupImporter;
+import com.ethlo.time.FastInternetDateTimeUtil;
+import com.ethlo.time.InternetDateTimeUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class GeoMetaService
 {
     @Autowired
-    private JdbcCountryImporter countryImporter;
+    private FileCountryImporter countryImporter;
     
     @Autowired
-    private JdbcIpLookupImporter ipLookupImporter;
+    private FileIpLookupImporter ipLookupImporter;
     
     @Autowired
-    private JdbcGeonamesImporter geonamesImporter;
+    private FileGeonamesImporter geonamesImporter;
     
     @Autowired
     private FileGeonamesBoundaryImporter boundaryImporter;
@@ -61,10 +66,16 @@ public class GeoMetaService
     @Autowired
     private FileGeonamesHierarchyImporter hierarchyImporter;
     
-    @Autowired
-    private NamedParameterJdbcTemplate jdbcTemplate;
+    @Value("${data.directory}")
+    private File baseDirectory;
+    
+    private static final String FILENAME = "meta.json";
     
     private long maxDataAgeMillis;
+    
+    private static final ObjectMapper mapper = new ObjectMapper();
+    
+    private static final InternetDateTimeUtil itu = new FastInternetDateTimeUtil();
     
     @Value("${geodata.max-data-age}")
     public void setMaxDataAge(String age)
@@ -73,26 +84,50 @@ public class GeoMetaService
     	maxDataAgeMillis = d.toMillis();
     }
     
-    public long getLastModified(String alias) throws IOException
+    public long getLastModified(String alias)
     {
-        final String sql = "SELECT last_modified from metadata where alias = :alias";
-        return jdbcTemplate.query(sql, Collections.singletonMap("alias", alias), rs->
+        final Map<String, String> map = read();
+        final String timestamp = map.get(alias);
+        return timestamp != null ? itu.parse(timestamp).toInstant().toEpochMilli() : 0;
+    }
+    
+    public Map<String, Date> getLastModified()
+    {
+        final Map<String, String> map = read();
+        return map.entrySet()
+             .stream()
+             .collect(Collectors.toMap(Map.Entry::getKey,e->new Date(itu.parse(e.getValue()).toInstant().toEpochMilli())));
+    }
+    
+    @SuppressWarnings("unchecked")
+    private Map<String, String> read()
+    {
+        try (final Reader reader = new FileReader(new File(baseDirectory, FILENAME)))
         {
-            if (rs.next())
-            {
-                return rs.getTimestamp("last_modified").getTime();
-            }
-            return 0L;
-        });
+            return mapper.readValue(reader, Map.class);
+        }
+        catch (IOException exc)
+        {
+            return new TreeMap<>();
+        }
     }
     
     public void setLastModified(String alias, Date lastModified) throws IOException
     {
-        final String sql = "REPLACE INTO `metadata` (`alias`, `last_modified`) VALUES (:alias, :last_modified)";
-        final Map<String, Object> params = new TreeMap<>();
-        params.put("alias", alias);
-        params.put("last_modified", lastModified);
-        jdbcTemplate.update(sql, params);
+        synchronized (mapper)
+        {
+            final Map<String, String> map = read();
+            map.put(alias, itu.format(lastModified, "UTC"));
+            write(map);
+        }
+    }
+
+    private void write(Map<String, String> map) throws IOException
+    {
+        try (final Writer writer = new FileWriter(new File(baseDirectory, FILENAME)))
+        {
+            mapper.writeValue(writer, map);
+        }
     }
 
     public void update() throws IOException
@@ -112,6 +147,14 @@ public class GeoMetaService
             hierarchyImporter.importData();
             setLastModified("geonames_hierarchy", geonamesHierarchyTimestamp);
         }
+
+        final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
+        if (boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)
+        {
+            boundaryImporter.purge();
+            boundaryImporter.importData();
+            setLastModified("geoboundaries", boundariesTimestamp);
+        }
         
         final Date geonamesTimestamp = geonamesImporter.lastRemoteModified();
         if (geonamesTimestamp.getTime() > getLastModified("geonames") + maxDataAgeMillis)
@@ -121,14 +164,6 @@ public class GeoMetaService
             setLastModified("geonames", geonamesTimestamp);
         }
         
-        final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
-        if (boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)
-        {
-            boundaryImporter.purge();
-            boundaryImporter.importData();
-            setLastModified("geoboundaries", boundariesTimestamp);
-        }
-        
         final Date ipTimestamp = ipLookupImporter.lastRemoteModified();
         if (ipTimestamp.getTime() > getLastModified("geoip") + maxDataAgeMillis)
         {
@@ -136,21 +171,5 @@ public class GeoMetaService
             ipLookupImporter.importData();
             setLastModified("geoip", ipTimestamp);
         }
-    }
-
-    public Map<String, Date> getLastModified()
-    {
-        final Map<String, Date> retVal = new TreeMap<>();
-        jdbcTemplate.query("SELECT alias, last_modified FROM metadata", Collections.emptyMap(), new RowMapper<Void>()
-        {
-            @Override
-            public Void mapRow(ResultSet rs, int rowNum) throws SQLException
-            {
-                retVal.put(rs.getString("alias"), rs.getTimestamp("last_modified"));
-                return null;
-            }
-            
-        });
-        return retVal;
     }
 }

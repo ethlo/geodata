@@ -98,14 +98,13 @@ public class GeonamesImporter implements DataImporter
                     paramMap.put("name", preferredName != null ? preferredName : stripToNull(entry[1]));
                     paramMap.put("lat", lat);
                     paramMap.put("lng", lng);
-                    paramMap.put("poly", "POINT(" + lat + " " + lng + ")");
                     paramMap.put("feature_class", stripToNull(entry[6]));
                     paramMap.put("feature_code", featureCode);
                     paramMap.put("country_code", stripToNull(entry[8]));
                     paramMap.put("population", stripToNull(entry[14]));
                     paramMap.put("elevation_meters", stripToNull(entry[15]));
                     paramMap.put("timezone", stripToNull(entry[17]));
-                    paramMap.put("last_modified", null); // TODO: stripToNull(entry[18]));
+                    paramMap.put("last_modified", null);
 
                     if (isIncluded(featureCode) && (!onlyHierarchical || inHierarchy.contains(id)))
                     {
