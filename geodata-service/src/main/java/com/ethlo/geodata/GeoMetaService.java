@@ -67,6 +67,11 @@ public class GeoMetaService
     private FileGeonamesHierarchyImporter hierarchyImporter;
     
     @Value("${data.directory}")
+    public void setBaseDirectory(File baseDirectory)
+    {
+        this.baseDirectory = new File(baseDirectory.getPath().replaceFirst("^~",System.getProperty("user.home")));
+    }
+    
     private File baseDirectory;
     
     private static final String FILENAME = "meta.json";
@@ -132,6 +137,14 @@ public class GeoMetaService
 
     public void update() throws IOException
     {
+        final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
+        if (boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)
+        {
+            boundaryImporter.purge();
+            boundaryImporter.importData();
+            setLastModified("geoboundaries", boundariesTimestamp);
+        }
+        
         final Date countryTimestamp = countryImporter.lastRemoteModified();
         if (countryTimestamp.getTime() > getLastModified("geonames_country") + maxDataAgeMillis)
         {
@@ -146,14 +159,6 @@ public class GeoMetaService
             hierarchyImporter.purge();
             hierarchyImporter.importData();
             setLastModified("geonames_hierarchy", geonamesHierarchyTimestamp);
-        }
-
-        final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
-        if (boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)
-        {
-            boundaryImporter.purge();
-            boundaryImporter.importData();
-            setLastModified("geoboundaries", boundariesTimestamp);
         }
         
         final Date geonamesTimestamp = geonamesImporter.lastRemoteModified();

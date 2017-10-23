@@ -26,11 +26,14 @@ import java.io.File;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.springframework.dao.DataAccessResourceFailureException;
 
 import com.ethlo.geodata.boundaries.WkbDataReader;
+import com.ethlo.geodata.importer.file.FileGeonamesBoundaryImporter;
+import com.ethlo.geodata.importer.file.JsonIoReader;
 import com.ethlo.geodata.model.Coordinates;
 import com.github.davidmoten.guavamini.Lists;
 import com.github.davidmoten.rtree.Entry;
@@ -50,7 +53,15 @@ import com.vividsolutions.jts.io.WKBReader;
 public class RtreeRepository
 {
     private RTree<RTreePayload, Geometry> tree;
-    final WkbDataReader wkbDataReader = new WkbDataReader(new File("/tmp/boundaries.wkb"));
+    private WkbDataReader reader;
+    private File envelopeFile;
+    
+    public RtreeRepository(File file)
+    {
+        this.envelopeFile = new File(file.getParentFile(), FileGeonamesBoundaryImporter.ENVELOPE_FILENAME);
+        this.reader = new WkbDataReader(file);
+        this.tree = RTree.create();
+    }
     
     public RtreeRepository(Iterator<RTreePayload> entries)
     {
@@ -69,11 +80,6 @@ public class RtreeRepository
                 return entry(e);
             }
         }));
-    }
-    
-    public RtreeRepository()
-    {
-        this.tree = RTree.create();
     }
 
     private Entry<RTreePayload, Geometry> entry(RTreePayload payload)
@@ -106,7 +112,7 @@ public class RtreeRepository
         final WKBReader r = new WKBReader();
         for (Entry<RTreePayload, Geometry> candidate : candidates)
         {
-            final byte[] wkb = wkbDataReader.read(candidate.value().getId());
+            final byte[] wkb = reader.read(candidate.value().getId());
             try
             {
                 final com.vividsolutions.jts.geom.Geometry geometry = r.read(wkb);
@@ -136,6 +142,11 @@ public class RtreeRepository
 
     public WkbDataReader getReader()
     {
-        return this.wkbDataReader;
+        return reader;
+    }
+    
+    public JsonIoReader<Map> getEnvelopeReader()
+    {
+        return new JsonIoReader<>(envelopeFile, Map.class);
     }
 }

@@ -32,7 +32,12 @@ import com.ethlo.geodata.importer.PersistentImporter;
 public abstract class FilePersistentImporter implements PersistentImporter
 {
     @Value("${data.directory}")
-    private File basePath;
+    public void setBaseDirectory(File baseDirectory)
+    {
+        this.baseDirectory = new File(baseDirectory.getPath().replaceFirst("^~",System.getProperty("user.home")));
+    }
+
+    private File baseDirectory;
     
     private String name;
     
@@ -43,7 +48,7 @@ public abstract class FilePersistentImporter implements PersistentImporter
     
     protected File getFile()
     {
-        return new File(basePath, name);
+        return new File(baseDirectory, name);
     }
     
     protected void delete()

@@ -42,6 +42,7 @@ import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
 import javax.validation.Valid;
 
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.collections4.trie.PatriciaTrie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,10 +56,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
 
 import com.ethlo.geodata.importer.HierarchyImporter;
 import com.ethlo.geodata.importer.file.FileCountryImporter;
-import com.ethlo.geodata.importer.file.FileGeonamesImporter;
+import com.ethlo.geodata.importer.file.FileGeonamesBoundaryImporter;
 import com.ethlo.geodata.importer.file.JsonIoReader;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
@@ -113,46 +115,58 @@ public class GeodataServiceImpl implements GeodataService
     }
     
     private List<Continent> continents;
-    private Set<Node> roots;
     private Map<Long, Node> nodes;
     private Map<String, Country> countries;
-    private Long locationCount;
 
     @Value("${geodata.boundaries.quality}")
     private int qualityConstant;
 
     @Value("${data.directory}")
+    public void setBaseDirectory(File baseDirectory)
+    {
+        this.baseDirectory = new File(baseDirectory.getPath().replaceFirst("^~",System.getProperty("user.home")));
+    }
+    
     private File baseDirectory;
          
     @PostConstruct
     public void load() throws IOException
     {
+        ensureBaseDirectory();
+        
+        loadMbr();
         loadIps();
         loadCountries();
         loadLocations();
         loadHierarchy();
-        loadMbr();
     }
     
-    private void loadMbr() throws IOException
+    private void ensureBaseDirectory()
     {
-        logger.info("Loading MBR boundaries", locationCount);
-        rTree = new RtreeRepository();
+        logger.info("Ensuring data directory {} exists", baseDirectory.getAbsolutePath());
+        if (! baseDirectory.exists())
+        {
+            Assert.isTrue(baseDirectory.mkdirs(), "Could not create directory " + baseDirectory.getAbsolutePath());
+        }
+    }
+
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    private void loadMbr()
+    {
+        logger.info("Loading MBR boundaries");
+        rTree = new RtreeRepository(new File(baseDirectory, FileGeonamesBoundaryImporter.ENVELOPE_FILENAME));
         
-        final Iterator<Map.Entry<Long, byte[]>> iter = rTree.getReader().iterator();
-        final WKBReader r = new WKBReader();
+        final Iterator<Map> iter = rTree.getEnvelopeReader().iterator();
         while (iter.hasNext())
         {
-            final Entry<Long, byte[]> e = iter.next();
-            try
-            {
-                final Geometry g = r.read(e.getValue());
-                rTree = rTree.add(new RTreePayload(e.getKey(), g.getArea(), g.getEnvelopeInternal()));
-            }
-            catch (ParseException exc)
-            {
-                throw new DataAccessResourceFailureException(exc.getMessage(), exc);
-            }
+            final Map map = iter.next();
+            final long id = MapUtils.getLong(map, "id");
+            final Envelope e = new Envelope(
+                MapUtils.getDouble(map, "minX"),
+                MapUtils.getDouble(map, "maxX"),
+                MapUtils.getDouble(map, "minY"),
+                MapUtils.getDouble(map, "maxY"));
+            rTree = rTree.add(new RTreePayload(id, e.getArea(), e));
         }
         logger.info("Loaded {} MBR boundaries", rTree.size());
     }
@@ -160,22 +174,18 @@ public class GeodataServiceImpl implements GeodataService
     public void loadLocations()
     {
         locations = new HashMap<>();
-        final File locationsFile = new File(baseDirectory, FileGeonamesImporter.FILENAME);
-        if (locationsFile.exists())
+        logger.info("Loading locations");
+        try (CloseableIterator<GeoLocation> iter = geoRepository.locations())
         {
-            logger.info("Loading locations");
-            try (CloseableIterator<GeoLocation> iter = geoRepository.locations())
+            while (iter.hasNext())
             {
-                while (iter.hasNext())
-                {
-                    final GeoLocation l = iter.next();
-                    locations.put(l.getId(), l);
-                    
-                    trie.put(l.getName().toLowerCase(), l.getId());
-                }
+                final GeoLocation l = iter.next();
+                locations.put(l.getId(), l);
+                
+                trie.put(l.getName().toLowerCase(), l.getId());
             }
-            logger.info("Loaded {} locations", locations.size());
         }
+        logger.info("Loaded {} locations", locations.size());
     }
     
     public void loadIps()
@@ -397,7 +407,7 @@ public class GeodataServiceImpl implements GeodataService
             childNode.setParent(parentNode);
         });
         
-        roots = new HashSet<>();
+        final Set<Node> roots = new HashSet<>();
         for (Entry<Long, Node> e : nodes.entrySet())
         {
             if (e.getValue().getParent() == null)

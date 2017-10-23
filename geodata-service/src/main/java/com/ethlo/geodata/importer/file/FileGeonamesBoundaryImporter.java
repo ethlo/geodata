@@ -25,7 +25,9 @@ package com.ethlo.geodata.importer.file;
 import java.io.File;
 import java.io.IOException;
 import java.util.Date;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -34,6 +36,7 @@ import org.springframework.stereotype.Component;
 import com.ethlo.geodata.boundaries.WkbDataWriter;
 import com.ethlo.geodata.importer.GeonamesBoundaryImporter;
 import com.ethlo.geodata.util.ResourceUtil;
+import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.ParseException;
 import com.vividsolutions.jts.io.WKBWriter;
@@ -42,18 +45,22 @@ import com.vividsolutions.jts.io.WKTReader;
 @Component
 public class FileGeonamesBoundaryImporter extends FilePersistentImporter
 {
+    public static final String BOUNDARIES_FILENAME = "boundaries.wkb";
+    public static final String ENVELOPE_FILENAME = "envelopes.json";
+    
     @Value("${geodata.geonames.source.boundaries}")
     private String geoNamesBoundaryUrl;
     
     public FileGeonamesBoundaryImporter()
     {
-        super("boundaries.wkb");
+        super(BOUNDARIES_FILENAME);
     }
     
     @Override
     public void importData() throws IOException
     {
-        try(final WkbDataWriter out = new WkbDataWriter(getFile()))
+        final File envelopeFile = new File(getFile().getParentFile(), ENVELOPE_FILENAME);
+        try (final WkbDataWriter out = new WkbDataWriter(getFile()); @SuppressWarnings("rawtypes") final JsonIoWriter<Map> envOut = new JsonIoWriter<>(envelopeFile, Map.class))
         {
             final WKTReader reader = new WKTReader();
             final WKBWriter writer = new WKBWriter();
@@ -64,6 +71,18 @@ public class FileGeonamesBoundaryImporter extends FilePersistentImporter
                 try
                 {
                     final Geometry geometry = reader.read(entry.get("poly"));
+                    
+                    // Write the MBR
+                    final Envelope env = geometry.getEnvelopeInternal();
+                    final Map<String, Object> map = new TreeMap<>();
+                    map.put("id", entry.get("id"));
+                    map.put("minX", env.getMinX());
+                    map.put("minY", env.getMinY());
+                    map.put("maxX", env.getMaxX());
+                    map.put("maxY", env.getMaxY());
+                    envOut.write(map);
+                    
+                    // Write full geometry in WKB format
                     out.write(Long.parseLong(entry.get("id")), writer.write(geometry));
                 }
                 catch (ParseException exc)
