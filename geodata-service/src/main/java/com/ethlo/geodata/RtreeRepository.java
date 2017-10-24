@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.data.domain.Pageable;
 
 import com.ethlo.geodata.boundaries.WkbDataReader;
 import com.ethlo.geodata.importer.file.FileGeonamesBoundaryImporter;
@@ -44,6 +45,7 @@ import com.github.davidmoten.rtree.geometry.Point;
 import com.github.davidmoten.rtree.internal.EntryDefault;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Iterators;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.GeometryFactory;
@@ -145,8 +147,28 @@ public class RtreeRepository
         return reader;
     }
     
+    @SuppressWarnings("rawtypes")
     public JsonIoReader<Map> getEnvelopeReader()
     {
         return new JsonIoReader<>(envelopeFile, Map.class);
+    }
+
+    public Iterator<Long> findNear(Coordinates point, double maxDistanceInKilometers, Pageable pageable)
+    {
+        final Iterator<Entry<RTreePayload, Geometry>> e = tree.nearest(Geometries.point(point.getLng(), point.getLat()), maxDistanceInKilometers, pageable.getOffset() + pageable.getPageSize()).toBlocking().getIterator();
+        final Iterator<Long> iter = new AbstractIterator<Long>()
+        {
+            @Override
+            protected Long computeNext()
+            {
+                if (e.hasNext())
+                {
+                    return e.next().value().getId();
+                }
+                return endOfData();
+            }
+        };
+        Iterators.advance(iter, pageable.getOffset());
+        return iter;
     }
 }

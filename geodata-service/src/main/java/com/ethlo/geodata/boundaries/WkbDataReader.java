@@ -39,6 +39,7 @@ import java.util.Map.Entry;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.util.CloseableIterator;
 
+import com.ethlo.geodata.importer.file.FileGeonamesBoundaryImporter;
 import com.google.common.collect.AbstractIterator;
 
 public class WkbDataReader implements AutoCloseable
@@ -51,7 +52,7 @@ public class WkbDataReader implements AutoCloseable
     public WkbDataReader(File file)
     {
         this.file = file;
-        final File indexFile = new File(file.getAbsolutePath() + ".index");
+        final File indexFile = new File(file.getParentFile(), FileGeonamesBoundaryImporter.BOUNDARIES_FILENAME + ".index");
         
         if (file.exists() && indexFile.exists())
         {
@@ -69,7 +70,7 @@ public class WkbDataReader implements AutoCloseable
     
     private void openFile(File file) throws IOException
     {
-        this.raf = new RandomAccessFile(file,"r");
+        this.raf = new RandomAccessFile(new File(file.getParentFile(), FileGeonamesBoundaryImporter.BOUNDARIES_FILENAME), "r");
     }
 
     private void loadIndexFile(File indexFile) throws IOException

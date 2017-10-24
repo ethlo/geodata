@@ -35,6 +35,7 @@ import com.ethlo.geodata.importer.file.JsonIoReader;
 import com.ethlo.geodata.model.CountrySummary;
 import com.google.common.collect.Range;
 
+@SuppressWarnings("rawtypes")
 @Repository
 public class GeoRepository
 {
@@ -49,6 +50,7 @@ public class GeoRepository
         return new JsonIoReader<Map>(new File(baseDirectory, LOCATIONS_FILE), Map.class).iterator();
     }
     
+    @SuppressWarnings("unchecked")
     public CloseableIterator<Map.Entry<Long, Range<Long>>> ipRanges()
     {
         return new JsonIoReader<Map>(new File(baseDirectory, IP_FILE), Map.class).iterator(m->mapIpRange(m));

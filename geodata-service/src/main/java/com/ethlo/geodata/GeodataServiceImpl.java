@@ -47,7 +47,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
@@ -71,6 +70,7 @@ import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
 import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.repository.GeoRepository;
+import com.ethlo.geodata.util.DistanceUtil;
 import com.ethlo.geodata.util.GeometryUtil;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Range;
@@ -186,36 +186,62 @@ public class GeodataServiceImpl implements GeodataService
     {
         locations = new HashMap<>();
         logger.info("Loading locations");
-        try (CloseableIterator<Map> iter = geoRepository.locations(countrySummaries))
+        try (@SuppressWarnings("rawtypes")
+        CloseableIterator<Map> iter = geoRepository.locations(countrySummaries))
         {
             while (iter.hasNext())
             {
-                final Map m = iter.next();
+                final Map<?,?> m = iter.next();
                 final GeoLocation l = mapLocation(m);
                 locations.put(l.getId(), l);
                 
                 trie.put(l.getName().toLowerCase(), l.getId());
+                
+                // Attach ADM1 to countries
+                if ("adm1".equalsIgnoreCase(l.getFeatureCode()))
+                {
+                    final Country c = countries.get(l.getCountry().getCode());
+                    final long countryId = c.getId();
+                    l.setParentLocationId(countryId);
+                    
+                    final Node countryNode = findOrCreate(countryId);
+                    final Node locationNode = findOrCreate(l.getId());
+                    countryNode.addChild(locationNode);
+                    nodes.put(countryId, countryNode);
+                    nodes.put(l.getId(), locationNode);     
+                }
+
             }
         }
         logger.info("Loaded {} locations", locations.size());
     }
     
-    private GeoLocation mapLocation(Map<String, Object> rs)
+    private Node findOrCreate(long id)
+    {
+        Node existing = nodes.get(id);
+        if (existing == null)
+        {
+            existing = new Node(id);
+        }
+        return existing;
+    }
+    
+    private GeoLocation mapLocation(Map<?, ?> m)
     {
         final GeoLocation geoLocation = new GeoLocation();
-        final Long parentId = MapUtils.getLong(rs, "parent_id") != null ? MapUtils.getLong(rs, "parent_id") : null;
-        final String countryCode = MapUtils.getString(rs, "country_code");
+        final Long parentId = MapUtils.getLong(m, "parent_id") != null ? MapUtils.getLong(m, "parent_id") : null;
+        final String countryCode = MapUtils.getString(m, "country_code");
 
         final CountrySummary country = countrySummaries.get(countryCode);
         geoLocation.setCountry(country);
         
         geoLocation
-            .setId(MapUtils.getLong(rs, "id"))
-            .setName(MapUtils.getString(rs, "name"))
-            .setFeatureCode(MapUtils.getString(rs, "feature_code"))
-            .setFeatureClass(MapUtils.getString(rs, "feature_class"))
-            .setPopulation(MapUtils.getLong(rs, "population"))
-            .setCoordinates(Coordinates.from(MapUtils.getDouble(rs, "lat"), MapUtils.getDouble(rs, "lng")))
+            .setId(MapUtils.getLong(m, "id"))
+            .setName(MapUtils.getString(m, "name"))
+            .setFeatureCode(MapUtils.getString(m, "feature_code"))
+            .setFeatureClass(MapUtils.getString(m, "feature_class"))
+            .setPopulation(MapUtils.getLong(m, "population"))
+            .setCoordinates(Coordinates.from(MapUtils.getDouble(m, "lat"), MapUtils.getDouble(m, "lng")))
             .setParentLocationId(parentId);
         return geoLocation;
     }
@@ -274,7 +300,20 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable)
     {
-        throw new UnsupportedOperationException("Not implemented");
+        final Iterator<Long> ids = rTree.findNear(point, maxDistanceInKilometers, pageable);
+        final List<GeoLocationDistance> content = new LinkedList<>();
+        while (ids.hasNext())
+        {
+            final long id = ids.next();
+            final GeoLocationDistance e = new GeoLocationDistance();
+            final GeoLocation location = findById(id);
+            e.setLocation(location);
+            final double distance = DistanceUtil.distance(location.getCoordinates(), point);
+            e.setDistance(distance);
+            content.add(e);
+        }
+        final long total = content.size();
+        return new PageImpl<>(content, pageable, total);
     }
     
     @Override
@@ -302,9 +341,9 @@ public class GeodataServiceImpl implements GeodataService
             .limit(pageable.getPageSize())
             .map(n->n.getId())
             .collect(Collectors.toList());
-        final List<GeoLocation> locations = findByIds(ids);
-        locations.sort((a, b)->a.getName().compareTo(b.getName()));
-        return new PageImpl<>(locations, pageable, total);
+        final List<GeoLocation> content = findByIds(ids);
+        content.sort((a, b)->a.getName().compareTo(b.getName()));
+        return new PageImpl<>(content, pageable, total);
     }
 
     private void loadNodes()
@@ -416,13 +455,17 @@ public class GeodataServiceImpl implements GeodataService
         final Map<Long, Long> childToParent = new HashMap<>();
         new HierarchyImporter(hierarchyFile).processFile(r->
         {
-            final long parentId = Long.parseLong(r.get("parent_id"));
-            final long childId = Long.parseLong(r.get("child_id"));
-            final Node parent = nodes.getOrDefault(parentId, new Node(parentId));
-            final Node child = nodes.getOrDefault(childId, new Node(childId));
-            nodes.put(parent.getId(), parent);
-            nodes.put(child.getId(), child);            
-            childToParent.put(childId, parentId);
+            final String featureCode = r.get("feature_code");
+            if (featureCode == null || "adm".equalsIgnoreCase(featureCode))
+            {
+                final long parentId = Long.parseLong(r.get("parent_id"));
+                final long childId = Long.parseLong(r.get("child_id"));
+                final Node parent = nodes.getOrDefault(parentId, new Node(parentId));
+                final Node child = nodes.getOrDefault(childId, new Node(childId));
+                nodes.put(parent.getId(), parent);
+                nodes.put(child.getId(), child);            
+                childToParent.put(childId, parentId);
+            }
         });
         
         // Process hierarchy after, as we do not know the order of the pairs

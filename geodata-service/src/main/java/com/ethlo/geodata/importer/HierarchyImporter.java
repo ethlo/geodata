@@ -57,6 +57,7 @@ public class HierarchyImporter implements DataImporter
                     final Map<String, String> paramMap = new TreeMap<>();
                     paramMap.put("parent_id", stripToNull(entry[0]));
                     paramMap.put("child_id", stripToNull(entry[1]));
+                    paramMap.put("feature_code", stripToNull(entry[2]));
                     sink.accept(paramMap);
                 }
             }
