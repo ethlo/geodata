@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
 
 import com.ethlo.geodata.importer.file.FileCountryImporter;
 import com.ethlo.geodata.importer.file.FileGeonamesBoundaryImporter;
@@ -135,8 +136,18 @@ public class GeoMetaService
         }
     }
 
+    private void ensureBaseDirectory()
+    {
+        if (! baseDirectory.exists())
+        {
+            Assert.isTrue(baseDirectory.mkdirs(), "Could not create directory " + baseDirectory.getAbsolutePath());
+        }
+    }
+    
     public void update() throws IOException
     {
+        ensureBaseDirectory();
+        
         final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
         if (boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)
         {

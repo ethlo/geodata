@@ -56,11 +56,13 @@ public class FileGeonamesBoundaryImporter extends FilePersistentImporter
         super(BOUNDARIES_FILENAME);
     }
     
+    @SuppressWarnings("rawtypes") 
     @Override
     public void importData() throws IOException
     {
         final File envelopeFile = new File(getFile().getParentFile(), ENVELOPE_FILENAME);
-        try (final WkbDataWriter out = new WkbDataWriter(getFile()); @SuppressWarnings("rawtypes") final JsonIoWriter<Map> envOut = new JsonIoWriter<>(envelopeFile, Map.class))
+        try (final WkbDataWriter out = new WkbDataWriter(getFile()); 
+             final JsonIoWriter<Map> envOut = new JsonIoWriter<>(envelopeFile, Map.class))
         {
             final WKTReader reader = new WKTReader();
             final WKBWriter writer = new WKBWriter();

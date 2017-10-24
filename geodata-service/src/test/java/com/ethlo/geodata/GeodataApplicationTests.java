@@ -37,8 +37,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.context.support.DependencyInjectionTestExecutionListener;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ethlo.geodata.model.Continent;
@@ -51,6 +54,8 @@ import com.ethlo.geodata.model.GeoLocationDistance;
 @RunWith(SpringRunner.class)
 @SpringBootTest
 @TestPropertySource(locations="classpath:test-application.properties")
+@ActiveProfiles("test")
+@TestExecutionListeners(inheritListeners=false, listeners={DependencyInjectionTestExecutionListener.class})
 public class GeodataApplicationTests
 {
     private static boolean initialized = false;
@@ -91,9 +96,7 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForLocationByIp()
     {
-        assertThat(geodataService.findByIp("77.88.103.250")).isNotNull();
-        assertThat(geodataService.findByIp("103.199.40.241")).isNotNull();
-        assertThat(geodataService.findByIp("136.1.107.78")).isNotNull();
+        assertThat(geodataService.findByIp("1.0.0.1")).isNotNull();
     }
 
     @Test

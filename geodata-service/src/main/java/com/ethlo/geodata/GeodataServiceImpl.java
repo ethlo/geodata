@@ -26,6 +26,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -47,6 +48,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
@@ -84,6 +86,7 @@ import com.vividsolutions.jts.io.ParseException;
 import com.vividsolutions.jts.io.WKBReader;
 import com.vividsolutions.jts.io.WKBWriter;
 
+@Lazy
 @Service
 public class GeodataServiceImpl implements GeodataService
 {
@@ -115,7 +118,6 @@ public class GeodataServiceImpl implements GeodataService
         CONTINENT_IDS.put("AN", 6255152L);
     }
     
-    private List<Continent> continents;
     private Map<Long, Node> nodes;
     private Map<String, Country> countries;
     private Map<String, CountrySummary> countrySummaries;
@@ -307,10 +309,13 @@ public class GeodataServiceImpl implements GeodataService
             final long id = ids.next();
             final GeoLocationDistance e = new GeoLocationDistance();
             final GeoLocation location = findById(id);
-            e.setLocation(location);
-            final double distance = DistanceUtil.distance(location.getCoordinates(), point);
-            e.setDistance(distance);
-            content.add(e);
+            if (location != null)
+            {
+                e.setLocation(location);
+                final double distance = DistanceUtil.distance(location.getCoordinates(), point);
+                e.setDistance(distance);
+                content.add(e);
+            }
         }
         final long total = content.size();
         return new PageImpl<>(content, pageable, total);
@@ -341,7 +346,8 @@ public class GeodataServiceImpl implements GeodataService
             .limit(pageable.getPageSize())
             .map(n->n.getId())
             .collect(Collectors.toList());
-        final List<GeoLocation> content = findByIds(ids);
+        final List<GeoLocation> content = findByIds(ids).stream().filter(l->l!=null).collect(Collectors.toList());
+        
         content.sort((a, b)->a.getName().compareTo(b.getName()));
         return new PageImpl<>(content, pageable, total);
     }
@@ -364,14 +370,13 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<Continent> findContinents()
     {
-        if (continents == null)
-        {
-            continents = findByIds(CONTINENT_IDS.values())
+        final List<Continent> continents = findByIds(CONTINENT_IDS.values())
                 .stream()
+                .filter(l->l!=null)
                 .map(l->new Continent(getContinentCode(l.getId()), l))
+                .filter(l->l != null)
                 .collect(Collectors.toList());
-        }
-        return new PageImpl<>(continents, new PageRequest(0, 7), 7);
+        return new PageImpl<>(continents);
     }
 
     private String getContinentCode(Long id)
@@ -389,7 +394,12 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<Country> findCountriesOnContinent(String continentCode, Pageable pageable)
     {
-        throw new UnsupportedOperationException("Not implemented");
+        final Long continentId = CONTINENT_IDS.get(continentCode.toUpperCase());
+        if (continentId == null)
+        {
+            return new PageImpl<>(Collections.emptyList());
+        }
+        return findChildren(continentId, pageable).map(l->Country.from(l));
     }
     
     @Override
@@ -413,7 +423,12 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<GeoLocation> findChildren(String countryCode, Pageable pageable)
     {
-        throw new UnsupportedOperationException("Not implemented");
+        final Country country = countries.get(countryCode.toLowerCase());
+        if (country == null)
+        {
+            return null;
+        }
+        return findChildren(country.getId(), pageable);
     }
     
     public void loadCountries()

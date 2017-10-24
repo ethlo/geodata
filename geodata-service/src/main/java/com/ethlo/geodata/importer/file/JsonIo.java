@@ -27,6 +27,7 @@ import java.io.File;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonGenerator.Feature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 
@@ -38,12 +39,11 @@ public abstract class JsonIo<T>
     
     static
     {
-        mapper = new ObjectMapper();
-        mapper.registerModule(new AfterburnerModule());
-
         final JsonFactory f = new JsonFactory();
         f.enable(JsonGenerator.Feature.ESCAPE_NON_ASCII);
         f.disable(JsonGenerator.Feature.AUTO_CLOSE_TARGET);
+        mapper = new ObjectMapper(f);
+        mapper.registerModule(new AfterburnerModule());
         mapper.setSerializationInclusion(Include.NON_EMPTY);
     }
     

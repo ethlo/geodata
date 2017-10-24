@@ -24,6 +24,7 @@ package com.ethlo.geodata;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Calendar;
@@ -33,12 +34,18 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.context.support.DependencyInjectionTestExecutionListener;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ethlo.geodata.model.Coordinates;
@@ -51,27 +58,29 @@ import com.vividsolutions.jts.io.WKBReader;
 import com.vividsolutions.jts.io.geojson.GeoJsonWriter;
 
 @RunWith(SpringRunner.class)
+@SpringBootApplication(exclude=TransactionAutoConfiguration.class)
 @SpringBootTest
 @TestPropertySource(locations="classpath:test-application.properties")
 @ActiveProfiles("test")
+@TestExecutionListeners(inheritListeners=false, listeners={DependencyInjectionTestExecutionListener.class})
 public class NoDataAssertGeodataApplicationTests
 {
-    private static boolean initialized = false;
-    
-    @Autowired
     private GeodataService geodataService;
     
     @Autowired
     private GeoMetaService geoMetaService;
     
+    @Autowired
+    private ApplicationContext appCtx;
+    
+    @Value("${data.directory}")
+    private File dataDirectory;
+    
     @Before
     public void contextLoads() throws IOException, SQLException
     {
-        if (! initialized)
-        {
-            geoMetaService.update();
-            initialized = true;
-        }
+        geoMetaService.update();
+        geodataService = appCtx.getBean(GeodataService.class);
     }
     
     @Test
@@ -151,7 +160,7 @@ public class NoDataAssertGeodataApplicationTests
     @Test
     public void findPreviewBoundary()
     {
-    	final long id = 6255151; // Oceania
+    	final long id = 51537; // Somalia
     	final byte[] boundaries = geodataService.findBoundaries(id);
     	final byte[] simplifiedBoundaries = geodataService.findBoundaries(id, new View(5, 10, 55, 75, 1920, 1080));
     	assertThat(boundaries.length).isGreaterThan(simplifiedBoundaries.length);
