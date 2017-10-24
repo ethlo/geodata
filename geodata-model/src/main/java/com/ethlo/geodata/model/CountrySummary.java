@@ -79,7 +79,7 @@ public class CountrySummary implements Serializable
         return this;
     }
 
-    public long getId()
+    public Long getId()
     {
         return this.id;
     }

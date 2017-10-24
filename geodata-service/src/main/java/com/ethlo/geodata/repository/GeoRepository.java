@@ -26,20 +26,14 @@ import java.io.File;
 import java.util.AbstractMap;
 import java.util.Map;
 
-import org.apache.commons.collections4.MapUtils;
-import org.apache.commons.net.util.SubnetUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Repository;
 
+import com.ethlo.geodata.MapUtils;
 import com.ethlo.geodata.importer.file.JsonIoReader;
-import com.ethlo.geodata.model.Coordinates;
-import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.CountrySummary;
-import com.ethlo.geodata.model.GeoLocation;
 import com.google.common.collect.Range;
-import com.google.common.net.InetAddresses;
-import com.google.common.primitives.UnsignedInteger;
 
 @Repository
 public class GeoRepository
@@ -50,16 +44,14 @@ public class GeoRepository
     private static final String LOCATIONS_FILE = "geonames.json";
     private static final String IP_FILE = "geoip.json";
     
-    public CloseableIterator<GeoLocation> locations()
+    public CloseableIterator<Map> locations(Map<String, CountrySummary> countrySummaries)
     {
-        return new JsonIoReader<Map>(new File(baseDirectory, LOCATIONS_FILE), Map.class)
-            .iterator(m->mapLocation(new GeoLocation(), m));
+        return new JsonIoReader<Map>(new File(baseDirectory, LOCATIONS_FILE), Map.class).iterator();
     }
     
     public CloseableIterator<Map.Entry<Long, Range<Long>>> ipRanges()
     {
-        return new JsonIoReader<Map>(new File(baseDirectory, IP_FILE), Map.class)
-            .iterator(m->mapIpRange(m));
+        return new JsonIoReader<Map>(new File(baseDirectory, IP_FILE), Map.class).iterator(m->mapIpRange(m));
     }
     
     public  Map.Entry<Long, Range<Long>> mapIpRange(Map<String, Object> rs)
@@ -69,35 +61,4 @@ public class GeoRepository
         final long upper = MapUtils.getLong(rs, "last");
         return new AbstractMap.SimpleEntry<>(id, Range.closed(lower, upper));
     }
-    
-    private <T extends GeoLocation> T mapLocation(T t, Map<String, Object> rs)
-    {
-        final Long parentId = MapUtils.getLong(rs, "parent_id") != null ? MapUtils.getLong(rs, "parent_id") : null;
-        final String countryCode = MapUtils.getString(rs, "country_code");
-
-        // TODO: Implement me
-        final Country country = null;
-        final CountrySummary countrySummary = country != null ? country.toSummary(countryCode) : null;
-        
-        t
-            .setId(MapUtils.getLong(rs, "id"))
-            .setName(MapUtils.getString(rs, "name"))
-            .setFeatureCode(MapUtils.getString(rs, "feature_code"))
-            .setFeatureClass(MapUtils.getString(rs, "feature_class"))
-            .setPopulation(MapUtils.getLong(rs, "population"))
-            .setCoordinates(Coordinates.from(MapUtils.getDouble(rs, "lat"), MapUtils.getDouble(rs, "lng")))
-            .setParentLocationId(parentId)
-            .setCountry(countrySummary);
-        return t;
-    }
-    
-    public Country mapRow(Map<String, Object> rs)
-    {
-        final GeoLocation location = new GeoLocation();
-        mapLocation(location, rs);            
-        final Country c = Country.from(location);
-        c.setCountry(c.toSummary(MapUtils.getString(rs, "iso")));
-        return c;
-    } 
-
 }

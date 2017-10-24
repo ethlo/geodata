@@ -44,6 +44,7 @@ public class Country extends GeoLocation implements Serializable
     public static Country from(GeoLocation location)
     {
         final Country country = new Country();
+        country.setId(location.getId());
         country.setName(location.getName());
         country.setCoordinates(location.getCoordinates());
         country.setId(location.getId());

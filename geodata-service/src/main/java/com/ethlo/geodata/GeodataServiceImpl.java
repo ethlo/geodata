@@ -42,12 +42,12 @@ import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
 import javax.validation.Valid;
 
-import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.collections4.trie.PatriciaTrie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
@@ -55,6 +55,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.util.CloseableIterator;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
@@ -117,6 +118,7 @@ public class GeodataServiceImpl implements GeodataService
     private List<Continent> continents;
     private Map<Long, Node> nodes;
     private Map<String, Country> countries;
+    private Map<String, CountrySummary> countrySummaries;
 
     @Value("${geodata.boundaries.quality}")
     private int qualityConstant;
@@ -134,11 +136,20 @@ public class GeodataServiceImpl implements GeodataService
     {
         ensureBaseDirectory();
         
-        loadMbr();
-        loadIps();
-        loadCountries();
-        loadLocations();
         loadHierarchy();
+        loadCountries();
+        
+        final ThreadPoolTaskExecutor taskExecutor = new ThreadPoolTaskExecutor();
+        taskExecutor.setCorePoolSize(3);
+        taskExecutor.setThreadNamePrefix("data-loading-");
+        taskExecutor.initialize();
+        
+        taskExecutor.execute(()->loadLocations());
+        taskExecutor.execute(()->loadMbr());
+        taskExecutor.execute(()->loadIps());
+        taskExecutor.setAwaitTerminationSeconds(Integer.MAX_VALUE);
+        taskExecutor.setWaitForTasksToCompleteOnShutdown(true);
+        taskExecutor.shutdown();
     }
     
     private void ensureBaseDirectory()
@@ -150,7 +161,7 @@ public class GeodataServiceImpl implements GeodataService
         }
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings("rawtypes")
     private void loadMbr()
     {
         logger.info("Loading MBR boundaries");
@@ -175,11 +186,12 @@ public class GeodataServiceImpl implements GeodataService
     {
         locations = new HashMap<>();
         logger.info("Loading locations");
-        try (CloseableIterator<GeoLocation> iter = geoRepository.locations())
+        try (CloseableIterator<Map> iter = geoRepository.locations(countrySummaries))
         {
             while (iter.hasNext())
             {
-                final GeoLocation l = iter.next();
+                final Map m = iter.next();
+                final GeoLocation l = mapLocation(m);
                 locations.put(l.getId(), l);
                 
                 trie.put(l.getName().toLowerCase(), l.getId());
@@ -187,6 +199,27 @@ public class GeodataServiceImpl implements GeodataService
         }
         logger.info("Loaded {} locations", locations.size());
     }
+    
+    private GeoLocation mapLocation(Map<String, Object> rs)
+    {
+        final GeoLocation geoLocation = new GeoLocation();
+        final Long parentId = MapUtils.getLong(rs, "parent_id") != null ? MapUtils.getLong(rs, "parent_id") : null;
+        final String countryCode = MapUtils.getString(rs, "country_code");
+
+        final CountrySummary country = countrySummaries.get(countryCode);
+        geoLocation.setCountry(country);
+        
+        geoLocation
+            .setId(MapUtils.getLong(rs, "id"))
+            .setName(MapUtils.getString(rs, "name"))
+            .setFeatureCode(MapUtils.getString(rs, "feature_code"))
+            .setFeatureClass(MapUtils.getString(rs, "feature_class"))
+            .setPopulation(MapUtils.getLong(rs, "population"))
+            .setCoordinates(Coordinates.from(MapUtils.getDouble(rs, "lat"), MapUtils.getDouble(rs, "lng")))
+            .setParentLocationId(parentId);
+        return geoLocation;
+    }
+
     
     public void loadIps()
     {
@@ -347,43 +380,39 @@ public class GeodataServiceImpl implements GeodataService
     public void loadCountries()
     {
         countries = new LinkedHashMap<>();
+        countrySummaries = new LinkedHashMap<>();
         final File countriesFile = new File (baseDirectory, FileCountryImporter.FILENAME);
-        if (countriesFile.exists())
+        logger.info("Loading countries");
+        try (@SuppressWarnings("rawtypes") final CloseableIterator<Map> iter = new JsonIoReader<>(countriesFile, Map.class).iterator())
         {
-            logger.info("Loading countries");
-            try (@SuppressWarnings("rawtypes")
-            CloseableIterator<Map> iter = new JsonIoReader<>(countriesFile, Map.class).iterator())
+            while (iter.hasNext())
             {
-                while (iter.hasNext())
-                {
-                    @SuppressWarnings("unchecked")
-                    final Map<String, Object> m = iter.next();
-                    final GeoLocation l = mapLocation(m);
-                    final Country c = Country.from(l);
-                    countries.put(m.get("country_code").toString(), c);
-                }
+                @SuppressWarnings("unchecked")
+                final Map<String, Object> m = iter.next();
+                final Country c = mapCountry(m);
+                final CountrySummary summary = new CountrySummary().setId(MapUtils.getLong(m, "geoname_id")).withCode(MapUtils.getString(m, "iso")).withName(c.getName());
+                countries.put(summary.getCode(), c);
+                countrySummaries.put(summary.getCode(), summary);
             }
-            logger.info("Loaded {} countries", locations.size());
         }
+        logger.info("Loaded {} countries", countries.size());
     }
     
-    private GeoLocation mapLocation(Map<String, Object> map)
+    private Country mapCountry(Map<String, Object> map)
     {
         final GeoLocation l = new GeoLocation();
-        l.setId(Long.parseLong(map.get("id").toString()));
-        l.setName(map.get("name").toString());
-        l.setCoordinates(Coordinates.from(Double.parseDouble(map.get("lat").toString()), Double.parseDouble(map.get("lng").toString())));
-        
-        // TODO: Set country name
-        l.setCountry(new CountrySummary().withCode(map.get("country_code").toString()).withName(""));
-        return l;
+        final Long id = MapUtils.getLong(map, "geoname_id");
+        l.setId(id);
+        l.setName(MapUtils.getString(map, "country"));
+        l.setPopulation(MapUtils.getLong(map, "population"));
+        return Country.from(l);
     }
-
+    
     public int loadHierarchy() throws IOException
     {
         nodes = new HashMap<>();
         
-        final File hierarchyFile = new File("/tmp/hierarchy.tsv");
+        final File hierarchyFile = new File(baseDirectory, "hierarchy");
         final Map<Long, Long> childToParent = new HashMap<>();
         new HierarchyImporter(hierarchyFile).processFile(r->
         {
