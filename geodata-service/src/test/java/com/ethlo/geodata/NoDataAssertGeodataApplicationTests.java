@@ -31,6 +31,7 @@ import java.util.Calendar;
 import java.util.Date;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -166,6 +167,7 @@ public class NoDataAssertGeodataApplicationTests
     	assertThat(boundaries.length).isGreaterThan(simplifiedBoundaries.length);
     }
     
+    @Ignore
     @Test
     public void testClipAtBoundaryPartiallyInside() throws IOException, ParseException
     {
@@ -177,9 +179,9 @@ public class NoDataAssertGeodataApplicationTests
     	final double maxLat=18.999802543661826;
     	final Geometry geo = GeometryUtil.clip(new Envelope(minLng, maxLng, minLat, maxLat), boundaries);
     	final GeoJsonWriter w = new GeoJsonWriter();
-    	System.out.println(w.write(geo));
     }
     
+    @Ignore
     @Test
     public void testClipAtBoundaryTotallyInside() throws IOException, ParseException
     {
@@ -191,7 +193,6 @@ public class NoDataAssertGeodataApplicationTests
     	final double maxLat=-24.106646903690297;
     	final Geometry geo = GeometryUtil.clip(new Envelope(minLng, maxLng, minLat, maxLat), boundaries);
     	final GeoJsonWriter w = new GeoJsonWriter();
-    	System.out.println(w.write(geo));
     }
     
     @Test
