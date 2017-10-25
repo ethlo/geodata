@@ -26,14 +26,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.util.Calendar;
+import java.util.Comparator;
 import java.util.Date;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -66,6 +71,8 @@ import com.vividsolutions.jts.io.geojson.GeoJsonWriter;
 @TestExecutionListeners(inheritListeners=false, listeners={DependencyInjectionTestExecutionListener.class})
 public class NoDataAssertGeodataApplicationTests
 {
+    private static final Logger logger = LoggerFactory.getLogger(NoDataAssertGeodataApplicationTests.class);
+    
     private GeodataService geodataService;
     
     @Autowired
@@ -77,11 +84,28 @@ public class NoDataAssertGeodataApplicationTests
     @Value("${data.directory}")
     private File dataDirectory;
     
+    private static boolean initialized = false;
+    
     @Before
     public void contextLoads() throws IOException, SQLException
     {
-        geoMetaService.update();
+        if (! initialized)
+        {
+            delete(dataDirectory);
+            geoMetaService.update();
+            initialized = true;
+        }
         geodataService = appCtx.getBean(GeodataService.class);
+    }
+    
+    private void delete(File dir) throws IOException
+    {
+        Path rootPath = Paths.get(dir.getAbsolutePath());
+        Files.walk(rootPath)
+            .sorted(Comparator.reverseOrder())
+            .map(Path::toFile)
+            .peek(e->logger.info("Deleting {}", e))
+            .forEach(File::delete);
     }
     
     @Test
@@ -167,11 +191,10 @@ public class NoDataAssertGeodataApplicationTests
     	assertThat(boundaries.length).isGreaterThan(simplifiedBoundaries.length);
     }
     
-    @Ignore
     @Test
     public void testClipAtBoundaryPartiallyInside() throws IOException, ParseException
     {
-    	final long id = 6255151; // Oceania
+        final long id = 51537; // Somalia
     	final Geometry boundaries = new WKBReader().read(geodataService.findBoundaries(id));
     	final double minLng=109.02832043750004;
     	final double maxLng=128.03466809375004;
@@ -181,11 +204,10 @@ public class NoDataAssertGeodataApplicationTests
     	final GeoJsonWriter w = new GeoJsonWriter();
     }
     
-    @Ignore
     @Test
     public void testClipAtBoundaryTotallyInside() throws IOException, ParseException
     {
-    	final long id = 6255151; // Oceania
+        final long id = 51537; // Somalia
     	final Geometry boundaries = new WKBReader().read(geodataService.findBoundaries(id));
     	final double minLng=124.71679700000004;
     	final double maxLng=143.72314465625004;

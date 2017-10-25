@@ -25,18 +25,17 @@ package com.ethlo.geodata.util;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.AbstractMap;
 import java.util.Date;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -45,7 +44,10 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
-import org.springframework.util.Assert;
+import org.zeroturnaround.zip.NameMapper;
+import org.zeroturnaround.zip.ZipUtil;
+
+import com.vividsolutions.jts.util.Assert;
 
 public class ResourceUtil
 {
@@ -102,42 +104,42 @@ public class ResourceUtil
         }
     }
     
-    private static Map.Entry<Date,File> fetchZip(String alias, String url, String zipEntry) throws MalformedURLException, IOException
+    private static Map.Entry<Date,File> fetchZip(String alias, String url, String zipEntry) throws IOException
     {
         final Resource resource = openConnection(url);
-        return downloadIfNewer(alias, resource, f ->
+        return downloadIfNewer(alias, resource, f->
         {
-            final ZipInputStream zipIn = new ZipInputStream(resource.getInputStream());
-            ZipEntry entry = null;
-            do
-            {
-                entry = zipIn.getNextEntry();
-            }
-            while (entry != null && !entry.getName().endsWith(zipEntry));
-            Assert.notNull(entry, "Zip entry cannot be found: " + zipEntry);
-            return zipIn;
+            final File unzipDir = new File(tmpDir, Integer.toString(url.hashCode())); 
+            ZipUtil.unpack(f.toFile(), unzipDir, name->name.endsWith(zipEntry) ? zipEntry : null);
+            final File file = new File(unzipDir, zipEntry);
+            Assert.isTrue(file.exists(), "File " + file + " does not exist");
+            return file.toPath();
         });
     }
 
-    private static Entry<Date, File> downloadIfNewer(String alias, Resource resource, CheckedFunction<InputStream, InputStream> fun) throws IOException
+    private static Entry<Date, File> downloadIfNewer(String alias, Resource resource, CheckedFunction<Path, Path> fun) throws IOException
     {
-        final File file = new File(tmpDir, alias + resource.getURL().hashCode() + ".txt");
+        final File tmpDownloadedFile = new File(tmpDir, alias + resource.getURI().hashCode());
         final Date remoteLastModified = new Date(resource.lastModified());
-        final long localLastModified = file.exists() ? file.lastModified() : -2;
-        logger.info("Local file for " + "alias {}" + "\nPath: {}" + "\nExists: {}" + "\nLast-Modified: {}", alias, file.getAbsolutePath(), file.exists(), formatDate(localLastModified));
+        final long localLastModified = tmpDownloadedFile.exists() ? tmpDownloadedFile.lastModified() : -2;
+        logger.info("Local file for alias {}" 
+                        + "\nPath: {}" 
+                        + "\nExists: {}" 
+                        + "\nLocal last-modified: {} "
+                        + "\nRemote last modified: {}", 
+                        alias, tmpDownloadedFile.getAbsolutePath(), tmpDownloadedFile.exists(), formatDate(localLastModified), formatDate(remoteLastModified.getTime()));
 
-        if (remoteLastModified.getTime() > localLastModified)
+        if (! tmpDownloadedFile.exists() || remoteLastModified.getTime() > localLastModified)
         {
-            logger.info("New file has last-modified value of {}", formatDate(remoteLastModified.getTime()));
-            logger.info("Downloading new file from {}", resource.getURL());
-            try (final InputStream in = fun.apply(resource.getInputStream()))
-            {
-                Files.copy(in, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                file.setLastModified(remoteLastModified.getTime());
-            }
+            logger.info("Downloading {}", resource.getURL());
+            Files.copy(resource.getInputStream(), tmpDownloadedFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            logger.info("Download complete");
         }
-
-        return new AbstractMap.SimpleEntry<>(new Date(Math.max(localLastModified, remoteLastModified.getTime())), file);
+        
+        final Path preppedFile = fun.apply(tmpDownloadedFile.toPath());
+        Files.setLastModifiedTime(tmpDownloadedFile.toPath(), FileTime.fromMillis(remoteLastModified.getTime()));
+        Files.setLastModifiedTime(preppedFile, FileTime.fromMillis(remoteLastModified.getTime()));
+        return new AbstractMap.SimpleEntry<>(new Date(remoteLastModified.getTime()), preppedFile.toFile());
     }
 
     private static LocalDateTime formatDate(long timestamp)

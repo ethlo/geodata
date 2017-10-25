@@ -58,15 +58,12 @@ public class GeonamesImporter implements DataImporter
     {
         final Map<Long, Long> childToParentMap = new HashMap<>();
         final Set<Long> inHierarchy = new TreeSet<>();
-        if (hierarchyFile != null)
+        new HierarchyImporter(hierarchyFile).processFile(h->
         {
-            new HierarchyImporter(hierarchyFile).processFile(h->
-            {
-                childToParentMap.put(Long.parseLong(h.get("child_id")), Long.parseLong(h.get("parent_id")));
-                inHierarchy.add(Long.parseLong(h.get("child_id")));
-                inHierarchy.add(Long.parseLong(h.get("parent_id")));
-            });
-        }
+            childToParentMap.put(Long.parseLong(h.get("child_id")), Long.parseLong(h.get("parent_id")));
+            inHierarchy.add(Long.parseLong(h.get("child_id")));
+            inHierarchy.add(Long.parseLong(h.get("parent_id")));
+        });
         
         // Load alternate names
         final Map<Long, String> preferredNames = loadPreferredNames("EN");
