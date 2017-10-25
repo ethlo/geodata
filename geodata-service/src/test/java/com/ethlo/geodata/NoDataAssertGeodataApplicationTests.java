@@ -100,12 +100,15 @@ public class NoDataAssertGeodataApplicationTests
     
     private void delete(File dir) throws IOException
     {
-        Path rootPath = Paths.get(dir.getAbsolutePath());
-        Files.walk(rootPath)
-            .sorted(Comparator.reverseOrder())
-            .map(Path::toFile)
-            .peek(e->logger.info("Deleting {}", e))
-            .forEach(File::delete);
+        if (dir.exists() && dir.isDirectory())
+        {
+            Path rootPath = Paths.get(dir.getAbsolutePath());
+            Files.walk(rootPath)
+                .sorted(Comparator.reverseOrder())
+                .map(Path::toFile)
+                .peek(e->logger.info("Deleting {}", e))
+                .forEach(File::delete);
+        }
     }
     
     @Test

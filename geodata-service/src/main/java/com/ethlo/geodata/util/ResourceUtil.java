@@ -25,7 +25,6 @@ package com.ethlo.geodata.util;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -44,7 +43,6 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
-import org.zeroturnaround.zip.NameMapper;
 import org.zeroturnaround.zip.ZipUtil;
 
 import com.vividsolutions.jts.util.Assert;
@@ -52,7 +50,7 @@ import com.vividsolutions.jts.util.Assert;
 public class ResourceUtil
 {
     private static final Logger logger = LoggerFactory.getLogger(ResourceUtil.class);
-    private static final String tmpDir = System.getProperty("java.io.tmpdir");
+    private static final String TEMP_DIR = System.getProperty("java.io.tmpdir");
 
     public static Date getLastModified(String urlStr) throws IOException
     {
@@ -65,7 +63,7 @@ public class ResourceUtil
         return new Date(lastModified);
     }
 
-    private static Resource openConnection(String urlStr) throws MalformedURLException, IOException
+    private static Resource openConnection(String urlStr) throws IOException
     {
         final String[] urlParts = StringUtils.split(urlStr, "|");
         
@@ -109,7 +107,7 @@ public class ResourceUtil
         final Resource resource = openConnection(url);
         return downloadIfNewer(alias, resource, f->
         {
-            final File unzipDir = new File(tmpDir, Integer.toString(url.hashCode())); 
+            final File unzipDir = new File(TEMP_DIR, Integer.toString(url.hashCode())); 
             ZipUtil.unpack(f.toFile(), unzipDir, name->name.endsWith(zipEntry) ? zipEntry : null);
             final File file = new File(unzipDir, zipEntry);
             Assert.isTrue(file.exists(), "File " + file + " does not exist");
@@ -119,7 +117,7 @@ public class ResourceUtil
 
     private static Entry<Date, File> downloadIfNewer(String alias, Resource resource, CheckedFunction<Path, Path> fun) throws IOException
     {
-        final File tmpDownloadedFile = new File(tmpDir, alias + resource.getURI().hashCode());
+        final File tmpDownloadedFile = new File(TEMP_DIR, alias + resource.getURI().hashCode());
         final Date remoteLastModified = new Date(resource.lastModified());
         final long localLastModified = tmpDownloadedFile.exists() ? tmpDownloadedFile.lastModified() : -2;
         logger.info("Local file for alias {}" 
