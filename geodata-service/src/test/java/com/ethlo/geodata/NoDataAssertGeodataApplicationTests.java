@@ -73,6 +73,8 @@ public class NoDataAssertGeodataApplicationTests
 {
     private static final Logger logger = LoggerFactory.getLogger(NoDataAssertGeodataApplicationTests.class);
     
+    private static final long SOMALIA_ID = 51537;
+    
     private GeodataService geodataService;
     
     @Autowired
@@ -85,6 +87,7 @@ public class NoDataAssertGeodataApplicationTests
     private File dataDirectory;
     
     private static boolean initialized = false;
+    private static boolean loaded = false;
     
     @Before
     public void contextLoads() throws IOException, SQLException
@@ -95,7 +98,15 @@ public class NoDataAssertGeodataApplicationTests
             geoMetaService.update();
             initialized = true;
         }
-        geodataService = appCtx.getBean(GeodataService.class);
+
+        final GeodataServiceImpl impl = appCtx.getBean(GeodataServiceImpl.class);
+        if (! loaded)
+        {
+            impl.load();
+            loaded = true;
+        }
+        
+        geodataService = impl;
     }
     
     private void delete(File dir) throws IOException
@@ -188,17 +199,15 @@ public class NoDataAssertGeodataApplicationTests
     @Test
     public void findPreviewBoundary()
     {
-    	final long id = 51537; // Somalia
-    	final byte[] boundaries = geodataService.findBoundaries(id);
-    	final byte[] simplifiedBoundaries = geodataService.findBoundaries(id, new View(5, 10, 55, 75, 1920, 1080));
+    	final byte[] boundaries = geodataService.findBoundaries(SOMALIA_ID);
+    	final byte[] simplifiedBoundaries = geodataService.findBoundaries(SOMALIA_ID, new View(5, 10, 55, 75, 1920, 1080));
     	assertThat(boundaries.length).isGreaterThan(simplifiedBoundaries.length);
     }
     
     @Test
     public void testClipAtBoundaryPartiallyInside() throws IOException, ParseException
     {
-        final long id = 51537; // Somalia
-    	final Geometry boundaries = new WKBReader().read(geodataService.findBoundaries(id));
+    	final Geometry boundaries = new WKBReader().read(geodataService.findBoundaries(SOMALIA_ID));
     	final double minLng=109.02832043750004;
     	final double maxLng=128.03466809375004;
     	final double minLat=-25.105497099694126;
@@ -210,8 +219,7 @@ public class NoDataAssertGeodataApplicationTests
     @Test
     public void testClipAtBoundaryTotallyInside() throws IOException, ParseException
     {
-        final long id = 51537; // Somalia
-    	final Geometry boundaries = new WKBReader().read(geodataService.findBoundaries(id));
+    	final Geometry boundaries = new WKBReader().read(geodataService.findBoundaries(SOMALIA_ID));
     	final double minLng=124.71679700000004;
     	final double maxLng=143.72314465625004;
     	final double minLat=-29.973969979050846;

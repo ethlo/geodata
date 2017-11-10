@@ -59,4 +59,15 @@ public class MapUtils
         }
         return obj.toString();
     }
+
+    public static Integer getInt(Map<?,?> map, String key)
+    {
+        final Object obj = map.get(key);
+        if (obj == null)
+        {
+            return null;
+        }
+        return Integer.valueOf(obj.toString());
+    }
+
 }

@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.domain.Pageable;
 
@@ -49,11 +51,14 @@ import com.google.common.collect.Iterators;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.GeometryFactory;
+import com.vividsolutions.jts.geom.TopologyException;
 import com.vividsolutions.jts.io.ParseException;
 import com.vividsolutions.jts.io.WKBReader;
 
 public class RtreeRepository
 {
+    private static final Logger logger = LoggerFactory.getLogger(RtreeRepository.class);
+    
     private RTree<RTreePayload, Geometry> tree;
     private WkbDataReader reader;
     private File envelopeFile;
@@ -122,6 +127,11 @@ public class RtreeRepository
                 {
                     return candidate.value().getId();
                 }
+            }
+            catch (TopologyException exc)
+            {
+                logger.warn("Cannot process geometry for location {}: {}", candidate.value().getId(), exc.getMessage());
+                logger.debug("{}", exc);
             }
             catch (ParseException exc)
             {

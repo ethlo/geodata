@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -145,5 +146,11 @@ public class FileIpLookupImporter extends FilePersistentImporter
     public Date lastRemoteModified() throws IOException
     {
         return ResourceUtil.getLastModified(url);
+    }
+    
+    @Override
+    protected List<File> getFiles()
+    {
+        return Arrays.asList(getFile());
     }
 }

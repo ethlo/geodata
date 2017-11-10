@@ -23,6 +23,8 @@ package com.ethlo.geodata.importer.file;
  */
 
 import java.io.File;
+import java.nio.file.Files;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -61,5 +63,16 @@ public abstract class FilePersistentImporter implements PersistentImporter
                 throw new DataAccessResourceFailureException("Could not delete " + getFile());
             }
         }
+    }
+
+    /**
+     * Returns a list of the files this importer produces
+     * @return a list of the files this importer produces
+     */
+    protected abstract List<File> getFiles();
+    
+    public boolean allFilesExists()
+    {
+        return getFiles().size() == getFiles().stream().filter(File::exists).count();
     }
 }

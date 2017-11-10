@@ -25,6 +25,7 @@ package com.ethlo.geodata;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -40,7 +41,6 @@ import java.util.SortedMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import javax.annotation.PostConstruct;
 import javax.validation.Valid;
 
 import org.apache.commons.collections4.trie.PatriciaTrie;
@@ -59,6 +59,7 @@ import org.springframework.data.util.CloseableIterator;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
+import org.springframework.util.StringUtils;
 
 import com.ethlo.geodata.importer.HierarchyImporter;
 import com.ethlo.geodata.importer.file.FileCountryImporter;
@@ -80,6 +81,9 @@ import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
+import com.google.i18n.phonenumbers.NumberParseException;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.ParseException;
@@ -133,8 +137,7 @@ public class GeodataServiceImpl implements GeodataService
     
     private File baseDirectory;
          
-    @PostConstruct
-    public void load() throws IOException
+    public void load()
     {
         ensureBaseDirectory();
         
@@ -238,13 +241,14 @@ public class GeodataServiceImpl implements GeodataService
         geoLocation.setCountry(country);
         
         geoLocation
-            .setId(MapUtils.getLong(m, "id"))
-            .setName(MapUtils.getString(m, "name"))
             .setFeatureCode(MapUtils.getString(m, "feature_code"))
             .setFeatureClass(MapUtils.getString(m, "feature_class"))
             .setPopulation(MapUtils.getLong(m, "population"))
-            .setCoordinates(Coordinates.from(MapUtils.getDouble(m, "lat"), MapUtils.getDouble(m, "lng")))
-            .setParentLocationId(parentId);
+            .setParentLocationId(parentId)
+            .setId(MapUtils.getLong(m, "id"))
+            .setName(MapUtils.getString(m, "name"))
+            .setCoordinates(Coordinates.from(MapUtils.getDouble(m, "lat"), MapUtils.getDouble(m, "lng")));
+            
         return geoLocation;
     }
 
@@ -336,8 +340,6 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<GeoLocation> findChildren(long locationId, Pageable pageable)
     {
-        loadNodes();
-        
         final Node node = nodes.get(locationId);
         final long total = node.getChildren().size();
         final List<Long> ids = node.getChildren()
@@ -350,21 +352,6 @@ public class GeodataServiceImpl implements GeodataService
         
         content.sort((a, b)->a.getName().compareTo(b.getName()));
         return new PageImpl<>(content, pageable, total);
-    }
-
-    private void loadNodes()
-    {
-        if (nodes == null)
-        {
-            try
-            {
-                loadHierarchy();
-            }
-            catch (IOException exc)
-            {
-                throw new DataAccessResourceFailureException(exc.getMessage(), exc);
-            }
-        }
     }
 
     @Override
@@ -399,9 +386,21 @@ public class GeodataServiceImpl implements GeodataService
         {
             return new PageImpl<>(Collections.emptyList());
         }
-        return findChildren(continentId, pageable).map(l->Country.from(l));
+        return findChildren(continentId, pageable).map(l->findCountryById(l.getId()));
     }
     
+    private Country findCountryById(Long id)
+    {
+        for (Country c : countries.values())
+        {
+            if (c.getId().equals(id))
+            {
+                return c;
+            }
+        }
+        return null;
+    }
+
     @Override
     public Page<Country> findCountries(Pageable pageable)
     {
@@ -454,34 +453,50 @@ public class GeodataServiceImpl implements GeodataService
     
     private Country mapCountry(Map<String, Object> map)
     {
-        final GeoLocation l = new GeoLocation();
+        final Country country = new Country();
         final Long id = MapUtils.getLong(map, "geoname_id");
-        l.setId(id);
-        l.setName(MapUtils.getString(map, "country"));
-        l.setPopulation(MapUtils.getLong(map, "population"));
-        return Country.from(l);
+        country.setId(id);
+        country.setCode(MapUtils.getString(map, "iso"));
+        country.setName(MapUtils.getString(map, "country"));
+        country.setPopulation(MapUtils.getLong(map, "population"));
+        final Set<String> languages = StringUtils.commaDelimitedListToSet(MapUtils.getString(map, "languages"));
+        final String phone = MapUtils.getString(map, "phone");
+        country.setLanguages(new ArrayList<>(languages));
+        if (phone != null)
+        {
+            final Integer callingCode = Integer.parseInt(phone.replaceAll("[^\\d.]", ""));
+            country.setCallingCode(callingCode);
+        }
+        return country;
     }
     
-    public int loadHierarchy() throws IOException
+    public int loadHierarchy()
     {
         nodes = new HashMap<>();
         
         final File hierarchyFile = new File(baseDirectory, "hierarchy");
         final Map<Long, Long> childToParent = new HashMap<>();
-        new HierarchyImporter(hierarchyFile).processFile(r->
+        try
         {
-            final String featureCode = r.get("feature_code");
-            if (featureCode == null || "adm".equalsIgnoreCase(featureCode))
+            new HierarchyImporter(hierarchyFile).processFile(r->
             {
-                final long parentId = Long.parseLong(r.get("parent_id"));
-                final long childId = Long.parseLong(r.get("child_id"));
-                final Node parent = nodes.getOrDefault(parentId, new Node(parentId));
-                final Node child = nodes.getOrDefault(childId, new Node(childId));
-                nodes.put(parent.getId(), parent);
-                nodes.put(child.getId(), child);            
-                childToParent.put(childId, parentId);
-            }
-        });
+                final String featureCode = r.get("feature_code");
+                if (featureCode == null || "adm".equalsIgnoreCase(featureCode))
+                {
+                    final long parentId = Long.parseLong(r.get("parent_id"));
+                    final long childId = Long.parseLong(r.get("child_id"));
+                    final Node parent = nodes.getOrDefault(parentId, new Node(parentId));
+                    final Node child = nodes.getOrDefault(childId, new Node(childId));
+                    nodes.put(parent.getId(), parent);
+                    nodes.put(child.getId(), child);            
+                    childToParent.put(childId, parentId);
+                }
+            });
+        }
+        catch (IOException exc)
+        {
+            throw new DataAccessResourceFailureException(exc.getMessage(), exc);
+        }
         
         // Process hierarchy after, as we do not know the order of the pairs
         childToParent.entrySet().forEach(e->
@@ -509,10 +524,26 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Country findByPhonenumber(String phoneNumber)
     {
-        String stripped = phoneNumber.replaceAll("[^\\d.]", "");
-        stripped = stripped.replaceFirst("^0+(?!$)", "");
+        final PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
+        PhoneNumber pn;
+        try
+        {
+            pn = phoneUtil.parse("+" + phoneNumber, "US");
+        }
+        catch (NumberParseException exc)
+        {
+            return null;
+        }
         
-        throw new UnsupportedOperationException("Not implememnted");
+        final Integer countryCode = pn.getCountryCode();
+        for (Country country : countries.values())
+        {
+            if (countryCode.equals(country.getCallingCode()))
+            {
+                return country;
+            }
+        }
+        return null;
     }
     
     @Override
@@ -562,8 +593,6 @@ public class GeodataServiceImpl implements GeodataService
         
     private List<Long> getPath(long id)
     {
-        loadNodes();
-        
         Node node = this.nodes.get(id);
         final List<Long> path = new LinkedList<>();
         while (node != null)

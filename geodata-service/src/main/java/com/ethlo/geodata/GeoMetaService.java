@@ -149,7 +149,7 @@ public class GeoMetaService
         ensureBaseDirectory();
         
         final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
-        if (boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)
+        if (! boundaryImporter.allFilesExists() || boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)
         {
             boundaryImporter.purge();
             boundaryImporter.importData();
@@ -157,7 +157,7 @@ public class GeoMetaService
         }
         
         final Date countryTimestamp = countryImporter.lastRemoteModified();
-        if (countryTimestamp.getTime() > getLastModified("geonames_country") + maxDataAgeMillis)
+        if (! countryImporter.allFilesExists() || countryTimestamp.getTime() > getLastModified("geonames_country") + maxDataAgeMillis)
         {
             countryImporter.purge();
             countryImporter.importData();
@@ -165,7 +165,7 @@ public class GeoMetaService
         }
         
         final Date geonamesHierarchyTimestamp = hierarchyImporter.lastRemoteModified();
-        if (geonamesHierarchyTimestamp.getTime() > getLastModified("geonames_hierarchy") + maxDataAgeMillis)
+        if (! hierarchyImporter.allFilesExists() || geonamesHierarchyTimestamp.getTime() > getLastModified("geonames_hierarchy") + maxDataAgeMillis)
         {
             hierarchyImporter.purge();
             hierarchyImporter.importData();
@@ -173,7 +173,7 @@ public class GeoMetaService
         }
         
         final Date geonamesTimestamp = geonamesImporter.lastRemoteModified();
-        if (geonamesTimestamp.getTime() > getLastModified("geonames") + maxDataAgeMillis)
+        if (! geonamesImporter.allFilesExists() || geonamesTimestamp.getTime() > getLastModified("geonames") + maxDataAgeMillis)
         {
             geonamesImporter.purge();
             geonamesImporter.importData();
@@ -181,7 +181,7 @@ public class GeoMetaService
         }
         
         final Date ipTimestamp = ipLookupImporter.lastRemoteModified();
-        if (ipTimestamp.getTime() > getLastModified("geoip") + maxDataAgeMillis)
+        if (! ipLookupImporter.allFilesExists() || ipTimestamp.getTime() > getLastModified("geoip") + maxDataAgeMillis)
         {
             ipLookupImporter.purge();
             ipLookupImporter.importData();

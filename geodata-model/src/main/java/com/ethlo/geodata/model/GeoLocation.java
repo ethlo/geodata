@@ -1,7 +1,6 @@
 package com.ethlo.geodata.model;
 
 import java.io.Serializable;
-import java.util.Objects;
 
 /*-
  * #%L
@@ -26,22 +25,13 @@ import java.util.Objects;
  */
 
 import javax.validation.constraints.NotNull;
-public class GeoLocation implements Serializable
+public class GeoLocation extends GeoEntity implements Serializable
 {
     private static final long serialVersionUID = -4591909310445372923L;
 
-    @NotNull
-    private Long id;
-
     private Long parentLocationId;
 
-    @NotNull
-    private String name;
-
     private CountrySummary country;
-
-    @NotNull
-    private Coordinates coordinates;
 
     @NotNull
     private String featureClass;
@@ -56,16 +46,6 @@ public class GeoLocation implements Serializable
         return featureCode;
     }
 
-    public Long getId()
-    {
-        return id;
-    }
-
-    public String getName()
-    {
-        return name;
-    }
-
     public CountrySummary getCountry()
     {
         return country;
@@ -76,38 +56,15 @@ public class GeoLocation implements Serializable
         return parentLocationId;
     }
     
-    public Coordinates getCoordinates()
-    {
-        return this.coordinates;
-    }
-    
-    public GeoLocation setId(Long id)
-    {
-        this.id = id;
-        return this;
-    }
-
     public GeoLocation setParentLocationId(Long parentLocationId)
     {
         this.parentLocationId = parentLocationId;
         return this;
     }
 
-    public GeoLocation setName(String name)
-    {
-        this.name = name;
-        return this;
-    }
-
     public GeoLocation setCountry(CountrySummary country)
     {
         this.country = country;
-        return this;
-    }
-
-    public GeoLocation setCoordinates(Coordinates coordinates)
-    {
-        this.coordinates = coordinates;
         return this;
     }
 
@@ -120,9 +77,11 @@ public class GeoLocation implements Serializable
     @Override
     public String toString()
     {
-        return "GeoLocation [" + (id != null ? "id=" + id + ", " : "") + (parentLocationId != null ? "parentLocationId=" + parentLocationId + ", " : "") + (name != null ? "name=" + name + ", " : "")
+        return "GeoLocation [" + (getId() != null ? "id=" + getId() + ", " : "") 
+                        + (parentLocationId != null ? "parentLocationId=" + parentLocationId + ", " : "") 
+                        + (getName() != null ? "name=" + getName() + ", " : "")
                         + (country != null ? "country=" + country + ", " : "")
-                        + (coordinates != null ? "coordinates=" + coordinates : "") + "]";
+                        + (getCoordinates() != null ? "coordinates=" + getCoordinates() : "") + "]";
     }
 
     public long getPopulation()
@@ -145,29 +104,5 @@ public class GeoLocation implements Serializable
     {
         this.featureClass = featureClass;
         return this;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return id == null ? 0 : Long.hashCode(id);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj)
-        {
-            return true;
-        }
-        if (obj == null)
-        {
-            return false;
-        }
-        if (obj instanceof GeoLocation)
-        {
-            return Objects.equals(id, ((GeoLocation) obj).id);
-        }
-        return false;
     }
 }

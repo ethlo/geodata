@@ -24,7 +24,9 @@ package com.ethlo.geodata.importer.file;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
@@ -60,7 +62,7 @@ public class FileGeonamesBoundaryImporter extends FilePersistentImporter
     @Override
     public void importData() throws IOException
     {
-        final File envelopeFile = new File(getFile().getParentFile(), ENVELOPE_FILENAME);
+        final File envelopeFile = getEnvelopeFile();
         try (final WkbDataWriter out = new WkbDataWriter(getFile()); 
              final JsonIoWriter<Map> envOut = new JsonIoWriter<>(envelopeFile, Map.class))
         {
@@ -95,6 +97,11 @@ public class FileGeonamesBoundaryImporter extends FilePersistentImporter
         }
     }
 
+    private File getEnvelopeFile()
+    {
+        return new File(getFile().getParentFile(), ENVELOPE_FILENAME);
+    }
+
     @Override
     public Date lastRemoteModified() throws IOException
     {
@@ -105,5 +112,11 @@ public class FileGeonamesBoundaryImporter extends FilePersistentImporter
     public void purge() throws IOException
     {
         super.delete();
+    }
+
+    @Override
+    protected List<File> getFiles()
+    {
+        return Arrays.asList(getEnvelopeFile(), super.getFile()); 
     }
 }

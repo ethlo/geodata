@@ -24,7 +24,9 @@ package com.ethlo.geodata.importer.file;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -100,5 +102,11 @@ public class FileGeonamesImporter extends FilePersistentImporter
     public Date lastRemoteModified() throws IOException
     {
         return new Date(Math.max(ResourceUtil.getLastModified(geoNamesAllCountriesUrl).getTime(), ResourceUtil.getLastModified(geoNamesHierarchyUrl).getTime()));
+    }
+    
+    @Override
+    protected List<File> getFiles()
+    {
+        return Arrays.asList(getFile());
     }
 }

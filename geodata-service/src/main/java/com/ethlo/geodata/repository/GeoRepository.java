@@ -39,11 +39,16 @@ import com.google.common.collect.Range;
 @Repository
 public class GeoRepository
 {
-    @Value("${data.directory}")
     private File baseDirectory;
     
     private static final String LOCATIONS_FILE = "geonames.json";
     private static final String IP_FILE = "geoip.json";
+    
+    @Value("${data.directory}")
+    public void setBaseDirectory(File baseDirectory)
+    {
+        this.baseDirectory = new File(baseDirectory.getPath().replaceFirst("^~",System.getProperty("user.home")));
+    }
     
     public CloseableIterator<Map> locations(Map<String, CountrySummary> countrySummaries)
     {
