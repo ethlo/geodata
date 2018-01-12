@@ -6,3 +6,4 @@
 *.versionsBackup
 /bin
 .springBeans
+generated-docs
