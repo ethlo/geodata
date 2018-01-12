@@ -4,12 +4,23 @@ Geodata
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 [![Build Status](https://travis-ci.org/ethlo/geodata.svg?branch=master)](https://travis-ci.org/ethlo/geodata)
 
-Simple library that imports and manages Geonames and Geo-Lite2 data using Open-Source software. Currently requiring MySQL 5.7+/MariaDB 10.1+. Support for download and import of data.
+Simple library that imports and manages Geonames and Geo-Lite2 data using Open-Source software. 
+
+### Design choices
+The system is built for high performance, thus:
+* It is somewhat memory hungry (recommended 5GB heap) as all data is loaded in in-memory structures. 
+* Loading the data from file-to-memory is fast and very well optimized, however as there are several million locations indexed (usually around 60-70 seconds)
 
 ### License note
 I would very much like to release this under an even less restrictive license, but since the project relies on JTS, I unfortunately cannot use Apache2 licensing.
 
-### Method overview
+### Usage
+This project is distributed as both a service and a RESTful web-service.
+
+### Web-service API doc
+TBD
+
+### Service methods overview
 ```
 public interface GeodataService
 {
