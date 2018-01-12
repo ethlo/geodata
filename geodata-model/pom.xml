@@ -42,7 +42,7 @@
 							<docletArtifact>
 								<groupId>capital.scalable</groupId>
 								<artifactId>spring-auto-restdocs-json-doclet</artifactId>
-								<version>1.0.8</version>
+								<version>${autodocs.version}</version>
 							</docletArtifact>
 							<destDir>generated-javadoc-json</destDir>
 							<reportOutputDirectory>${project.build.directory}</reportOutputDirectory>

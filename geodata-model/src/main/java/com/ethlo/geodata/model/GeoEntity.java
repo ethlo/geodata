@@ -28,12 +28,21 @@ import javax.validation.constraints.NotNull;
 
 public class GeoEntity
 {
+    /**
+     * The Geonames.org assigned ID of this location
+     */
     @NotNull
     private Long id;
     
+    /**
+     * The common name of this location
+     */
     @NotNull
     private String name;
 
+    /**
+     * The geographical coordinates of this location in WGS-84 datum
+     */
     @NotNull
     private Coordinates coordinates;
 

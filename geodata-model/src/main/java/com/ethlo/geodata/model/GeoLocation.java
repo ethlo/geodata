@@ -29,16 +29,31 @@ public class GeoLocation extends GeoEntity implements Serializable
 {
     private static final long serialVersionUID = -4591909310445372923L;
 
+    /**
+     * The parent location of this location. Typically a state has a country as parent, and a country is part of a continent, etc.
+     */
     private Long parentLocationId;
 
+    /**
+     * The country this location belong to
+     */
     private CountrySummary country;
 
+    /**
+     * The feature-class as defined by geonames.org
+     */
     @NotNull
     private String featureClass;
     
+    /**
+     * The feature-code as defined by geonames.org
+     */
     @NotNull
     private String featureCode;
     
+    /**
+     * The estimated population of this location
+     */
     private long population;
     
     public String getFeatureCode()

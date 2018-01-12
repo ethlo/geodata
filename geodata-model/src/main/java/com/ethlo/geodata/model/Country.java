@@ -33,14 +33,26 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 public class Country extends GeoEntity implements Serializable
 {
     private static final long serialVersionUID = -4692269307453103789L;
-    
+
+    /**
+     * The official languages of this country
+     */
     @NotNull
     private List<String> languages;
     
+    /**
+     * The calling code
+     */
     private Integer callingCode;
     
+    /**
+     * The estimated population
+     */
     private Long population;
 
+    /**
+     * The 2-letter ISO country code
+     */
     @NotNull
     private String code;
         
