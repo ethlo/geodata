@@ -1,5 +1,7 @@
 package com.nurkiewicz.progress;
 
+import org.apache.catalina.Container;
+import org.apache.catalina.Pipeline;
 import org.apache.catalina.connector.Request;
 import org.apache.catalina.connector.Response;
 import org.apache.catalina.valves.ValveBase;
@@ -28,7 +30,12 @@ public class ProgressValve extends ValveBase
     private void removeMyself()
     {
         log.debug("Application started, de-registering");
-        getContainer().getPipeline().removeValve(this);
+        final Container container = getContainer();
+        if (container != null)
+        {
+            final Pipeline pipeline = container.getPipeline();
+            pipeline.removeValve(this);
+        }
     }
 
     @Override
