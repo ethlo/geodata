@@ -29,16 +29,20 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Bean;
 import org.springframework.dao.DataAccessResourceFailureException;
+
+import com.nurkiewicz.progress.ProgressBeanPostProcessor;
 
 @SpringBootApplication
 public class RestGeodataApplication
 {
     private static final Logger logger = LoggerFactory.getLogger(RestGeodataApplication.class);
+
     public static void main(String[] args)
     {
         final ApplicationContext ctx = SpringApplication.run(RestGeodataApplication.class, args);
-        
+
         if (args.length == 1 && "update".equals(args[0]))
         {
             logger.info("Data refresh requested, this may take some time");
@@ -52,5 +56,11 @@ public class RestGeodataApplication
             }
         }
         ctx.getBean(GeodataServiceImpl.class).load();
-    }    
+    }
+
+    @Bean
+    public ProgressBeanPostProcessor progressBeanPostProcessor()
+    {
+        return new ProgressBeanPostProcessor();
+    }
 }

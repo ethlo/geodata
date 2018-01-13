@@ -48,6 +48,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -99,6 +100,9 @@ public class GeodataServiceImpl implements GeodataService
     @Autowired
     private GeoRepository geoRepository;
     
+    @Autowired
+    private ApplicationEventPublisher publisher;
+    
     private RangeMap<Long, Long> ipRanges;
     
     private PatriciaTrie<Long> trie = new PatriciaTrie<>();
@@ -149,12 +153,15 @@ public class GeodataServiceImpl implements GeodataService
         taskExecutor.setThreadNamePrefix("data-loading-");
         taskExecutor.initialize();
         
-        taskExecutor.execute(()->loadLocations());
-        taskExecutor.execute(()->loadMbr());
-        taskExecutor.execute(()->loadIps());
+        taskExecutor.execute(this::loadLocations);
+        taskExecutor.execute(this::loadMbr);
+        taskExecutor.execute(this::loadIps);
+        
         taskExecutor.setAwaitTerminationSeconds(Integer.MAX_VALUE);
         taskExecutor.setWaitForTasksToCompleteOnShutdown(true);
         taskExecutor.shutdown();
+        
+        publisher.publishEvent(new DataLoadedEvent(this, "", true));
     }
     
     private void ensureBaseDirectory()
@@ -185,6 +192,7 @@ public class GeodataServiceImpl implements GeodataService
             rTree = rTree.add(new RTreePayload(id, e.getArea(), e));
         }
         logger.info("Loaded {} MBR boundaries", rTree.size());
+        publisher.publishEvent(new DataLoadedEvent(this, "mbr"));
     }
     
     public void loadLocations()
@@ -219,6 +227,7 @@ public class GeodataServiceImpl implements GeodataService
             }
         }
         logger.info("Loaded {} locations", locations.size());
+        publisher.publishEvent(new DataLoadedEvent(this, "locations"));
     }
     
     private Node findOrCreate(long id)
@@ -263,6 +272,7 @@ public class GeodataServiceImpl implements GeodataService
             r.forEachRemaining(e->{ipRanges.put(e.getValue(), e.getKey()); rangeCount.incrementAndGet();});
         }
         logger.info("Loaded {} IP ranges", rangeCount.intValue());
+        publisher.publishEvent(new DataLoadedEvent(this, "ips"));
     }
     
     @Override
@@ -449,6 +459,7 @@ public class GeodataServiceImpl implements GeodataService
             }
         }
         logger.info("Loaded {} countries", countries.size());
+        publisher.publishEvent(new DataLoadedEvent(this, "countries"));
     }
     
     private Country mapCountry(Map<String, Object> map)
@@ -517,6 +528,8 @@ public class GeodataServiceImpl implements GeodataService
                 roots.add(e.getValue());
             }
         }
+        
+        publisher.publishEvent(new DataLoadedEvent(this, "hierarchy"));
         
         return childToParent.size();
     }

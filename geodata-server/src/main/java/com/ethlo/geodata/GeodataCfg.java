@@ -33,6 +33,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.BindException;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
 import org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver;
@@ -80,6 +81,13 @@ public class GeodataCfg extends WebMvcConfigurerAdapter
                     tmpl.setStatus(HttpStatus.BAD_REQUEST);
                     tmpl.setTitle("Bad request");
                     return new ResponseEntity<>(tmpl, HttpStatus.BAD_REQUEST);
+                })
+                .addHandler(HttpMediaTypeNotAcceptableException.class, (e,r)->
+                { 
+                    final ErrorMessage tmpl = new ErrorMessage();
+                    tmpl.setStatus(HttpStatus.NOT_ACCEPTABLE);
+                    tmpl.setTitle("No acceptable representation");
+                    return new ResponseEntity<>(tmpl, HttpStatus.NOT_ACCEPTABLE);
                 })
                 .build();
     }
