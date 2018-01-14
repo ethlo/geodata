@@ -47,24 +47,24 @@ th {text-align:left;}
 
 <div class="splash-container">
 
-	<div style="float:right; margin-top:60px; padding:20px;">
+	<div style="float:right; margin-top:50px; padding:15px; background:white">
 		<h2>Loading data, please wait...</h2>
 		<table>
 			<tr>
-				<th data-bean="hierarchies" class="waiting">Geo Hierarchies</th>
-				<td>? %</td>
+				<th style="width:200px;">Geo Hierarchies</th>
+				<td data-bean="hierarchies" style="width:80px;">Waiting</td>
 			</tr>
 			<tr>
-				<th data-bean="ips" class="waiting">Geo IPs</th>
-				<td>? %</td>
+				<th>Geo IPs</th>
+				<td data-bean="ips">Waiting</td>
 			</tr>
 			<tr>
-				<th data-bean="locations" class="waiting">Geo Locations</th>
-				<td>? %</td>
+				<th>Geo Locations</th>
+				<td data-bean="locations">Waiting</td>
 			</tr>
 			<tr>
-				<th data-bean="mbr" class="waiting">Geo location MBRs</th>
-				<td>? %</td>
+				<th>Geo location MBRs</th>
+				<td data-bean="mbr">Waiting</td>
 			</tr>
 
 		</table>
@@ -75,8 +75,10 @@ th {text-align:left;}
         <p class="splash-subhead">
             Simple, fast and free geodata server for on-site deployment
         </p>
-		</div>
-	</div>
+        <p>
+            <a href="https://github.com/ethlo/geodata" class="pure-button pure-button-primary">GitHub</a>
+        </p>
+    </div>
 
 	<div class="footer l-box is-center">Copyright Morten Haraldsen
 		2017-2018</div>
@@ -85,9 +87,14 @@ th {text-align:left;}
 		var source = new EventSource('/init.stream');
 		var initialized = 0;
 		source.addEventListener('message', function(e) {
-			var ele = document.querySelector('th[data-bean="' + e.data + '"]');
+			
+			var arr = e.data.split(":");
+			var name = arr[0];
+			var progress = parseFloat(Math.round(arr[1] * 100)).toFixed(2);
+			
+			var ele = document.querySelector('td[data-bean="' + name + '"]');
 			if (ele) {
-				ele.className = 'done';
+				ele.innerHTML = progress + ' %';
 			}
 		});
 

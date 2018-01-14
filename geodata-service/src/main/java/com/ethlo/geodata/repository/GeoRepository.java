@@ -32,7 +32,6 @@ import org.springframework.stereotype.Repository;
 
 import com.ethlo.geodata.MapUtils;
 import com.ethlo.geodata.importer.file.JsonIoReader;
-import com.ethlo.geodata.model.CountrySummary;
 import com.google.common.collect.Range;
 
 @SuppressWarnings("rawtypes")
@@ -50,7 +49,7 @@ public class GeoRepository
         this.baseDirectory = new File(baseDirectory.getPath().replaceFirst("^~",System.getProperty("user.home")));
     }
     
-    public CloseableIterator<Map> locations(Map<String, CountrySummary> countrySummaries)
+    public CloseableIterator<Map> locations()
     {
         return new JsonIoReader<Map>(new File(baseDirectory, LOCATIONS_FILE), Map.class).iterator();
     }

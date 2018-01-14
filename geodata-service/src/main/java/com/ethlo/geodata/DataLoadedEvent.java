@@ -29,18 +29,20 @@ public class DataLoadedEvent extends ApplicationEvent
     private static final long serialVersionUID = 1123581959564040840L;
 
     private final String name;
+    private final double progress;
     private final boolean finished;
     
     public DataLoadedEvent(Object source, String name)
     {
-        this(source, name, false);
+        this(source, name, 0D);
     }
     
-    public DataLoadedEvent(Object source, String name, boolean finished)
+    public DataLoadedEvent(Object source, String name, double progress)
     {
         super(source);
         this.name = name;
-        this.finished = finished;
+        this.progress = progress;
+        this.finished = progress == 1D;
     }
 
     public String getName()
@@ -48,6 +50,11 @@ public class DataLoadedEvent extends ApplicationEvent
         return name;
     }
 
+    public double getProgress()
+    {
+        return progress;
+    }
+    
     public boolean isFinished()
     {
         return finished;

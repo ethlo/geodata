@@ -78,6 +78,7 @@ import com.ethlo.geodata.repository.GeoRepository;
 import com.ethlo.geodata.util.DistanceUtil;
 import com.ethlo.geodata.util.GeometryUtil;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
@@ -162,7 +163,7 @@ public class GeodataServiceImpl implements GeodataService
         taskExecutor.setWaitForTasksToCompleteOnShutdown(true);
         taskExecutor.shutdown();
         
-        publisher.publishEvent(new DataLoadedEvent(this, "", true));
+        publisher.publishEvent(new DataLoadedEvent(this, "complete", 1d));
     }
     
     private void ensureBaseDirectory()
@@ -193,15 +194,17 @@ public class GeodataServiceImpl implements GeodataService
             rTree = rTree.add(new RTreePayload(id, e.getArea(), e));
         }
         logger.info("Loaded {} MBR boundaries", rTree.size());
-        publisher.publishEvent(new DataLoadedEvent(this, "mbr"));
+        publisher.publishEvent(new DataLoadedEvent(this, "mbr", 1d));
     }
     
     public void loadLocations()
     {
         locations = new HashMap<>();
         logger.info("Loading locations");
-        try (@SuppressWarnings("rawtypes")
-        CloseableIterator<Map> iter = geoRepository.locations(countrySummaries))
+        final int size = Iterators.size(geoRepository.locations());
+        final ProgressListener prg = new ProgressListener(size, d->publisher.publishEvent(new DataLoadedEvent(this, "locations", d)));
+        
+        try (@SuppressWarnings("rawtypes") CloseableIterator<Map> iter = geoRepository.locations())
         {
             while (iter.hasNext())
             {
@@ -224,11 +227,12 @@ public class GeodataServiceImpl implements GeodataService
                     nodes.put(countryId, countryNode);
                     nodes.put(l.getId(), locationNode);     
                 }
-
+                
+                prg.update();
             }
         }
+        publisher.publishEvent(new DataLoadedEvent(this, "locations", 1d));
         logger.info("Loaded {} locations", locations.size());
-        publisher.publishEvent(new DataLoadedEvent(this, "locations"));
     }
     
     private Node findOrCreate(long id)
@@ -266,14 +270,18 @@ public class GeodataServiceImpl implements GeodataService
     public void loadIps()
     {
         logger.info("Loading IP ranges");
+        
+        final int size = Iterators.size(geoRepository.ipRanges());
+        final ProgressListener prg = new ProgressListener(size, d->publisher.publishEvent(new DataLoadedEvent(this, "ips", d)));
+        
         ipRanges = TreeRangeMap.create();
-        final AtomicInteger rangeCount = new AtomicInteger();
         try (CloseableIterator<Map.Entry<Long, Range<Long>>> r = geoRepository.ipRanges())
         {
-            r.forEachRemaining(e->{ipRanges.put(e.getValue(), e.getKey()); rangeCount.incrementAndGet();});
+            r.forEachRemaining(e->{ipRanges.put(e.getValue(), e.getKey()); prg.update();});
         }
-        logger.info("Loaded {} IP ranges", rangeCount.intValue());
-        publisher.publishEvent(new DataLoadedEvent(this, "ips"));
+        publisher.publishEvent(new DataLoadedEvent(this, "ips", 1d));
+        logger.info("Loaded {} IP ranges", size);
+        
     }
     
     @Override
@@ -534,7 +542,7 @@ public class GeodataServiceImpl implements GeodataService
             }
         }
         
-        publisher.publishEvent(new DataLoadedEvent(this, "hierarchy"));
+        publisher.publishEvent(new DataLoadedEvent(this, "hierarchies", 1d));
         
         return childToParent.size();
     }
