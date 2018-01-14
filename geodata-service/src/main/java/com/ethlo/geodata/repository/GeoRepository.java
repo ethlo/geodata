@@ -74,7 +74,17 @@ public class GeoRepository
 
     public long locationCount()
     {
-        Path path = Paths.get(baseDirectory.getAbsolutePath(), LOCATIONS_FILE);
+        return getLineCount(LOCATIONS_FILE);
+    }
+
+    public long ipRangesCount()
+    {
+        return getLineCount(IP_FILE);
+    }
+    
+    private long getLineCount(String filename)
+    {
+        Path path = Paths.get(baseDirectory.getAbsolutePath(), filename);
         try
         {
             return Files.lines(path).count();

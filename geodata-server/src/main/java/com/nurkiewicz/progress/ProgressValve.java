@@ -145,7 +145,7 @@ public class ProgressValve extends ValveBase
         }
         catch (Exception e)
         {
-            log.warn("Failed to stream", e);
+            log.debug("Failed to stream", e);
         }
     }
 

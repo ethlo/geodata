@@ -271,7 +271,7 @@ public class GeodataServiceImpl implements GeodataService
     {
         logger.info("Loading IP ranges");
         
-        final int size = Iterators.size(geoRepository.ipRanges());
+        final long size = geoRepository.ipRangesCount();
         final ProgressListener prg = new ProgressListener(size, d->publisher.publishEvent(new DataLoadedEvent(this, "ips", d)));
         
         ipRanges = TreeRangeMap.create();
