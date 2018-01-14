@@ -143,7 +143,7 @@ public class ProgressValve extends ValveBase
             writer.println();
             writer.flush();
         }
-        catch (IOException e)
+        catch (Exception e)
         {
             log.warn("Failed to stream", e);
         }

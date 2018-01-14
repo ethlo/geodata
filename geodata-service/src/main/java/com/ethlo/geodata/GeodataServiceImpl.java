@@ -201,7 +201,7 @@ public class GeodataServiceImpl implements GeodataService
     {
         locations = new HashMap<>();
         logger.info("Loading locations");
-        final int size = Iterators.size(geoRepository.locations());
+        final long size = geoRepository.locationCount();
         final ProgressListener prg = new ProgressListener(size, d->publisher.publishEvent(new DataLoadedEvent(this, "locations", d)));
         
         try (@SuppressWarnings("rawtypes") CloseableIterator<Map> iter = geoRepository.locations())
