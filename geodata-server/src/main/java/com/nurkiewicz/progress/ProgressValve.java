@@ -48,17 +48,14 @@ public class ProgressValve extends ValveBase
                 final AsyncContext asyncContext = request.startAsync();
                 streamProgress(asyncContext);
                 break;
-            case "/health":
-            case "/info":
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                break;
                 
-            case "/img/bg.jpg":
-                sendImage(response, "bg.jpg");
-                break;
-                
-            default:
+            case "/":
                 sendHtml(response, "loading.html");
+                break;
+            
+            default:
+                response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+                break;
         }
     }
 
@@ -86,21 +83,21 @@ public class ProgressValve extends ValveBase
             @Override
             public void onComplete(AsyncEvent event) throws IOException
             {
-                log.info("complete");
+                log.debug("complete");
                 subscription.unsubscribe();
             }
 
             @Override
             public void onTimeout(AsyncEvent event) throws IOException
             {
-                log.info("timeout");
+                log.debug("timeout");
                 subscription.unsubscribe();
             }
 
             @Override
             public void onError(AsyncEvent event) throws IOException
             {
-                log.info("error");
+                log.debug("error");
                 subscription.unsubscribe();
             }
 
@@ -133,13 +130,4 @@ public class ProgressValve extends ValveBase
             IOUtils.copy(loadingHtml, response.getOutputStream());
         }
     }
-    
-    private void sendImage(Response response, String name) throws IOException
-    {
-        try (InputStream loadingHtml = getClass().getResourceAsStream("/img/" + name))
-        {
-            IOUtils.copy(loadingHtml, response.getOutputStream());
-        }
-    }
-
 }

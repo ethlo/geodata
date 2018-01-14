@@ -36,6 +36,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -278,10 +279,14 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public GeoLocation findByIp(String ip)
     {
-        final boolean isValid = InetAddresses.isInetAddress(ip);
+        if (! InetAddresses.isInetAddress(ip))
+        {
+            return null;
+        }
+        
         final InetAddress address = InetAddresses.forString(ip);
         final boolean isLocalAddress = address.isLoopbackAddress() || address.isAnyLocalAddress();
-        if (!isValid || isLocalAddress)
+        if (isLocalAddress)
         {
             return null;
         }
@@ -369,9 +374,9 @@ public class GeodataServiceImpl implements GeodataService
     {
         final List<Continent> continents = findByIds(CONTINENT_IDS.values())
                 .stream()
-                .filter(l->l!=null)
+                .filter(Objects::nonNull)
                 .map(l->new Continent(getContinentCode(l.getId()), l))
-                .filter(l->l != null)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
         return new PageImpl<>(continents);
     }
@@ -731,7 +736,7 @@ public class GeodataServiceImpl implements GeodataService
             .stream()
             .skip(pageable.getOffset())
             .limit(pageable.getPageSize())
-            .map(id->findById(id))
+            .map(this::findById)
             .collect(Collectors.toList());
         return new PageImpl<>(content, pageable, matches.size());
     }
