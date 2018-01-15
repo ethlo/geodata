@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration debug="true" scan="true" scanInterval="10">
+
+	<appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder>
+			<pattern>%d %5p [%t] [%c:%L] - %m%n%ex
+			</pattern>
+		</encoder>
+	</appender>
+	
+	<logger name="org.apache.coyote.http11.Http11Processor" level="WARN" />
+	
+	<root level="INFO">
+		<appender-ref ref="stdout" />
+	</root>
+	
+</configuration>

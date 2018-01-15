@@ -39,7 +39,6 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import javax.validation.Valid;
@@ -78,7 +77,6 @@ import com.ethlo.geodata.repository.GeoRepository;
 import com.ethlo.geodata.util.DistanceUtil;
 import com.ethlo.geodata.util.GeometryUtil;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
@@ -369,9 +367,9 @@ public class GeodataServiceImpl implements GeodataService
             .stream()
             .skip(pageable.getOffset())
             .limit(pageable.getPageSize())
-            .map(n->n.getId())
+            .map(Node::getId)
             .collect(Collectors.toList());
-        final List<GeoLocation> content = findByIds(ids).stream().filter(l->l!=null).collect(Collectors.toList());
+        final List<GeoLocation> content = findByIds(ids).stream().filter(Objects::nonNull).collect(Collectors.toList());
         
         content.sort((a, b)->a.getName().compareTo(b.getName()));
         return new PageImpl<>(content, pageable, total);
@@ -499,6 +497,11 @@ public class GeodataServiceImpl implements GeodataService
         nodes = new HashMap<>();
         
         final File hierarchyFile = new File(baseDirectory, "hierarchy");
+        if (! hierarchyFile.exists())
+        {
+            return 0;
+        }
+        
         final Map<Long, Long> childToParent = new HashMap<>();
         try
         {

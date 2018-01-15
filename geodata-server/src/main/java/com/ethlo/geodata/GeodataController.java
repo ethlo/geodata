@@ -25,7 +25,9 @@ package com.ethlo.geodata;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -61,6 +63,9 @@ public class GeodataController implements GeodataService
 {           
     @Autowired
     private GeodataService geodataService;
+    
+    @Autowired
+    private GeoMetaService geoMetaService;
     
     /**
      * Find location(s) by name
@@ -284,5 +289,15 @@ public class GeodataController implements GeodataService
     {
         final byte[] boundaries = geodataService.findBoundaries(locationId, view);
         outputGeoJson(boundaries, resp, locationId);
+    }
+    
+    /**
+     * Get data source information
+     * 
+     */
+    @GetMapping("/v1/source")
+    public Map<String, Date> sourceData()
+    {
+        return geoMetaService.getLastModified();
     }
 }

@@ -27,6 +27,29 @@
 
 
 <div class="splash-container">
+
+	<div style="float:right; margin-top:50px; padding:15px; background:white; width:300px;" id="source-data">
+		<table>
+			<tr>
+				<th style="width:200px;">Geo Hierarchies</th>
+				<td data-bean="hierarchies" style="width:80px;">Waiting</td>
+			</tr>
+			<tr>
+				<th>Geo IPs</th>
+				<td data-bean="ips">Waiting</td>
+			</tr>
+			<tr>
+				<th>Geo Locations</th>
+				<td data-bean="locations">Waiting</td>
+			</tr>
+			<tr>
+				<th>Geo location MBRs</th>
+				<td data-bean="mbr">Waiting</td>
+			</tr>
+
+		</table>
+	</div>
+
     <div class="splash">
         <h1 class="splash-head">ethlo geodata server</h1>
         <p class="splash-subhead">
@@ -42,7 +65,24 @@
         Copyright Morten Haraldsen 2017-2018 
     </div>
 
+<script>
 
+var xhr = new XMLHttpRequest();
+xhr.open('GET', '/v1/source');
+xhr.onload = function() {
+	
+	var ele = document.getElementById('source-data');
+	
+    if (xhr.status === 200) {
+    	ele.innerHTML = xhr.responseText;
+    }
+    else {
+    	ele.innerHTML = 'Unable to load source data information';
+    }
+};
+xhr.send();
+
+</script>
 
 
 </body>

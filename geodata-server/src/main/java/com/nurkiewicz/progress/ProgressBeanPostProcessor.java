@@ -83,13 +83,15 @@ public class ProgressBeanPostProcessor implements BeanPostProcessor, Application
     @Override
     public void onApplicationEvent(DataLoadedEvent event)
     {
-        beans.onNext(event.getName() + ":" + event.getProgress());
-        
-        if ("complete".equals(event.getName()))
+        synchronized (beans)
         {
-            beans.onCompleted();
+            beans.onNext(event.getName() + ":" + event.getProgress());
+            
+            if ("complete".equals(event.getName()))
+            {
+                beans.onCompleted();
+            }
         }
-
     }
 
     static Observable<String> observe()
