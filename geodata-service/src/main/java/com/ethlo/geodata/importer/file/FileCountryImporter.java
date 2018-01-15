@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import com.ethlo.geodata.importer.CountryImporter;
@@ -43,9 +44,9 @@ public class FileCountryImporter extends FilePersistentImporter
     @Value("${geodata.geonames.source.country}")
     private String url;
     
-    public FileCountryImporter()
+    public FileCountryImporter(ApplicationEventPublisher publisher)
     {
-        super(FILENAME);
+        super(publisher, FILENAME);
     }
 
     @Override
@@ -56,7 +57,7 @@ public class FileCountryImporter extends FilePersistentImporter
         final CountryImporter importer = new CountryImporter(countryFile.getValue());
         try (final JsonIoWriter<Map> jsonIo = new JsonIoWriter<Map>(getFile(), Map.class))
         {
-            importer.processFile(map->jsonIo.write(map));
+            importer.processFile(jsonIo::write);
         }
     }
 

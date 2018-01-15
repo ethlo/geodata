@@ -39,6 +39,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
+import com.ethlo.geodata.ProgressListener;
+
 public class GeonamesImporter implements DataImporter
 {
     private static final Logger logger = LoggerFactory.getLogger(GeonamesImporter.class);
@@ -52,6 +54,8 @@ public class GeonamesImporter implements DataImporter
     private final File hierarchyFile;
     
     private final File alternateNamesFile;
+
+    private ProgressListener progressListener;
 
     @Override
     public void processFile(Consumer<Map<String, String>> sink) throws IOException
@@ -117,6 +121,8 @@ public class GeonamesImporter implements DataImporter
                 {
                     logger.info("Progress: {}", count);
                 }
+                
+                progressListener.update();
 
                 count++;
             }
@@ -183,6 +189,7 @@ public class GeonamesImporter implements DataImporter
         private File allCountriesFile;
         private File hierarchyFile;
 		public File alternateNamesFile;
+        private ProgressListener progressListener;
 
         public Builder exclusions(Set<String> exclusions)
         {
@@ -218,6 +225,12 @@ public class GeonamesImporter implements DataImporter
         {
             return new GeonamesImporter(this);
         }
+
+        public Builder progressListener(ProgressListener prg)
+        {
+            this.progressListener = prg;
+            return this;
+        }
     }
 
     private GeonamesImporter(Builder builder)
@@ -227,5 +240,6 @@ public class GeonamesImporter implements DataImporter
         this.allCountriesFile = builder.allCountriesFile;
         this.hierarchyFile = builder.hierarchyFile;
         this.alternateNamesFile = builder.alternateNamesFile;
+        this.progressListener = builder.progressListener;
     }
 }

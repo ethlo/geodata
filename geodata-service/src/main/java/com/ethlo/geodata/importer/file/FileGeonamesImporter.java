@@ -31,9 +31,13 @@ import java.util.Map;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import com.ethlo.geodata.DataLoadedEvent;
+import com.ethlo.geodata.IoUtils;
+import com.ethlo.geodata.ProgressListener;
 import com.ethlo.geodata.importer.GeonamesImporter;
 import com.ethlo.geodata.util.ResourceUtil;
 
@@ -59,9 +63,9 @@ public class FileGeonamesImporter extends FilePersistentImporter
         exclusions = StringUtils.commaDelimitedListToSet(csv);
     }
     
-    public FileGeonamesImporter()
+    public FileGeonamesImporter(ApplicationEventPublisher publisher)
     {
-        super(FILENAME);
+        super(publisher, FILENAME);
     }
     
     @Override
@@ -84,17 +88,20 @@ public class FileGeonamesImporter extends FilePersistentImporter
 
     private void doUpdate(File allCountriesFile, File alternateNamesFile, File hierarchyFile) throws IOException
     {
+        final ProgressListener prg = new ProgressListener(IoUtils.lineCount(allCountriesFile), d->publish(new DataLoadedEvent(this, "locations", d)));
+
         final GeonamesImporter geonamesImporter = new GeonamesImporter.Builder()
             .allCountriesFile(allCountriesFile)
             .alternateNamesFile(alternateNamesFile)
             .onlyHierarchical(false)
             .exclusions(exclusions)
             .hierarchyFile(hierarchyFile)
+            .progressListener(prg)
             .build();
 
         try (final JsonIoWriter<Map> jsonIo = new JsonIoWriter<Map>(getFile(), Map.class))
         {
-            geonamesImporter.processFile(map->jsonIo.write(map));
+            geonamesImporter.processFile(jsonIo::write);
         }
     }
 

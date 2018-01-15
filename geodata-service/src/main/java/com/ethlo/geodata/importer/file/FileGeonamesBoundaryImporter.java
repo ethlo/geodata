@@ -32,9 +32,13 @@ import java.util.Map.Entry;
 import java.util.TreeMap;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.stereotype.Component;
 
+import com.ethlo.geodata.DataLoadedEvent;
+import com.ethlo.geodata.IoUtils;
+import com.ethlo.geodata.ProgressListener;
 import com.ethlo.geodata.boundaries.WkbDataWriter;
 import com.ethlo.geodata.importer.GeonamesBoundaryImporter;
 import com.ethlo.geodata.util.ResourceUtil;
@@ -53,9 +57,9 @@ public class FileGeonamesBoundaryImporter extends FilePersistentImporter
     @Value("${geodata.geonames.source.boundaries}")
     private String geoNamesBoundaryUrl;
     
-    public FileGeonamesBoundaryImporter()
+    public FileGeonamesBoundaryImporter(ApplicationEventPublisher publisher)
     {
-        super(BOUNDARIES_FILENAME);
+        super(publisher, BOUNDARIES_FILENAME);
     }
     
     @SuppressWarnings("rawtypes") 
@@ -69,6 +73,7 @@ public class FileGeonamesBoundaryImporter extends FilePersistentImporter
             final WKTReader reader = new WKTReader();
             final WKBWriter writer = new WKBWriter();
             final Entry<Date, File> boundaryFile = ResourceUtil.fetchResource("geonames_boundary", geoNamesBoundaryUrl);
+            final ProgressListener prg = new ProgressListener(IoUtils.lineCount(boundaryFile.getValue()), d->publish(new DataLoadedEvent(this, "mbr", d)));
             final GeonamesBoundaryImporter importer = new GeonamesBoundaryImporter(boundaryFile.getValue());
             importer.processFile(entry->
             {
@@ -88,6 +93,8 @@ public class FileGeonamesBoundaryImporter extends FilePersistentImporter
                     
                     // Write full geometry in WKB format
                     out.write(Long.parseLong(entry.get("id")), writer.write(geometry));
+                    
+                    prg.update();
                 }
                 catch (ParseException exc)
                 {

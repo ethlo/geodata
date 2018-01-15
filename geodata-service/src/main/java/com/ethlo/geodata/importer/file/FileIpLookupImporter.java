@@ -38,10 +38,14 @@ import org.apache.commons.net.util.SubnetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import com.ethlo.geodata.DataLoadedEvent;
+import com.ethlo.geodata.IoUtils;
+import com.ethlo.geodata.ProgressListener;
 import com.ethlo.geodata.importer.IpLookupImporter;
 import com.ethlo.geodata.util.ResourceUtil;
 import com.fasterxml.jackson.core.JsonFactory;
@@ -60,9 +64,9 @@ public class FileIpLookupImporter extends FilePersistentImporter
     @Value("${geodata.geolite2.source}")
     private String url;
     
-    public FileIpLookupImporter()
+    public FileIpLookupImporter(ApplicationEventPublisher publisher)
     {
-        super(FILENAME);
+        super(publisher, FILENAME);
     }
 
     @Override
@@ -70,7 +74,11 @@ public class FileIpLookupImporter extends FilePersistentImporter
     {
         final Map.Entry<Date, File> ipDataFile = ResourceUtil.fetchResource("ipData", url);
         final AtomicInteger count = new AtomicInteger(0);
-        final IpLookupImporter ipLookupImporter = new IpLookupImporter(ipDataFile.getValue());
+        
+        final File csvFile = ipDataFile.getValue();
+        final ProgressListener prg = new ProgressListener(IoUtils.lineCount(csvFile), d->publish(new DataLoadedEvent(this, "ips", d)));
+
+        final IpLookupImporter ipLookupImporter = new IpLookupImporter(csvFile);
         
         final JsonFactory f = new JsonFactory();
         f.enable(JsonGenerator.Feature.ESCAPE_NON_ASCII);
@@ -116,6 +124,8 @@ public class FileIpLookupImporter extends FilePersistentImporter
                 }
                 
                 count.getAndIncrement();
+                
+                prg.update();
             });
         }
     }

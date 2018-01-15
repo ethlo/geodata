@@ -27,8 +27,10 @@ import java.nio.file.Files;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataAccessResourceFailureException;
 
+import com.ethlo.geodata.DataLoadedEvent;
 import com.ethlo.geodata.importer.PersistentImporter;
 
 public abstract class FilePersistentImporter implements PersistentImporter
@@ -40,17 +42,23 @@ public abstract class FilePersistentImporter implements PersistentImporter
     }
 
     private File baseDirectory;
-    
+    private ApplicationEventPublisher publisher;
     private String name;
     
-    public FilePersistentImporter(String name)
+    public FilePersistentImporter(ApplicationEventPublisher publisher, String name)
     {
+        this.publisher = publisher;
         this.name = name;
     }
     
     protected File getFile()
     {
         return new File(baseDirectory, name);
+    }
+    
+    protected void publish (DataLoadedEvent event)
+    {
+        this.publisher.publishEvent(event);
     }
     
     protected void delete()

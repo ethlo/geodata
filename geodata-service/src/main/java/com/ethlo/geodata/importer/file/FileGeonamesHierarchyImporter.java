@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import com.ethlo.geodata.util.ResourceUtil;
@@ -41,9 +42,9 @@ public class FileGeonamesHierarchyImporter extends FilePersistentImporter
     @Value("${geodata.geonames.source.hierarchy}")
     private String geoNamesHierarchyUrl;
 
-    public FileGeonamesHierarchyImporter()
+    public FileGeonamesHierarchyImporter(ApplicationEventPublisher publisher)
     {
-        super("hierarchy");
+        super(publisher, "hierarchy");
     }
     
     @Override
