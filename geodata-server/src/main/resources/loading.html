@@ -29,6 +29,7 @@ th {
 
 th, td {
 	padding: 10px;
+	color:black;
 }
 
 td.numeric {text-align:right;}
@@ -76,39 +77,39 @@ td.numeric {text-align:right;}
 					</tr>
 				</thead>
 				<tr>
-					<td>Geo Hierarchies</td>
+					<td>Location hierarchies</td>
 					<td data-operation="hierarchy">Idle</td>
 					<td class="numeric" data-current="hierarchy">0</td>
 					<td class="numeric" data-total="hierarchy">?</td>
 					<td class="numeric" data-progress="hierarchy">?</td>
 				</tr>
 				<tr>
-					<td>Geo IPs</td>
+					<td>IP locations</td>
 					<td data-operation="ip">Idle</td>
 					<td class="numeric" data-current="ip">0</td>
 					<td class="numeric" data-total="ip">?</td>
 					<td class="numeric" data-progress="ip">?</td>
 				</tr>
 				<tr>
-					<td>Geo countries</td>
+					<td>Countries</td>
 					<td data-operation="country">Idle</td>
 					<td class="numeric" data-current="country">0</td>
 					<td class="numeric" data-total="country">?</td>
 					<td class="numeric" data-progress="country">?</td>
 				</tr>
 				<tr>
-					<td>Geo Locations</td>
+					<td>Locations</td>
 					<td data-operation="location">Idle</td>
 					<td class="numeric" data-current="location">0</td>
 					<td class="numeric" data-total="location">?</td>
 					<td class="numeric" data-progress="location">?</td>
 				</tr>
 				<tr>
-					<td>Geo location MBRs</td>
-					<td data-operation="mbr">Idle</td>
-					<td class="numeric" data-current="mbr">0</td>
-					<td class="numeric"data-total="mbr">?</td>
-					<td class="numeric"data-progress="mbr">?</td>
+					<td>Boundaries</td>
+					<td data-operation="boundary">Idle</td>
+					<td class="numeric" data-current="boundary">0</td>
+					<td class="numeric"data-total="boundary">?</td>
+					<td class="numeric"data-progress="boundary">?</td>
 				</tr>
 			</table>
 		</div>
@@ -135,22 +136,35 @@ td.numeric {text-align:right;}
 			var progress = parseFloat(Math.round(arr[2] * 100)).toFixed(2);
 			var current = arr[3];
 			var total = arr[4];
+			
+			var cssColor = 'orange';
+			if (current === total) {
+				cssColor = 'green';
+			}
 
 			var ele = document.querySelector('td[data-operation="' + name + '"]');
-			if (ele)
+			if (ele) {
 				ele.innerHTML = operation;
+				ele.style='color:' + cssColor;
+			}
 
 			var ele = document.querySelector('td[data-current="' + name + '"]');
-			if (ele)
+			if (ele) {
 				ele.innerHTML = numberWithCommas(current);
+				ele.style='color:' + cssColor;
+			}
 			
 			var ele = document.querySelector('td[data-total="' + name + '"]');
-			if (ele)
+			if (ele) {
 				ele.innerHTML = numberWithCommas(total);
+				ele.style='color:' + cssColor;
+			}
 			
 			var ele = document.querySelector('td[data-progress="' + name + '"]');
-			if (ele)
+			if (ele) {
 				ele.innerHTML = progress + ' %';
+				ele.style='color:' + cssColor;
+			}
 		});
 
 		source.addEventListener('complete', function(e) {

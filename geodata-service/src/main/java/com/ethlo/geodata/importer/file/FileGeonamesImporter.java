@@ -41,7 +41,6 @@ import com.ethlo.geodata.ProgressListener;
 import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.importer.GeonamesImporter;
 import com.ethlo.geodata.importer.Operation;
-import com.ethlo.geodata.util.ResourceUtil;
 
 @Component
 public class FileGeonamesImporter extends FilePersistentImporter
@@ -73,11 +72,11 @@ public class FileGeonamesImporter extends FilePersistentImporter
     @Override
     public long importData() throws IOException
     {
-        final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource("hierarchy", geoNamesHierarchyUrl);
+        final Map.Entry<Date, File> hierarchyFile = fetchResource(DataType.HIERARCHY, geoNamesHierarchyUrl);
         
-        final Map.Entry<Date, File> alternateNamesFile = ResourceUtil.fetchResource("locations_alternatenames", geoNamesAlternateNamesUrl);
+        final Map.Entry<Date, File> alternateNamesFile = fetchResource(DataType.LOCATION_ALTERNATE_NAMES, geoNamesAlternateNamesUrl);
         
-        final Map.Entry<Date, File> allCountriesFile = ResourceUtil.fetchResource("locations", geoNamesAllCountriesUrl);
+        final Map.Entry<Date, File> allCountriesFile = fetchResource(DataType.LOCATION, geoNamesAllCountriesUrl);
         
         return doUpdate(allCountriesFile.getValue(), alternateNamesFile.getValue(), hierarchyFile.getValue());
     }
@@ -115,7 +114,7 @@ public class FileGeonamesImporter extends FilePersistentImporter
     @Override
     public Date lastRemoteModified() throws IOException
     {
-        return new Date(Math.max(ResourceUtil.getLastModified(geoNamesAllCountriesUrl).getTime(), ResourceUtil.getLastModified(geoNamesHierarchyUrl).getTime()));
+        return new Date(Math.max(getLastModified(geoNamesAllCountriesUrl).getTime(), getLastModified(geoNamesHierarchyUrl).getTime()));
     }
     
     @Override

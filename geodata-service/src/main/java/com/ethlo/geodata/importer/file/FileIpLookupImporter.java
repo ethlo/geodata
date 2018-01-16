@@ -49,7 +49,6 @@ import com.ethlo.geodata.ProgressListener;
 import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.importer.IpLookupImporter;
 import com.ethlo.geodata.importer.Operation;
-import com.ethlo.geodata.util.ResourceUtil;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -160,7 +159,7 @@ public class FileIpLookupImporter extends FilePersistentImporter
     @Override
     public Date lastRemoteModified() throws IOException
     {
-        return ResourceUtil.getLastModified(url);
+        return getLastModified(url);
     }
     
     @Override

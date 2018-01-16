@@ -43,7 +43,6 @@ import com.ethlo.geodata.boundaries.WkbDataWriter;
 import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.importer.GeonamesBoundaryImporter;
 import com.ethlo.geodata.importer.Operation;
-import com.ethlo.geodata.util.ResourceUtil;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.ParseException;
@@ -74,9 +73,9 @@ public class FileGeonamesBoundaryImporter extends FilePersistentImporter
         {
             final WKTReader reader = new WKTReader();
             final WKBWriter writer = new WKBWriter();
-            final Entry<Date, File> boundaryFile = fetchResource(DataType.MBR, geoNamesBoundaryUrl);
+            final Entry<Date, File> boundaryFile = fetchResource(DataType.BOUNDARY, geoNamesBoundaryUrl);
             final long total = IoUtils.lineCount(boundaryFile.getValue());
-            final ProgressListener prg = new ProgressListener(l->publish(new DataLoadedEvent(this, DataType.MBR, Operation.IMPORT, l, total)));
+            final ProgressListener prg = new ProgressListener(l->publish(new DataLoadedEvent(this, DataType.BOUNDARY, Operation.IMPORT, l, total)));
             final GeonamesBoundaryImporter importer = new GeonamesBoundaryImporter(boundaryFile.getValue());
             importer.processFile(entry->
             {
@@ -105,7 +104,7 @@ public class FileGeonamesBoundaryImporter extends FilePersistentImporter
                 }
             });
             
-            publish(new DataLoadedEvent(this, DataType.MBR, Operation.IMPORT, total, total));
+            publish(new DataLoadedEvent(this, DataType.BOUNDARY, Operation.IMPORT, total, total));
             return total;
         }
     }
@@ -118,7 +117,7 @@ public class FileGeonamesBoundaryImporter extends FilePersistentImporter
     @Override
     public Date lastRemoteModified() throws IOException
     {
-        return ResourceUtil.getLastModified(geoNamesBoundaryUrl);
+        return getLastModified(geoNamesBoundaryUrl);
     }
 
     @Override

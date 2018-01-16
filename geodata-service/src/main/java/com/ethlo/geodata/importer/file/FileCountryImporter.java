@@ -35,7 +35,6 @@ import org.springframework.stereotype.Component;
 
 import com.ethlo.geodata.importer.CountryImporter;
 import com.ethlo.geodata.importer.DataType;
-import com.ethlo.geodata.util.ResourceUtil;
 
 @Component
 public class FileCountryImporter extends FilePersistentImporter
@@ -71,7 +70,7 @@ public class FileCountryImporter extends FilePersistentImporter
     @Override
     public Date lastRemoteModified() throws IOException
     {
-        return ResourceUtil.getLastModified(url);
+        return getLastModified(url);
     }
 
     @Override

@@ -150,6 +150,13 @@ public class GeodataServiceImpl implements GeodataService
     {
         ensureBaseDirectory();
         
+        final SourceDataInfoSet sourceInfo = geoMetaService.getSourceDataInfo();
+        if (sourceInfo.isEmpty())
+        {
+            logger.error("Cannot start geodata server as there is no data. Please run with 'update' parameter to import data");
+            System.exit(1);
+        }
+        
         loadHierarchy();
         loadCountries();
         
@@ -197,7 +204,7 @@ public class GeodataServiceImpl implements GeodataService
             rTree = rTree.add(new RTreePayload(id, e.getArea(), e));
         }
         logger.info("Loaded {} MBR boundaries", rTree.size());
-        publisher.publishEvent(new DataLoadedEvent(this, DataType.MBR, Operation.LOAD, rTree.size(), rTree.size()));
+        publisher.publishEvent(new DataLoadedEvent(this, DataType.BOUNDARY, Operation.LOAD, rTree.size(), rTree.size()));
     }
     
     public void loadLocations()

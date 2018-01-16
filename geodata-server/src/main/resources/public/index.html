@@ -18,6 +18,11 @@
 td.numeric {
 	text-align: right;
 }
+
+th, td {
+	padding: 10px;
+	color:black;
+}
 </style>
 
 </head>
@@ -57,33 +62,38 @@ td.numeric {
 					<tr>
 						<th>Data</th>
 						<th>Count</th>
-						<th>Last updated</th>
+						<th colspan="2">Last updated</th>
 					</tr>
 				</thead>
 				<tr>
-					<td>Geo Hierarchies</td>
+					<td>Location hierarchy</td>
 					<td class="numeric" data-count="hierarchy"></td>
 					<td data-lastmodified="hierarchy"></td>
+					<td><time data-lastmodified="hierarchy" class="timeago"></time></td>
 				</tr>
 				<tr>
-					<td>Geo IPs</td>
+					<td>IP locations</td>
 					<td class="numeric" data-count="ip"></td>
 					<td data-lastmodified="ip"></td>
+					<td><time data-lastmodified="ip" class="timeago"></time></td>
 				</tr>
 				<tr>
-					<td>Geo countries</td>
+					<td>Countries</td>
 					<td class="numeric" data-count="country"></td>
 					<td data-lastmodified="country"></td>
+					<td><time data-lastmodified="country" class="timeago"></time></td>
 				</tr>
 				<tr>
-					<td>Geo Locations</td>
+					<td>Locations</td>
 					<td class="numeric" data-count="location"></td>
 					<td data-lastmodified="location"></td>
+					<td><time data-lastmodified="location" class="timeago"></time></td>
 				</tr>
 				<tr>
-					<td>Geo location MBRs</td>
-					<td class="numeric" data-count="mbr"></td>
-					<td data-lastmodified="mbr"></td>
+					<td>Boundaries</td>
+					<td class="numeric" data-count="boundary"></td>
+					<td data-lastmodified="boundary"></td>
+					<td><time data-lastmodified="boundary" class="timeago"></time></td>
 				</tr>
 			</table>
 		</div>
@@ -113,15 +123,30 @@ td.numeric {
 					ele.innerHTML = numberWithCommas(o.count);
 					var ele = document.querySelector('td[data-lastmodified="' + name + '"]');
 					ele.innerHTML = o.lastModified;
-				  	console.log(o);
+					var ele = document.querySelector('time[data-lastmodified="' + name + '"]');
+					$(ele).attr('datetime', o.lastModified);
 				});
+				
+				jQuery(document).ready(function() {
+				     $("time.timeago").timeago();
+				   });
 			} else {
 				ele.innerHTML = 'Unable to load source data information';
 			}
 		};
 		xhr.send();
+		
+		
 	</script>
 
+	<script
+		src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"
+		integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+		crossorigin="anonymous"></script>
+	<script
+		src="https://cdnjs.cloudflare.com/ajax/libs/jquery-timeago/1.6.1/jquery.timeago.min.js"
+		integrity="sha256-JAdlnMiYFZRwqQqgiYwLjSkV94QtVzcbvasQMm05THk="
+		crossorigin="anonymous"></script>
 
 </body>
 </html>

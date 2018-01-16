@@ -139,11 +139,11 @@ public class GeoMetaService
         ensureBaseDirectory();
         
         final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
-        if (! boundaryImporter.allFilesExists() || boundariesTimestamp.getTime() > getLastModified(DataType.MBR) + maxDataAgeMillis)
+        if (! boundaryImporter.allFilesExists() || boundariesTimestamp.getTime() > getLastModified(DataType.BOUNDARY) + maxDataAgeMillis)
         {
             boundaryImporter.purge();
             final long imported = boundaryImporter.importData();
-            setSourceDataInfo(DataType.MBR, boundariesTimestamp, imported);
+            setSourceDataInfo(DataType.BOUNDARY, boundariesTimestamp, imported);
         }
         
         final Date countryTimestamp = countryImporter.lastRemoteModified();

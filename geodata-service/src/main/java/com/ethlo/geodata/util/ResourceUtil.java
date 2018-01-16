@@ -39,20 +39,32 @@ import java.util.Map.Entry;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.zeroturnaround.zip.ZipUtil;
 
+import com.ethlo.geodata.DataLoadedEvent;
+import com.ethlo.geodata.ProgressListener;
+import com.ethlo.geodata.importer.DataType;
+import com.ethlo.geodata.importer.Operation;
 import com.vividsolutions.jts.util.Assert;
 
 public class ResourceUtil
 {
     private static final Logger logger = LoggerFactory.getLogger(ResourceUtil.class);
-    private static final String TEMP_DIR = System.getProperty("java.io.tmpdir");
+    private final File tmpDir;
+    private ApplicationEventPublisher publisher;
+    
+    public ResourceUtil(ApplicationEventPublisher publisher, File tmpDir)
+    {
+        this.publisher = publisher;
+        this.tmpDir = tmpDir;
+    }
 
-    public static Date getLastModified(String urlStr) throws IOException
+    public Date getLastModified(String urlStr) throws IOException
     {
         final Resource connection = openConnection(urlStr);
         final long lastModified = connection.lastModified();
@@ -63,7 +75,7 @@ public class ResourceUtil
         return new Date(lastModified);
     }
 
-    private static Resource openConnection(String urlStr) throws IOException
+    private Resource openConnection(String urlStr) throws IOException
     {
         final String[] urlParts = StringUtils.split(urlStr, "|");
         
@@ -89,25 +101,25 @@ public class ResourceUtil
         return new UrlResource(urlParts[0]);
     }
 
-    public static Map.Entry<Date, File> fetchResource(String alias, String urlStr) throws IOException
+    public Map.Entry<Date, File> fetchResource(DataType dataType, String urlStr) throws IOException
     {
         final String[] urlParts = StringUtils.split(urlStr, "|");
         if (urlParts[0].endsWith(".zip"))
         {
-            return fetchZip(alias, urlParts[0], urlParts[1]);
+            return fetchZip(dataType, urlParts[0], urlParts[1]);
         }
         else
         {
-            return fetch(alias, urlStr);
+            return fetch(dataType, urlStr);
         }
     }
     
-    private static Map.Entry<Date,File> fetchZip(String alias, String url, String zipEntry) throws IOException
+    private  Map.Entry<Date,File> fetchZip(DataType dataType, String url, String zipEntry) throws IOException
     {
         final Resource resource = openConnection(url);
-        return downloadIfNewer(alias, resource, f->
+        return downloadIfNewer(dataType, resource, f->
         {
-            final File unzipDir = new File(TEMP_DIR, Integer.toString(url.hashCode())); 
+            final File unzipDir = new File(tmpDir, Integer.toString(url.hashCode())); 
             ZipUtil.unpack(f.toFile(), unzipDir, name->name.endsWith(zipEntry) ? zipEntry : null);
             final File file = new File(unzipDir, zipEntry);
             Assert.isTrue(file.exists(), "File " + file + " does not exist");
@@ -115,9 +127,11 @@ public class ResourceUtil
         });
     }
 
-    private static Entry<Date, File> downloadIfNewer(String alias, Resource resource, CheckedFunction<Path, Path> fun) throws IOException
+    private Entry<Date, File> downloadIfNewer(DataType dataType, Resource resource, CheckedFunction<Path, Path> fun) throws IOException
     {
-        final File tmpDownloadedFile = new File(TEMP_DIR, alias + resource.getURI().hashCode());
+        publisher.publishEvent(new DataLoadedEvent(this, dataType, Operation.DOWNLOAD, 0,1));
+        final String alias = dataType.name().toLowerCase();
+        final File tmpDownloadedFile = new File(tmpDir, alias + resource.getURI().hashCode());
         final Date remoteLastModified = new Date(resource.lastModified());
         final long localLastModified = tmpDownloadedFile.exists() ? tmpDownloadedFile.lastModified() : -2;
         logger.info("Local file for alias {}" 
@@ -137,6 +151,7 @@ public class ResourceUtil
         final Path preppedFile = fun.apply(tmpDownloadedFile.toPath());
         Files.setLastModifiedTime(tmpDownloadedFile.toPath(), FileTime.fromMillis(remoteLastModified.getTime()));
         Files.setLastModifiedTime(preppedFile, FileTime.fromMillis(remoteLastModified.getTime()));
+        publisher.publishEvent(new DataLoadedEvent(this, dataType, Operation.DOWNLOAD, 1,1));
         return new AbstractMap.SimpleEntry<>(new Date(remoteLastModified.getTime()), preppedFile.toFile());
     }
 
@@ -145,10 +160,10 @@ public class ResourceUtil
         return LocalDateTime.ofEpochSecond(timestamp / 1_000, 0, ZoneOffset.UTC);
     }
 
-    private static Entry<Date, File> fetch(String alias, String url) throws IOException
+    private Entry<Date, File> fetch(DataType dataType, String url) throws IOException
     {
         final Resource resource = openConnection(url);
-        return downloadIfNewer(alias, resource, in -> in);
+        return downloadIfNewer(dataType, resource, in -> in);
     }
 
     @FunctionalInterface

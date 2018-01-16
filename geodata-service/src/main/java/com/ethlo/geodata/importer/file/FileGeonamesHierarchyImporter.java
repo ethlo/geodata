@@ -35,7 +35,6 @@ import org.springframework.stereotype.Component;
 
 import com.ethlo.geodata.IoUtils;
 import com.ethlo.geodata.importer.DataType;
-import com.ethlo.geodata.util.ResourceUtil;
 import com.google.common.io.Files;
 
 @Component
@@ -66,7 +65,7 @@ public class FileGeonamesHierarchyImporter extends FilePersistentImporter
     @Override
     public Date lastRemoteModified() throws IOException
     {
-        return new Date(ResourceUtil.getLastModified(geoNamesHierarchyUrl).getTime());
+        return new Date(getLastModified(geoNamesHierarchyUrl).getTime());
     }
     
     @Override

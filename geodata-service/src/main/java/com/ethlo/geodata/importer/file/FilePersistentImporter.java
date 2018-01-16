@@ -31,6 +31,7 @@ import java.util.Map.Entry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.util.Assert;
 
 import com.ethlo.geodata.DataLoadedEvent;
 import com.ethlo.geodata.importer.DataType;
@@ -39,15 +40,27 @@ import com.ethlo.geodata.util.ResourceUtil;
 
 public abstract class FilePersistentImporter implements PersistentImporter
 {
+    private File baseDirectory;
+    private ApplicationEventPublisher publisher;
+    private String name;
+    private ResourceUtil res;
+    
     @Value("${data.directory}")
     public void setBaseDirectory(File baseDirectory)
     {
         this.baseDirectory = new File(baseDirectory.getPath().replaceFirst("^~",System.getProperty("user.home")));
     }
-
-    private File baseDirectory;
-    private ApplicationEventPublisher publisher;
-    private String name;
+    
+    @Value("${data.tmp.directory}")
+    public void setBaseTmpDirectory(File dir)
+    {
+        final File baseTmpDirectory = new File(dir.getPath().replaceFirst("^~",System.getProperty("user.home")));
+        if (! baseTmpDirectory.exists())
+        {
+            Assert.isTrue(baseTmpDirectory.mkdirs(), "Could not create directory " + baseTmpDirectory.getAbsolutePath());
+        }
+        this.res = new ResourceUtil(publisher, baseTmpDirectory);
+    }
     
     public FilePersistentImporter(ApplicationEventPublisher publisher, String name)
     {
@@ -90,6 +103,11 @@ public abstract class FilePersistentImporter implements PersistentImporter
 
     public Entry<Date, File> fetchResource(DataType dataType, String url) throws IOException
     {
-        return ResourceUtil.fetchResource(dataType.name(), url);
+        return res.fetchResource(dataType, url);
+    }
+
+    public Date getLastModified(String url) throws IOException
+    {
+        return res.getLastModified(url);
     }
 }
