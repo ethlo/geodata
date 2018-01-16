@@ -43,10 +43,11 @@ public class IpLookupImporter implements DataImporter
     }
     
     @Override
-    public void processFile(Consumer<Map<String, String>> sink) throws IOException
+    public long processFile(Consumer<Map<String, String>> sink) throws IOException
     {
         final CsvMapper csvMapper = new CsvMapper();
         final CsvSchema schema = CsvSchema.emptySchema().withHeader(); // use first row as header; otherwise defaults are fine
+        int count = 0;
         try (final BufferedReader reader = new BufferedReader(new FileReader(csvFile)))
         {
             final MappingIterator<Map<String,String>> it = csvMapper.readerFor(Map.class)
@@ -55,7 +56,9 @@ public class IpLookupImporter implements DataImporter
             while (it.hasNext())
             {
                 sink.accept(it.next());
+                count++;
             }
         }
+        return count;
     }
 }

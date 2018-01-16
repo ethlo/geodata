@@ -23,8 +23,15 @@
 	color: #34495e;
 }
 
-th {text-align:left;}
+th {
+	text-align: left;
+}
 
+th, td {
+	padding: 10px;
+}
+
+td.numeric {text-align:right;}
 </style>
 </head>
 <body style="background: #1f8dd6">
@@ -44,65 +51,111 @@ th {text-align:left;}
 		</div>
 	</div>
 
-
-<div class="splash-container">
-
-	<div style="float:right; margin-top:50px; padding:15px; width:300px; background:white">
-		<h2>Loading data, please wait...</h2>
-		<table>
-			<tr>
-				<th style="width:200px;">Geo Hierarchies</th>
-				<td data-bean="hierarchies" style="width:80px;">Waiting</td>
-			</tr>
-			<tr>
-				<th>Geo IPs</th>
-				<td data-bean="ips">Waiting</td>
-			</tr>
-			<tr>
-				<th>Geo Locations</th>
-				<td data-bean="locations">Waiting</td>
-			</tr>
-			<tr>
-				<th>Geo location MBRs</th>
-				<td data-bean="mbr">Waiting</td>
-			</tr>
-
-		</table>
+	<div class="splash-container">
+		<div class="splash">
+			<h1 class="splash-head">ethlo geodata server</h1>
+			<p class="splash-subhead">Simple, fast and free geodata server
+				for on-site deployment</p>
+			<p>
+				<a href="https://github.com/ethlo/geodata"
+					class="pure-button pure-button-primary">GitHub</a>
+			</p>
+		</div>
 	</div>
 
-    <div class="splash">
-        <h1 class="splash-head">ethlo geodata server</h1>
-        <p class="splash-subhead">
-            Simple, fast and free geodata server for on-site deployment
-        </p>
-        <p>
-            <a href="https://github.com/ethlo/geodata" class="pure-button pure-button-primary">GitHub</a>
-        </p>
-    </div>
-</div>
+	<div class="content-wrapper">
+		<div class="content">
+			<table class="pure-table pure-table-bordered" style="width:100%">
+				<thead>
+					<tr>
+						<th>Data</th>
+						<th>Operation</th>
+						<th>Current</th>
+						<th>Total</th>
+						<th>Progress</th>
+					</tr>
+				</thead>
+				<tr>
+					<td>Geo Hierarchies</td>
+					<td data-operation="hierarchy">Idle</td>
+					<td class="numeric" data-current="hierarchy">0</td>
+					<td class="numeric" data-total="hierarchy">?</td>
+					<td class="numeric" data-progress="hierarchy">?</td>
+				</tr>
+				<tr>
+					<td>Geo IPs</td>
+					<td data-operation="ip">Idle</td>
+					<td class="numeric" data-current="ip">0</td>
+					<td class="numeric" data-total="ip">?</td>
+					<td class="numeric" data-progress="ip">?</td>
+				</tr>
+				<tr>
+					<td>Geo countries</td>
+					<td data-operation="country">Idle</td>
+					<td class="numeric" data-current="country">0</td>
+					<td class="numeric" data-total="country">?</td>
+					<td class="numeric" data-progress="country">?</td>
+				</tr>
+				<tr>
+					<td>Geo Locations</td>
+					<td data-operation="location">Idle</td>
+					<td class="numeric" data-current="location">0</td>
+					<td class="numeric" data-total="location">?</td>
+					<td class="numeric" data-progress="location">?</td>
+				</tr>
+				<tr>
+					<td>Geo location MBRs</td>
+					<td data-operation="mbr">Idle</td>
+					<td class="numeric" data-current="mbr">0</td>
+					<td class="numeric"data-total="mbr">?</td>
+					<td class="numeric"data-progress="mbr">?</td>
+				</tr>
+			</table>
+		</div>
+	</div>
 
 	<div class="footer l-box is-center">Copyright Morten Haraldsen
 		2017-2018</div>
 
 	<script>
+		
+		const numberWithCommas = (x) => {
+		  var parts = x.toString().split(".");
+		  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+		  return parts.join(".");
+		}
+	
 		var source = new EventSource('/init.stream');
 		var initialized = 0;
 		source.addEventListener('message', function(e) {
-			
+
 			var arr = e.data.split(":");
 			var name = arr[0];
-			var progress = parseFloat(Math.round(arr[1] * 100)).toFixed(2);
+			var operation = arr[1];
+			var progress = parseFloat(Math.round(arr[2] * 100)).toFixed(2);
+			var current = arr[3];
+			var total = arr[4];
+
+			var ele = document.querySelector('td[data-operation="' + name + '"]');
+			if (ele)
+				ele.innerHTML = operation;
+
+			var ele = document.querySelector('td[data-current="' + name + '"]');
+			if (ele)
+				ele.innerHTML = numberWithCommas(current);
 			
-			var ele = document.querySelector('td[data-bean="' + name + '"]');
-			if (ele) {
+			var ele = document.querySelector('td[data-total="' + name + '"]');
+			if (ele)
+				ele.innerHTML = numberWithCommas(total);
+			
+			var ele = document.querySelector('td[data-progress="' + name + '"]');
+			if (ele)
 				ele.innerHTML = progress + ' %';
-			}
 		});
 
 		source.addEventListener('complete', function(e) {
 			window.location.reload();
 		});
 	</script>
-
 </body>
 </html>

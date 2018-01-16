@@ -23,15 +23,19 @@ package com.ethlo.geodata.importer.file;
  */
 
 import java.io.File;
-import java.nio.file.Files;
+import java.io.IOException;
+import java.util.Date;
 import java.util.List;
+import java.util.Map.Entry;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataAccessResourceFailureException;
 
 import com.ethlo.geodata.DataLoadedEvent;
+import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.importer.PersistentImporter;
+import com.ethlo.geodata.util.ResourceUtil;
 
 public abstract class FilePersistentImporter implements PersistentImporter
 {
@@ -82,5 +86,10 @@ public abstract class FilePersistentImporter implements PersistentImporter
     public boolean allFilesExists()
     {
         return getFiles().size() == getFiles().stream().filter(File::exists).count();
+    }
+
+    public Entry<Date, File> fetchResource(DataType dataType, String url) throws IOException
+    {
+        return ResourceUtil.fetchResource(dataType.name(), url);
     }
 }

@@ -33,6 +33,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
+import com.ethlo.geodata.IoUtils;
+import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.util.ResourceUtil;
 import com.google.common.io.Files;
 
@@ -48,10 +50,11 @@ public class FileGeonamesHierarchyImporter extends FilePersistentImporter
     }
     
     @Override
-    public void importData() throws IOException
+    public long importData() throws IOException
     {
-        final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource("geonames_hierarchy", geoNamesHierarchyUrl);
+        final Map.Entry<Date, File> hierarchyFile = fetchResource(DataType.HIERARCHY, geoNamesHierarchyUrl);
         Files.copy(hierarchyFile.getValue(), getFile());
+        return IoUtils.lineCount(getFile());
     }
 
     @Override

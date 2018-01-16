@@ -70,13 +70,17 @@ public class ProgressValve extends ValveBase
             final AsyncContext asyncContext = request.startAsync();
             streamProgress(asyncContext);
         }
+        else if ("/api.html".equals(uri) || "/v1/source".equals(uri))
+        {
+            getNext().invoke(request, response);
+        }
         else if ("/".equals(uri))
         {
             sendHtml(response, "/loading.html");
         }
         else if (uri.startsWith("/css"))
         {
-            sendHtml(response, "/public/" + uri);
+            getNext().invoke(request, response);
         }
         else
         {

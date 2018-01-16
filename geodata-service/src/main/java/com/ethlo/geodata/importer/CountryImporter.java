@@ -44,7 +44,7 @@ public class CountryImporter implements DataImporter
     }
     
     @Override
-    public void processFile(Consumer<Map<String, String>> sink) throws IOException
+    public long processFile(Consumer<Map<String, String>> sink) throws IOException
     {
         /*
          * ISO  
@@ -67,6 +67,7 @@ public class CountryImporter implements DataImporter
          * neighbours  
          * EquivalentFipsCode
          */
+        long count = 0;
         try (final BufferedReader reader = new BufferedReader(new FileReader(csvFile)))
         {
             String line;
@@ -98,7 +99,10 @@ public class CountryImporter implements DataImporter
                     
                     sink.accept(paramMap);
                 }
+                
+                count++;
             }
-        }        
+        }
+        return count;
     }
 }

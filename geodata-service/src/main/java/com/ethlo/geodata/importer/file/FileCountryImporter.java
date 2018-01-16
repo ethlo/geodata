@@ -34,6 +34,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import com.ethlo.geodata.importer.CountryImporter;
+import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.util.ResourceUtil;
 
 @Component
@@ -50,14 +51,14 @@ public class FileCountryImporter extends FilePersistentImporter
     }
 
     @Override
-    public void importData() throws IOException
+    public long importData() throws IOException
     {
-        final Map.Entry<Date, File> countryFile = ResourceUtil.fetchResource("geocountry", url);
+        final Map.Entry<Date, File> countryFile = fetchResource(DataType.COUNTRY, url);
         
         final CountryImporter importer = new CountryImporter(countryFile.getValue());
-        try (final JsonIoWriter<Map> jsonIo = new JsonIoWriter<Map>(getFile(), Map.class))
+        try (final JsonIoWriter<Map> jsonIo = new JsonIoWriter<>(getFile(), Map.class))
         {
-            importer.processFile(jsonIo::write);
+            return importer.processFile(jsonIo::write);
         }
     }
 

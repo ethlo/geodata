@@ -23,10 +23,6 @@ package com.ethlo.geodata.repository;
  */
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.AbstractMap;
 import java.util.Map;
 
@@ -70,28 +66,5 @@ public class GeoRepository
         final long lower = MapUtils.getLong(rs, "first");
         final long upper = MapUtils.getLong(rs, "last");
         return new AbstractMap.SimpleEntry<>(id, Range.closed(lower, upper));
-    }
-
-    public long locationCount()
-    {
-        return getLineCount(LOCATIONS_FILE);
-    }
-
-    public long ipRangesCount()
-    {
-        return getLineCount(IP_FILE);
-    }
-    
-    private long getLineCount(String filename)
-    {
-        Path path = Paths.get(baseDirectory.getAbsolutePath(), filename);
-        try
-        {
-            return Files.lines(path).count();
-        }
-        catch (IOException exc)
-        {
-            return 0;
-        }
     }
 }

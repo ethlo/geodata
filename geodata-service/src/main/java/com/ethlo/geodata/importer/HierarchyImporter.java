@@ -44,8 +44,9 @@ public class HierarchyImporter implements DataImporter
     }
     
     @Override
-    public void processFile(Consumer<Map<String, String>> sink) throws IOException
+    public long processFile(Consumer<Map<String, String>> sink) throws IOException
     {
+        long count = 0;
         try (final BufferedReader reader = new BufferedReader(new FileReader(hierarchyFile)))
         {
             String line;
@@ -60,7 +61,9 @@ public class HierarchyImporter implements DataImporter
                     paramMap.put("feature_code", stripToNull(entry[2]));
                     sink.accept(paramMap);
                 }
+                count++;
             }
         }        
+        return count;
     }
 }

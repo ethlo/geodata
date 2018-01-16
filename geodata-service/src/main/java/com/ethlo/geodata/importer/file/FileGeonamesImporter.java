@@ -38,7 +38,9 @@ import org.springframework.util.StringUtils;
 import com.ethlo.geodata.DataLoadedEvent;
 import com.ethlo.geodata.IoUtils;
 import com.ethlo.geodata.ProgressListener;
+import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.importer.GeonamesImporter;
+import com.ethlo.geodata.importer.Operation;
 import com.ethlo.geodata.util.ResourceUtil;
 
 @Component
@@ -69,15 +71,15 @@ public class FileGeonamesImporter extends FilePersistentImporter
     }
     
     @Override
-    public void importData() throws IOException
+    public long importData() throws IOException
     {
-        final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource("geonames_hierarchy", geoNamesHierarchyUrl);
+        final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource("hierarchy", geoNamesHierarchyUrl);
         
-        final Map.Entry<Date, File> alternateNamesFile = ResourceUtil.fetchResource("geonames_alternatenames", geoNamesAlternateNamesUrl);
+        final Map.Entry<Date, File> alternateNamesFile = ResourceUtil.fetchResource("locations_alternatenames", geoNamesAlternateNamesUrl);
         
-        final Map.Entry<Date, File> allCountriesFile = ResourceUtil.fetchResource("geonames", geoNamesAllCountriesUrl);
+        final Map.Entry<Date, File> allCountriesFile = ResourceUtil.fetchResource("locations", geoNamesAllCountriesUrl);
         
-        doUpdate(allCountriesFile.getValue(), alternateNamesFile.getValue(), hierarchyFile.getValue());
+        return doUpdate(allCountriesFile.getValue(), alternateNamesFile.getValue(), hierarchyFile.getValue());
     }
 
     @Override
@@ -86,9 +88,10 @@ public class FileGeonamesImporter extends FilePersistentImporter
         super.delete();
     }
 
-    private void doUpdate(File allCountriesFile, File alternateNamesFile, File hierarchyFile) throws IOException
+    private long doUpdate(File allCountriesFile, File alternateNamesFile, File hierarchyFile) throws IOException
     {
-        final ProgressListener prg = new ProgressListener(IoUtils.lineCount(allCountriesFile), d->publish(new DataLoadedEvent(this, "locations", d)));
+        final long total = IoUtils.lineCount(allCountriesFile);
+        final ProgressListener prg = new ProgressListener(l->publish(new DataLoadedEvent(this, DataType.LOCATION, Operation.IMPORT, l, total)));
 
         final GeonamesImporter geonamesImporter = new GeonamesImporter.Builder()
             .allCountriesFile(allCountriesFile)
@@ -99,10 +102,14 @@ public class FileGeonamesImporter extends FilePersistentImporter
             .progressListener(prg)
             .build();
 
-        try (final JsonIoWriter<Map> jsonIo = new JsonIoWriter<Map>(getFile(), Map.class))
+        try (final JsonIoWriter<Map> jsonIo = new JsonIoWriter<>(getFile(), Map.class))
         {
             geonamesImporter.processFile(jsonIo::write);
         }
+        
+        publish(new DataLoadedEvent(this, DataType.LOCATION, Operation.IMPORT, total, total));
+        
+        return total;
     }
 
     @Override

@@ -31,6 +31,7 @@ import org.springframework.boot.context.embedded.tomcat.TomcatEmbeddedServletCon
 import org.springframework.context.ApplicationListener;
 
 import com.ethlo.geodata.DataLoadedEvent;
+import com.ethlo.geodata.importer.DataType;
 
 import rx.Observable;
 import rx.subjects.ReplaySubject;
@@ -85,9 +86,9 @@ public class ProgressBeanPostProcessor implements BeanPostProcessor, Application
     {
         synchronized (beans)
         {
-            beans.onNext(event.getName() + ":" + event.getProgress());
+            beans.onNext(event.getDataType().name().toLowerCase() + ":" + event.getOperation().name().toLowerCase() + ":" + event.getProgress() + ":" + event.getCurrent() + ":" + event.getTotal());
             
-            if ("complete".equals(event.getName()))
+            if (DataType.ALL == event.getDataType())
             {
                 beans.onCompleted();
             }

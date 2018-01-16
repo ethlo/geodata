@@ -44,6 +44,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.context.support.DependencyInjectionTestExecutionListener;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
@@ -89,8 +90,8 @@ public class GeodataApplicationTests
         cal.set(Calendar.SECOND, 45);
         cal.set(Calendar.MILLISECOND, 0);
         final Date expected = cal.getTime();
-        geoMetaService.setLastModified("foo", expected);
-        assertThat(geoMetaService.getLastModified("foo")).isEqualTo(expected.getTime());
+        geoMetaService.setSourceDataInfo(DataType.COUNTRY, expected, 123);
+        assertThat(geoMetaService.getLastModified(DataType.COUNTRY)).isEqualTo(expected.getTime());
     }
     
     @Test

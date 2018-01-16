@@ -25,9 +25,7 @@ package com.ethlo.geodata;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Date;
 import java.util.List;
-import java.util.Map;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -44,7 +42,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.ethlo.geodata.GeodataService;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
@@ -296,8 +293,8 @@ public class GeodataController implements GeodataService
      * 
      */
     @GetMapping("/v1/source")
-    public Map<String, Date> sourceData()
+    public SourceDataInfoSet sourceData()
     {
-        return geoMetaService.getLastModified();
+        return geoMetaService.getSourceDataInfo();
     }
 }

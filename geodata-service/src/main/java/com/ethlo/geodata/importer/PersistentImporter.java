@@ -29,7 +29,7 @@ public interface PersistentImporter
 {
     void purge() throws IOException;
     
-    void importData() throws IOException;
+    long importData() throws IOException;
     
     Date lastRemoteModified() throws IOException;
 }

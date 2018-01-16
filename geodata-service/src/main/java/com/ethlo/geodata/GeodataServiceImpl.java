@@ -62,7 +62,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
+import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.importer.HierarchyImporter;
+import com.ethlo.geodata.importer.Operation;
 import com.ethlo.geodata.importer.file.FileCountryImporter;
 import com.ethlo.geodata.importer.file.FileGeonamesBoundaryImporter;
 import com.ethlo.geodata.importer.file.JsonIoReader;
@@ -99,6 +101,9 @@ public class GeodataServiceImpl implements GeodataService
 
     @Autowired
     private GeoRepository geoRepository;
+    
+    @Autowired
+    private GeoMetaService geoMetaService;
     
     @Autowired
     private ApplicationEventPublisher publisher;
@@ -161,7 +166,7 @@ public class GeodataServiceImpl implements GeodataService
         taskExecutor.setWaitForTasksToCompleteOnShutdown(true);
         taskExecutor.shutdown();
         
-        publisher.publishEvent(new DataLoadedEvent(this, "complete", 1d));
+        publisher.publishEvent(new DataLoadedEvent(this, DataType.ALL, Operation.LOAD, 1, 1));
     }
     
     private void ensureBaseDirectory()
@@ -192,15 +197,15 @@ public class GeodataServiceImpl implements GeodataService
             rTree = rTree.add(new RTreePayload(id, e.getArea(), e));
         }
         logger.info("Loaded {} MBR boundaries", rTree.size());
-        publisher.publishEvent(new DataLoadedEvent(this, "mbr", 1d));
+        publisher.publishEvent(new DataLoadedEvent(this, DataType.MBR, Operation.LOAD, rTree.size(), rTree.size()));
     }
     
     public void loadLocations()
     {
         locations = new HashMap<>();
         logger.info("Loading locations");
-        final long size = geoRepository.locationCount();
-        final ProgressListener prg = new ProgressListener(size, d->publisher.publishEvent(new DataLoadedEvent(this, "locations", d)));
+        final long size = geoMetaService.getSourceDataInfo().get(DataType.LOCATION).getCount();
+        final ProgressListener prg = new ProgressListener(l->publisher.publishEvent(new DataLoadedEvent(this, DataType.LOCATION, Operation.LOAD, l, size)));
         
         try (@SuppressWarnings("rawtypes") CloseableIterator<Map> iter = geoRepository.locations())
         {
@@ -229,7 +234,7 @@ public class GeodataServiceImpl implements GeodataService
                 prg.update();
             }
         }
-        publisher.publishEvent(new DataLoadedEvent(this, "locations", 1d));
+        publisher.publishEvent(new DataLoadedEvent(this, DataType.LOCATION, Operation.LOAD, locations.size(), locations.size()));
         logger.info("Loaded {} locations", locations.size());
     }
     
@@ -269,15 +274,15 @@ public class GeodataServiceImpl implements GeodataService
     {
         logger.info("Loading IP ranges");
         
-        final long size = geoRepository.ipRangesCount();
-        final ProgressListener prg = new ProgressListener(size, d->publisher.publishEvent(new DataLoadedEvent(this, "ips", d)));
+        final long size = geoMetaService.getSourceDataInfo().get(DataType.IP).getCount();
+        final ProgressListener prg = new ProgressListener(l->publisher.publishEvent(new DataLoadedEvent(this, DataType.IP, Operation.LOAD, l, size)));
         
         ipRanges = TreeRangeMap.create();
         try (CloseableIterator<Map.Entry<Long, Range<Long>>> r = geoRepository.ipRanges())
         {
             r.forEachRemaining(e->{ipRanges.put(e.getValue(), e.getKey()); prg.update();});
         }
-        publisher.publishEvent(new DataLoadedEvent(this, "ips", 1d));
+        publisher.publishEvent(new DataLoadedEvent(this, DataType.IP, Operation.LOAD, size, size));
         logger.info("Loaded {} IP ranges", size);
         
     }
@@ -470,7 +475,7 @@ public class GeodataServiceImpl implements GeodataService
             }
         }
         logger.info("Loaded {} countries", countries.size());
-        publisher.publishEvent(new DataLoadedEvent(this, "countries"));
+        publisher.publishEvent(new DataLoadedEvent(this, DataType.COUNTRY, Operation.LOAD, countries.size(), countries.size()));
     }
     
     private Country mapCountry(Map<String, Object> map)
@@ -545,7 +550,7 @@ public class GeodataServiceImpl implements GeodataService
             }
         }
         
-        publisher.publishEvent(new DataLoadedEvent(this, "hierarchies", 1d));
+        publisher.publishEvent(new DataLoadedEvent(this, DataType.HIERARCHY, Operation.LOAD, childToParent.size(), childToParent.size()));
         
         return childToParent.size();
     }

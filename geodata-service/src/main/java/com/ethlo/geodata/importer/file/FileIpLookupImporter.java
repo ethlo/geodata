@@ -46,7 +46,9 @@ import org.springframework.util.StringUtils;
 import com.ethlo.geodata.DataLoadedEvent;
 import com.ethlo.geodata.IoUtils;
 import com.ethlo.geodata.ProgressListener;
+import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.importer.IpLookupImporter;
+import com.ethlo.geodata.importer.Operation;
 import com.ethlo.geodata.util.ResourceUtil;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -70,13 +72,14 @@ public class FileIpLookupImporter extends FilePersistentImporter
     }
 
     @Override
-    public void importData() throws IOException
+    public long importData() throws IOException
     {
-        final Map.Entry<Date, File> ipDataFile = ResourceUtil.fetchResource("ipData", url);
+        final Map.Entry<Date, File> ipDataFile = super.fetchResource(DataType.IP, url);
         final AtomicInteger count = new AtomicInteger(0);
         
         final File csvFile = ipDataFile.getValue();
-        final ProgressListener prg = new ProgressListener(IoUtils.lineCount(csvFile), d->publish(new DataLoadedEvent(this, "ips", d)));
+        final long total = IoUtils.lineCount(csvFile);
+        final ProgressListener prg = new ProgressListener(l->publish(new DataLoadedEvent(this, DataType.IP, Operation.IMPORT, l, total)));
 
         final IpLookupImporter ipLookupImporter = new IpLookupImporter(csvFile);
         
@@ -128,6 +131,8 @@ public class FileIpLookupImporter extends FilePersistentImporter
                 prg.update();
             });
         }
+        
+        return total;
     }
     
     private String findMapValue(Map<String, String> map, String... needles)

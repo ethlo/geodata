@@ -43,6 +43,8 @@ import com.ethlo.geodata.ProgressListener;
 
 public class GeonamesImporter implements DataImporter
 {
+    public static final String ALIAS = "locations";
+    
     private static final Logger logger = LoggerFactory.getLogger(GeonamesImporter.class);
 
     private final Set<String> exclusions;
@@ -58,7 +60,7 @@ public class GeonamesImporter implements DataImporter
     private ProgressListener progressListener;
 
     @Override
-    public void processFile(Consumer<Map<String, String>> sink) throws IOException
+    public long processFile(Consumer<Map<String, String>> sink) throws IOException
     {
         final Map<Long, Long> childToParentMap = new HashMap<>();
         final Set<Long> inHierarchy = new TreeSet<>();
@@ -127,6 +129,7 @@ public class GeonamesImporter implements DataImporter
                 count++;
             }
         }
+        return count;
     }
 
     private Map<Long, String> loadPreferredNames(String preferredLanguage) throws IOException

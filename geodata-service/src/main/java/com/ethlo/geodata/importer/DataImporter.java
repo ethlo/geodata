@@ -28,5 +28,5 @@ import java.util.function.Consumer;
 
 public interface DataImporter
 {
-    void processFile(Consumer<Map<String, String>> sink) throws IOException;
+    long processFile(Consumer<Map<String, String>> sink) throws IOException;
 }

@@ -1,6 +1,7 @@
 package com.ethlo.geodata;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 
@@ -31,22 +32,18 @@ import java.io.Reader;
 import java.io.Writer;
 import java.time.Duration;
 import java.util.Date;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
+import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.importer.file.FileCountryImporter;
 import com.ethlo.geodata.importer.file.FileGeonamesBoundaryImporter;
 import com.ethlo.geodata.importer.file.FileGeonamesHierarchyImporter;
 import com.ethlo.geodata.importer.file.FileGeonamesImporter;
 import com.ethlo.geodata.importer.file.FileIpLookupImporter;
-import com.ethlo.time.FastInternetDateTimeUtil;
-import com.ethlo.time.InternetDateTimeUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
@@ -81,8 +78,6 @@ public class GeoMetaService
     
     private static final ObjectMapper mapper = new ObjectMapper();
     
-    private static final InternetDateTimeUtil itu = new FastInternetDateTimeUtil();
-    
     @Value("${geodata.max-data-age}")
     public void setMaxDataAge(String age)
     {
@@ -90,49 +85,44 @@ public class GeoMetaService
     	maxDataAgeMillis = d.toMillis();
     }
     
-    public long getLastModified(String alias)
+    public long getLastModified(DataType dataType)
     {
-        final Map<String, String> map = read();
-        final String timestamp = map.get(alias);
-        return timestamp != null ? itu.parse(timestamp).toInstant().toEpochMilli() : 0;
+        final SourceDataInfoSet map = read();
+        final SourceDataInfo info = map.get(dataType);
+        return info != null ? info.getLastModified().getTime() : -1;
     }
     
-    public Map<String, Date> getLastModified()
-    {
-        final Map<String, String> map = read();
-        return map.entrySet()
-             .stream()
-             .collect(Collectors.toMap(Map.Entry::getKey,e->new Date(itu.parse(e.getValue()).toInstant().toEpochMilli())));
-    }
-    
-    @SuppressWarnings("unchecked")
-    private Map<String, String> read()
+    private SourceDataInfoSet read()
     {
         try (final Reader reader = new FileReader(new File(baseDirectory, FILENAME)))
         {
-            return mapper.readValue(reader, Map.class);
+            return mapper.readValue(reader, SourceDataInfoSet.class);
+        }
+        catch (FileNotFoundException exc)
+        {
+            return new SourceDataInfoSet();
         }
         catch (IOException exc)
         {
-            return new TreeMap<>();
+            throw new RuntimeException(exc);            
         }
     }
     
-    public void setLastModified(String alias, Date lastModified) throws IOException
+    public void setSourceDataInfo(DataType type, Date lastModified, long count) throws IOException
     {
         synchronized (mapper)
         {
-            final Map<String, String> map = read();
-            map.put(alias, itu.format(lastModified, "UTC"));
+            final SourceDataInfoSet map = read();
+            map.add(new SourceDataInfo(type, count, lastModified));
             write(map);
         }
     }
 
-    private void write(Map<String, String> map) throws IOException
+    private void write(SourceDataInfoSet sourceInfo) throws IOException
     {
         try (final Writer writer = new FileWriter(new File(baseDirectory, FILENAME)))
         {
-            mapper.writeValue(writer, map);
+            mapper.writeValue(writer, sourceInfo);
         }
     }
 
@@ -149,43 +139,48 @@ public class GeoMetaService
         ensureBaseDirectory();
         
         final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
-        if (! boundaryImporter.allFilesExists() || boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)
+        if (! boundaryImporter.allFilesExists() || boundariesTimestamp.getTime() > getLastModified(DataType.MBR) + maxDataAgeMillis)
         {
             boundaryImporter.purge();
-            boundaryImporter.importData();
-            setLastModified("geoboundaries", boundariesTimestamp);
+            final long imported = boundaryImporter.importData();
+            setSourceDataInfo(DataType.MBR, boundariesTimestamp, imported);
         }
         
         final Date countryTimestamp = countryImporter.lastRemoteModified();
-        if (! countryImporter.allFilesExists() || countryTimestamp.getTime() > getLastModified("geonames_country") + maxDataAgeMillis)
+        if (! countryImporter.allFilesExists() || countryTimestamp.getTime() > getLastModified(DataType.COUNTRY) + maxDataAgeMillis)
         {
             countryImporter.purge();
-            countryImporter.importData();
-            setLastModified("geonames_country", countryTimestamp);
+            final long imported = countryImporter.importData();
+            setSourceDataInfo(DataType.COUNTRY, countryTimestamp, imported);
         }
         
         final Date geonamesHierarchyTimestamp = hierarchyImporter.lastRemoteModified();
-        if (! hierarchyImporter.allFilesExists() || geonamesHierarchyTimestamp.getTime() > getLastModified("geonames_hierarchy") + maxDataAgeMillis)
+        if (! hierarchyImporter.allFilesExists() || geonamesHierarchyTimestamp.getTime() > getLastModified(DataType.HIERARCHY) + maxDataAgeMillis)
         {
             hierarchyImporter.purge();
-            hierarchyImporter.importData();
-            setLastModified("geonames_hierarchy", geonamesHierarchyTimestamp);
+            final long imported = hierarchyImporter.importData();
+            setSourceDataInfo(DataType.HIERARCHY, geonamesHierarchyTimestamp, imported);
         }
         
         final Date geonamesTimestamp = geonamesImporter.lastRemoteModified();
-        if (! geonamesImporter.allFilesExists() || geonamesTimestamp.getTime() > getLastModified("geonames") + maxDataAgeMillis)
+        if (! geonamesImporter.allFilesExists() || geonamesTimestamp.getTime() > getLastModified(DataType.LOCATION) + maxDataAgeMillis)
         {
             geonamesImporter.purge();
-            geonamesImporter.importData();
-            setLastModified("geonames", geonamesTimestamp);
+            final long imported = geonamesImporter.importData();
+            setSourceDataInfo(DataType.LOCATION, geonamesTimestamp, imported);
         }
         
         final Date ipTimestamp = ipLookupImporter.lastRemoteModified();
-        if (! ipLookupImporter.allFilesExists() || ipTimestamp.getTime() > getLastModified("geoip") + maxDataAgeMillis)
+        if (! ipLookupImporter.allFilesExists() || ipTimestamp.getTime() > getLastModified(DataType.IP) + maxDataAgeMillis)
         {
             ipLookupImporter.purge();
-            ipLookupImporter.importData();
-            setLastModified("geoip", ipTimestamp);
+            final long imported = ipLookupImporter.importData();
+            setSourceDataInfo(DataType.IP, ipTimestamp, imported);
         }
+    }
+
+    public SourceDataInfoSet getSourceDataInfo()
+    {
+        return read();
     }
 }

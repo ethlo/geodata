@@ -1,88 +1,126 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ethlo geodata server</title>
-    
-    <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/pure-min.css" integrity="sha384-" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/grids-responsive-min.css">
-    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css">
-    <link rel="stylesheet" href="css/layouts/marketing.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ethlo geodata server</title>
+
+<link rel="stylesheet"
+	href="https://unpkg.com/purecss@1.0.0/build/pure-min.css"
+	integrity="sha384-" crossorigin="anonymous">
+<link rel="stylesheet"
+	href="https://unpkg.com/purecss@1.0.0/build/grids-responsive-min.css">
+<link rel="stylesheet"
+	href="https://netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css">
+<link rel="stylesheet" href="css/layouts/marketing.css">
+
+<style>
+td.numeric {
+	text-align: right;
+}
+</style>
+
 </head>
-<body style="background:#1f8dd6">
+<body style="background: #1f8dd6">
 
+	<div class="header">
+		<div class="home-menu pure-menu pure-menu-horizontal pure-menu-fixed">
+			<a class="pure-menu-heading" href="http://ethlo.com">ethlo</a>
 
-<div class="header">
-    <div class="home-menu pure-menu pure-menu-horizontal pure-menu-fixed">
-        <a class="pure-menu-heading" href="http://ethlo.com">ethlo</a>
-
-        <ul class="pure-menu-list">
-            <li class="pure-menu-item"><a href="#" class="pure-menu-link">Home</a></li>
-            <li class="pure-menu-item"><a href="/api.html" class="pure-menu-link">API documentation</a></li>
-            <li class="pure-menu-item"><a href="https://github.com/ethlo/geodata" class="pure-menu-link">GitHub</a></li>
-        </ul>
-    </div>
-</div>
-
-
-<div class="splash-container">
-
-	<div style="float:right; margin-top:50px; padding:15px; background:white; width:300px;" id="source-data">
-		<table>
-			<tr>
-				<th style="width:200px;">Geo Hierarchies</th>
-				<td data-bean="hierarchies" style="width:80px;">Waiting</td>
-			</tr>
-			<tr>
-				<th>Geo IPs</th>
-				<td data-bean="ips">Waiting</td>
-			</tr>
-			<tr>
-				<th>Geo Locations</th>
-				<td data-bean="locations">Waiting</td>
-			</tr>
-			<tr>
-				<th>Geo location MBRs</th>
-				<td data-bean="mbr">Waiting</td>
-			</tr>
-
-		</table>
+			<ul class="pure-menu-list">
+				<li class="pure-menu-item"><a href="#" class="pure-menu-link">Home</a></li>
+				<li class="pure-menu-item"><a href="/api.html"
+					class="pure-menu-link">API documentation</a></li>
+				<li class="pure-menu-item"><a
+					href="https://github.com/ethlo/geodata" class="pure-menu-link">GitHub</a></li>
+			</ul>
+		</div>
 	</div>
 
-    <div class="splash">
-        <h1 class="splash-head">ethlo geodata server</h1>
-        <p class="splash-subhead">
-            Simple, fast and free geodata server for on-site deployment
-        </p>
-        <p>
-            <a href="https://github.com/ethlo/geodata" class="pure-button pure-button-primary">GitHub</a>
-        </p>
-    </div>
-</div>
 
-    <div class="footer l-box is-center">
-        Copyright Morten Haraldsen 2017-2018 
-    </div>
+	<div class="splash-container">
+		<div class="splash">
+			<h1 class="splash-head">ethlo geodata server</h1>
+			<p class="splash-subhead">Simple, fast and free geodata server
+				for on-site deployment</p>
+			<p>
+				<a href="https://github.com/ethlo/geodata"
+					class="pure-button pure-button-primary">GitHub</a>
+			</p>
+		</div>
+	</div>
 
-<script>
+	<div class="content-wrapper">
+		<div class="content">
+			<table class="pure-table pure-table-bordered" style="width: 100%">
+				<thead>
+					<tr>
+						<th>Data</th>
+						<th>Count</th>
+						<th>Last updated</th>
+					</tr>
+				</thead>
+				<tr>
+					<td>Geo Hierarchies</td>
+					<td class="numeric" data-count="hierarchy"></td>
+					<td data-lastmodified="hierarchy"></td>
+				</tr>
+				<tr>
+					<td>Geo IPs</td>
+					<td class="numeric" data-count="ip"></td>
+					<td data-lastmodified="ip"></td>
+				</tr>
+				<tr>
+					<td>Geo countries</td>
+					<td class="numeric" data-count="country"></td>
+					<td data-lastmodified="country"></td>
+				</tr>
+				<tr>
+					<td>Geo Locations</td>
+					<td class="numeric" data-count="location"></td>
+					<td data-lastmodified="location"></td>
+				</tr>
+				<tr>
+					<td>Geo location MBRs</td>
+					<td class="numeric" data-count="mbr"></td>
+					<td data-lastmodified="mbr"></td>
+				</tr>
+			</table>
+		</div>
+	</div>
 
-var xhr = new XMLHttpRequest();
-xhr.open('GET', '/v1/source');
-xhr.onload = function() {
+	<div class="footer l-box is-center">Copyright Morten Haraldsen
+		2017-2018</div>
+
+	<script>
+		const numberWithCommas = (x) => {
+		  var parts = x.toString().split(".");
+		  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+		  return parts.join(".");
+		}
 	
-	var ele = document.getElementById('source-data');
-	
-    if (xhr.status === 200) {
-    	ele.innerHTML = xhr.responseText;
-    }
-    else {
-    	ele.innerHTML = 'Unable to load source data information';
-    }
-};
-xhr.send();
+		var xhr = new XMLHttpRequest();
+		xhr.open('GET', '/v1/source');
+		xhr.onload = function() {
 
-</script>
+			var ele = document.getElementById('source-data');
+
+			if (xhr.status === 200) {
+				var array = JSON.parse(xhr.responseText);
+				array.forEach(function(o) {
+					var name = o.dataType.toLowerCase();
+					var ele = document.querySelector('td[data-count="' + name + '"]');
+					ele.innerHTML = numberWithCommas(o.count);
+					var ele = document.querySelector('td[data-lastmodified="' + name + '"]');
+					ele.innerHTML = o.lastModified;
+				  	console.log(o);
+				});
+			} else {
+				ele.innerHTML = 'Unable to load source data information';
+			}
+		};
+		xhr.send();
+	</script>
 
 
 </body>

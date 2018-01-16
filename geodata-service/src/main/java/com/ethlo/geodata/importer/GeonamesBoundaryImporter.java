@@ -54,14 +54,14 @@ public class GeonamesBoundaryImporter implements DataImporter
     }
     
     @Override
-    public void processFile(Consumer<Map<String, String>> sink) throws IOException
+    public long processFile(Consumer<Map<String, String>> sink) throws IOException
     {
-        int count = 0;
-        try (final BufferedReader r = new BufferedReader(new InputStreamReader(new FileInputStream(boundaryFile), StandardCharsets.UTF_8)))
+        long count = 0;
+        try (final BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(boundaryFile), StandardCharsets.UTF_8)))
         {
-            String line = r.readLine(); // skip first line
+            String line = reader.readLine(); // skip first line
             
-            while((line = r.readLine()) != null)
+            while((line = reader.readLine()) != null)
             {
                 if (StringUtils.isNotBlank(line))
                 {
@@ -72,29 +72,25 @@ public class GeonamesBoundaryImporter implements DataImporter
                         {
                             final Map<String, String> entry = parsePoints(fields);
                             sink.accept(entry);
-                            count++;
                         }
                         catch (ParseException exc)
                         {
                             logger.warn("Cannot parse geometry for location {}: {}", fields[0], exc.getMessage());
                         }
                     }
-                    else
+                    else if (logger.isWarnEnabled())
                     {
                     	logger.warn("Unexpected field count for {}", StringUtils.abbreviate(line, 100));
                     }
                 }
                 
-                if (count % 1_000 == 0)
-                {
-                    System.out.println(count);
-                }
+                count++;
             }
         }
-        
+        return count;
     }
 
-    private Map<String, String> parsePoints(final String[] fields) throws IOException, ParseException
+    private Map<String, String> parsePoints(final String[] fields) throws ParseException
     {
         final long id = Long.parseLong(fields[0]);
         
