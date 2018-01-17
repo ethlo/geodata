@@ -95,7 +95,8 @@ public class NoDataAssertGeodataApplicationTests
     {
         if (! initialized)
         {
-            delete(dataDirectory);
+            //delete(dataDirectory);
+            //dataDirectory.mkdir();
             geoMetaService.update();
             initialized = true;
         }

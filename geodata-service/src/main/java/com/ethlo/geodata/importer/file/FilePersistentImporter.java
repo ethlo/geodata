@@ -52,7 +52,7 @@ public abstract class FilePersistentImporter implements PersistentImporter
     }
     
     @Value("${data.tmp.directory}")
-    public void setBaseTmpDirectory(File dir)
+    public void setBaseTmpDirectory(File dir) throws IOException
     {
         final File baseTmpDirectory = new File(dir.getPath().replaceFirst("^~",System.getProperty("user.home")));
         if (! baseTmpDirectory.exists())

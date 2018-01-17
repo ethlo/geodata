@@ -85,4 +85,10 @@ public class SourceDataInfo
             return false;
         return true;
     }
+
+    @Override
+    public String toString()
+    {
+        return "SourceDataInfo [dataType=" + dataType + ", count=" + count + ", lastModified=" + lastModified + "]";
+    }
 }

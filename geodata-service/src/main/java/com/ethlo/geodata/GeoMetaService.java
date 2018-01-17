@@ -113,7 +113,9 @@ public class GeoMetaService
         synchronized (mapper)
         {
             final SourceDataInfoSet map = read();
-            map.add(new SourceDataInfo(type, count, lastModified));
+            final SourceDataInfo o = new SourceDataInfo(type, count, lastModified);
+            map.remove(o);
+            map.add(o);
             write(map);
         }
     }

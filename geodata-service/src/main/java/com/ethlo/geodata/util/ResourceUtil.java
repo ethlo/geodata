@@ -47,7 +47,6 @@ import org.springframework.core.io.UrlResource;
 import org.zeroturnaround.zip.ZipUtil;
 
 import com.ethlo.geodata.DataLoadedEvent;
-import com.ethlo.geodata.ProgressListener;
 import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.importer.Operation;
 import com.vividsolutions.jts.util.Assert;
@@ -119,7 +118,7 @@ public class ResourceUtil
         final Resource resource = openConnection(url);
         return downloadIfNewer(dataType, resource, f->
         {
-            final File unzipDir = new File(tmpDir, Integer.toString(url.hashCode())); 
+            final File unzipDir = new File(tmpDir, dataType.name().toLowerCase() + "_unzip"); 
             ZipUtil.unpack(f.toFile(), unzipDir, name->name.endsWith(zipEntry) ? zipEntry : null);
             final File file = new File(unzipDir, zipEntry);
             Assert.isTrue(file.exists(), "File " + file + " does not exist");
@@ -131,7 +130,7 @@ public class ResourceUtil
     {
         publisher.publishEvent(new DataLoadedEvent(this, dataType, Operation.DOWNLOAD, 0,1));
         final String alias = dataType.name().toLowerCase();
-        final File tmpDownloadedFile = new File(tmpDir, alias + resource.getURI().hashCode());
+        final File tmpDownloadedFile = new File(tmpDir, alias);
         final Date remoteLastModified = new Date(resource.lastModified());
         final long localLastModified = tmpDownloadedFile.exists() ? tmpDownloadedFile.lastModified() : -2;
         logger.info("Local file for alias {}" 
