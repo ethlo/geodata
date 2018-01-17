@@ -25,16 +25,65 @@ package com.ethlo.geodata;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 
+import springfox.documentation.builders.ApiInfoBuilder;
+import springfox.documentation.builders.RequestHandlerSelectors;
+import springfox.documentation.spi.DocumentationType;
+import springfox.documentation.spring.web.plugins.Docket;
+import springfox.documentation.swagger.web.DocExpansion;
+import springfox.documentation.swagger.web.ModelRendering;
+import springfox.documentation.swagger.web.OperationsSorter;
+import springfox.documentation.swagger.web.TagsSorter;
+import springfox.documentation.swagger.web.UiConfiguration;
+import springfox.documentation.swagger.web.UiConfigurationBuilder;
+import springfox.documentation.swagger2.annotations.EnableSwagger2;
+
 @Configuration
+@EnableSwagger2
+@Import(springfox.bean.validators.configuration.BeanValidatorPluginsConfiguration.class)
 public class GeodataCfg
 {
     @Bean
     public Jackson2ObjectMapperBuilderCustomizer jacksonCustomizer()
     {
         return b->b.modulesToInstall(new AfterburnerModule(), new Jdk8Module());
-    }    
+    }   
+    
+    @Bean
+    public Docket api()
+    {
+        return new Docket(DocumentationType.SWAGGER_2)
+            .select()
+                .apis(RequestHandlerSelectors.any())
+                .paths(input->input.matches(".*/v[0-9]+/.*") && !input.equals("/v1/source"))
+                .build()
+            .apiInfo(new ApiInfoBuilder()
+                .title("ethlo geodata service")
+                .description("ethlo geodata service")
+                .version("1.0").build());
+    }
+
+    @Bean
+    public UiConfiguration uiConfig()
+    {
+      return UiConfigurationBuilder.builder()
+          .deepLinking(true)
+          .displayOperationId(false)
+          .defaultModelsExpandDepth(1)
+          .defaultModelExpandDepth(1)
+          .defaultModelRendering(ModelRendering.EXAMPLE)
+          .displayRequestDuration(true)
+          .docExpansion(DocExpansion.LIST)
+          .filter(false)
+          .maxDisplayedTags(null)
+          .operationsSorter(OperationsSorter.ALPHA)
+          .showExtensions(false)
+          .tagsSorter(TagsSorter.ALPHA)
+          .validatorUrl(null)
+          .build();
+    }
 }
