@@ -79,35 +79,12 @@ public class Node implements Comparable<Node>
     @Override
     public boolean equals(Object obj)
     {
-        if (this == obj)
-            return true;
-        if (obj == null)
-            return false;
-        if (getClass() != obj.getClass())
-            return false;
-        Node other = (Node) obj;
-        if (children == null)
+        if (obj instanceof Node)
         {
-            if (other.children != null)
-                return false;
+            Node other = (Node) obj;
+            return other.id == id;
         }
-        else if (!children.equals(other.children))
-            return false;
-        if (id == null)
-        {
-            if (other.id != null)
-                return false;
-        }
-        else if (!id.equals(other.id))
-            return false;
-        if (parent == null)
-        {
-            if (other.parent != null)
-                return false;
-        }
-        else if (!parent.equals(other.parent))
-            return false;
-        return true;
+        return false;
     }
 
     @Override

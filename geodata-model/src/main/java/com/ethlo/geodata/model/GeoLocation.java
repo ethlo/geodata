@@ -54,7 +54,7 @@ public class GeoLocation extends GeoEntity implements Serializable
     /**
      * The estimated population of this location
      */
-    private long population;
+    private Long population;
     
     public String getFeatureCode()
     {
@@ -99,12 +99,12 @@ public class GeoLocation extends GeoEntity implements Serializable
                         + (getCoordinates() != null ? "coordinates=" + getCoordinates() : "") + "]";
     }
 
-    public long getPopulation()
+    public Long getPopulation()
     {
         return population;
     }
 
-    public GeoLocation setPopulation(long population)
+    public GeoLocation setPopulation(Long population)
     {
         this.population = population;
         return this;

@@ -264,10 +264,12 @@ public class GeodataServiceImpl implements GeodataService
         final CountrySummary country = countrySummaries.get(countryCode);
         geoLocation.setCountry(country);
         
+        final Long population = MapUtils.getLong(m, "population");
+        
         geoLocation
             .setFeatureCode(MapUtils.getString(m, "feature_code"))
             .setFeatureClass(MapUtils.getString(m, "feature_class"))
-            .setPopulation(MapUtils.getLong(m, "population"))
+            .setPopulation(population != null && population > 0 ? population : null)
             .setParentLocationId(parentId)
             .setId(MapUtils.getLong(m, "id"))
             .setName(MapUtils.getString(m, "name"))
@@ -309,15 +311,7 @@ public class GeodataServiceImpl implements GeodataService
             return null;
         }
         
-        long ipLong;
-        try
-        {
-            ipLong = UnsignedInteger.fromIntBits(InetAddresses.coerceToInteger(InetAddresses.forString(ip))).longValue();
-        }
-        catch (IllegalArgumentException exc)
-        {
-            throw new InvalidIpException(ip, exc.getMessage(), exc);
-        }
+        final long ipLong = UnsignedInteger.fromIntBits(InetAddresses.coerceToInteger(InetAddresses.forString(ip))).longValue();
         
         final Long id = ipRanges.get(ipLong);
         return id != null ? findById(id) : null;
