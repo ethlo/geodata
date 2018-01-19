@@ -161,13 +161,15 @@ public class GeodataController implements GeodataService
     @Override
     public GeoLocation findById(@PathVariable(name="id") long locationId)
     {
-        return geodataService.findById(locationId);
+        final GeoLocation location = geodataService.findById(locationId);
+        return notNull(location, "No location found for ID " + locationId);
     }
     
     @GetMapping("/v1/locations/{id}/parent")
     @Override
     public GeoLocation findParent(@PathVariable(name="id") long locationId)
     {
+        findById(locationId);
         return geodataService.findParent(locationId);
     }
 
@@ -175,6 +177,7 @@ public class GeodataController implements GeodataService
     @Override
     public Page<GeoLocation> findChildren(@PathVariable(name="id") long locationId, Pageable pageable)
     {
+        findById(locationId);
         return geodataService.findChildren(locationId, pageable);
     }
     
@@ -195,9 +198,10 @@ public class GeodataController implements GeodataService
 
     @GetMapping("/v1/continents/{continent}/countries")
     @Override
-    public Page<Country> findCountriesOnContinent(@PathVariable("continent") String continentName, Pageable pageable)
+    public Page<Country> findCountriesOnContinent(@PathVariable("continent") String continentCode, Pageable pageable)
     {
-        return geodataService.findCountriesOnContinent(continentName, pageable);
+        this.findContinent(continentCode);
+        return geodataService.findCountriesOnContinent(continentCode, pageable);
     }
     
     @GetMapping("/v1/countries")
@@ -212,13 +216,14 @@ public class GeodataController implements GeodataService
     public Country findCountryByCode(@PathVariable("countryCode") String countryCode)
     {
         final Country location = geodataService.findCountryByCode(countryCode);
-        return notNull(location, "Could not find country " + countryCode);
+        return notNull(location, "Could not find country with code " + countryCode);
     }
     
     @GetMapping("/v1/countries/{countryCode}/children")
     @Override
     public Page<GeoLocation> findChildren(@PathVariable("countryCode") String countryCode, Pageable pageable)
     {
+        findCountryByCode(countryCode);
         return geodataService.findChildren(countryCode, pageable);
     }
 
@@ -233,6 +238,8 @@ public class GeodataController implements GeodataService
     @Override
     public boolean isInsideAny(@PathVariable("ids") List<Long> ids, @PathVariable("id") long id)
     {
+        ids.forEach(this::findById);
+        findById(id);
         return geodataService.isInsideAny(ids, id);
     }
     
@@ -240,6 +247,8 @@ public class GeodataController implements GeodataService
     @Override
     public boolean isOutsideAll(@PathVariable("ids") List<Long> ids, @PathVariable("id") long id)
     {
+        ids.forEach(this::findById);
+        findById(id);
         return geodataService.isOutsideAll(ids, id);
     }
 
@@ -262,6 +271,8 @@ public class GeodataController implements GeodataService
     @Override
     public boolean isLocationInside(@PathVariable(name="id", required=true) long id, @PathVariable(name="child", required=true) long child)
     {
+        findById(id);
+        findById(child);
         return geodataService.isLocationInside(child, id);
     }
     
