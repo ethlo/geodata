@@ -38,14 +38,13 @@
 							<goal>javadoc-no-fork</goal>
 						</goals>
 						<configuration>
+							<additionalparam>-d "${project.build.directory}/classes"</additionalparam>
 							<doclet>capital.scalable.restdocs.jsondoclet.ExtractDocumentationAsJsonDoclet</doclet>
 							<docletArtifact>
 								<groupId>capital.scalable</groupId>
 								<artifactId>spring-auto-restdocs-json-doclet</artifactId>
 								<version>${autodocs.version}</version>
 							</docletArtifact>
-							<destDir>generated-javadoc-json</destDir>
-							<reportOutputDirectory>${project.build.directory}</reportOutputDirectory>
 							<useStandardDocletOptions>false</useStandardDocletOptions>
 							<show>package</show>
 						</configuration>
