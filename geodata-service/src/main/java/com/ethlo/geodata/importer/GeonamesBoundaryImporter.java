@@ -24,10 +24,7 @@ package com.ethlo.geodata.importer;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Consumer;
@@ -36,6 +33,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.ethlo.geodata.IoUtils;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.ParseException;
 import com.vividsolutions.jts.io.geojson.GeoJsonReader;
@@ -57,7 +55,7 @@ public class GeonamesBoundaryImporter implements DataImporter
     public long processFile(Consumer<Map<String, String>> sink) throws IOException
     {
         long count = 0;
-        try (final BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(boundaryFile), StandardCharsets.UTF_8)))
+        try (final BufferedReader reader = IoUtils.getBufferedReader(boundaryFile))
         {
             String line = reader.readLine(); // skip first line
             

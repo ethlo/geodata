@@ -24,11 +24,11 @@ package com.ethlo.geodata.importer;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import com.ethlo.geodata.IoUtils;
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvSchema;
@@ -48,7 +48,7 @@ public class IpLookupImporter implements DataImporter
         final CsvMapper csvMapper = new CsvMapper();
         final CsvSchema schema = CsvSchema.emptySchema().withHeader(); // use first row as header; otherwise defaults are fine
         int count = 0;
-        try (final BufferedReader reader = new BufferedReader(new FileReader(csvFile)))
+        try (final BufferedReader reader = IoUtils.getBufferedReader(csvFile))
         {
             final MappingIterator<Map<String,String>> it = csvMapper.readerFor(Map.class)
                .with(schema)

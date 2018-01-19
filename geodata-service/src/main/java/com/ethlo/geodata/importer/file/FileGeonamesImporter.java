@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
@@ -46,6 +48,8 @@ import com.ethlo.geodata.importer.Operation;
 public class FileGeonamesImporter extends FilePersistentImporter
 {
     public static final String FILENAME = "geonames.json";
+    
+    private static final Logger logger = LoggerFactory.getLogger(FileGeonamesImporter.class);
     
     @Value("${geodata.geonames.source.names}")
     private String geoNamesAllCountriesUrl;
@@ -89,6 +93,7 @@ public class FileGeonamesImporter extends FilePersistentImporter
 
     private long doUpdate(File allCountriesFile, File alternateNamesFile, File hierarchyFile) throws IOException
     {
+        logger.info("Counting lines of {}", allCountriesFile);
         final long total = IoUtils.lineCount(allCountriesFile);
         final ProgressListener prg = new ProgressListener(l->publish(new DataLoadedEvent(this, DataType.LOCATION, Operation.IMPORT, l, total)));
 

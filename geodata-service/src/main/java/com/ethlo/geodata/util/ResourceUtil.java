@@ -25,6 +25,7 @@ package com.ethlo.geodata.util;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -119,7 +120,7 @@ public class ResourceUtil
         return downloadIfNewer(dataType, resource, f->
         {
             final File unzipDir = new File(tmpDir, dataType.name().toLowerCase() + "_unzip"); 
-            ZipUtil.unpack(f.toFile(), unzipDir, name->name.endsWith(zipEntry) ? zipEntry : null);
+            ZipUtil.unpack(f.toFile(), unzipDir, name->name.endsWith(zipEntry) ? zipEntry : null, StandardCharsets.UTF_8);
             final File file = new File(unzipDir, zipEntry);
             Assert.isTrue(file.exists(), "File " + file + " does not exist");
             return file.toPath();

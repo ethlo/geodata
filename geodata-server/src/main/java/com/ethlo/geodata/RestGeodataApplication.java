@@ -23,6 +23,9 @@ package com.ethlo.geodata;
  */
 
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryUsage;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +45,9 @@ public class RestGeodataApplication
     public static void main(String[] args)
     {
         final ApplicationContext ctx = SpringApplication.run(RestGeodataApplication.class, args);
-
+        
+        dumpMemUsage();
+        
         if (args.length == 1 && "update".equals(args[0]))
         {
             logger.info("Data refresh requested, this may take some time");
@@ -55,7 +60,17 @@ public class RestGeodataApplication
                 throw new DataAccessResourceFailureException(exc.getMessage(), exc);
             }
         }
+        
+        dumpMemUsage();
+        
         ctx.getBean(GeodataServiceImpl.class).load();
+    }
+    
+    private static void dumpMemUsage()
+    {
+        MemoryMXBean mbean = ManagementFactory.getMemoryMXBean();
+        final MemoryUsage mem = mbean.getHeapMemoryUsage();
+        logger.info("Memory\nCommitted:{}\nMax: {}", mem.getCommitted(), mem.getMax());
     }
 
     @Bean

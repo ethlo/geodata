@@ -26,13 +26,14 @@ import static org.apache.commons.lang3.StringUtils.stripToNull;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Consumer;
 
 import org.springframework.util.StringUtils;
+
+import com.ethlo.geodata.IoUtils;
 
 public class HierarchyImporter implements DataImporter
 {
@@ -47,7 +48,7 @@ public class HierarchyImporter implements DataImporter
     public long processFile(Consumer<Map<String, String>> sink) throws IOException
     {
         long count = 0;
-        try (final BufferedReader reader = new BufferedReader(new FileReader(hierarchyFile)))
+        try (final BufferedReader reader = IoUtils.getBufferedReader(hierarchyFile))
         {
             String line;
             while ((line = reader.readLine()) != null)

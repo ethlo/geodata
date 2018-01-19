@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -55,6 +57,8 @@ public class FileGeonamesBoundaryImporter extends FilePersistentImporter
     public static final String BOUNDARIES_FILENAME = "boundaries.wkb";
     public static final String ENVELOPE_FILENAME = "envelopes.json";
     
+    private static final Logger logger = LoggerFactory.getLogger(FileGeonamesBoundaryImporter.class);
+    
     @Value("${geodata.geonames.source.boundaries}")
     private String geoNamesBoundaryUrl;
     
@@ -74,6 +78,7 @@ public class FileGeonamesBoundaryImporter extends FilePersistentImporter
             final WKTReader reader = new WKTReader();
             final WKBWriter writer = new WKBWriter();
             final Entry<Date, File> boundaryFile = fetchResource(DataType.BOUNDARY, geoNamesBoundaryUrl);
+            logger.info("Counting lines of {}", boundaryFile.getValue());
             final long total = IoUtils.lineCount(boundaryFile.getValue());
             final ProgressListener prg = new ProgressListener(l->publish(new DataLoadedEvent(this, DataType.BOUNDARY, Operation.IMPORT, l, total)));
             final GeonamesBoundaryImporter importer = new GeonamesBoundaryImporter(boundaryFile.getValue());

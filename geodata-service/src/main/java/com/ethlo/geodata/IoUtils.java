@@ -1,5 +1,7 @@
 package com.ethlo.geodata;
 
+import java.io.BufferedReader;
+
 /*-
  * #%L
  * Geodata service
@@ -23,12 +25,20 @@ package com.ethlo.geodata;
  */
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import org.zeroturnaround.zip.commons.IOUtils;
+
 public class IoUtils
 {
+    private IoUtils(){}
+    
     public static long lineCount(File file)
     {
         final Path path = file.toPath();
@@ -40,5 +50,10 @@ public class IoUtils
         {
             return 0;
         }
+    }
+
+    public static BufferedReader getBufferedReader(File file) throws FileNotFoundException
+    {
+        return new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8));
     }
 }

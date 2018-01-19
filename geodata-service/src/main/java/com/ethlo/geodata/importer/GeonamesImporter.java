@@ -26,8 +26,11 @@ import static org.apache.commons.lang3.StringUtils.stripToNull;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -39,6 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
+import com.ethlo.geodata.IoUtils;
 import com.ethlo.geodata.ProgressListener;
 
 public class GeonamesImporter implements DataImporter
@@ -75,7 +79,7 @@ public class GeonamesImporter implements DataImporter
         final Map<Long, String> preferredNames = loadPreferredNames("EN");
         
         int count = 0;
-        try (final BufferedReader reader = new BufferedReader(new FileReader(allCountriesFile)))
+        try (BufferedReader reader = IoUtils.getBufferedReader(allCountriesFile))
         {
             String line;
             while ((line = reader.readLine()) != null)
