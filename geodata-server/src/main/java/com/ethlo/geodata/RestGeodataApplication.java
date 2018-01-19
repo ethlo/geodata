@@ -64,6 +64,8 @@ public class RestGeodataApplication
         dumpMemUsage();
         
         ctx.getBean(GeodataServiceImpl.class).load();
+        
+        dumpMemUsage();
     }
     
     private static void dumpMemUsage()

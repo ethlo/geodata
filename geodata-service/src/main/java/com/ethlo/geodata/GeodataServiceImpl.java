@@ -653,7 +653,7 @@ public class GeodataServiceImpl implements GeodataService
     public GeoLocation findParent(long id)
     {
         final GeoLocation location = findById(id);
-        return location.getParentLocationId() != null ? findById(location.getParentLocationId()) : null;
+        return location != null && location.getParentLocationId() != null ? findById(location.getParentLocationId()) : null;
     }
 
     @Override
