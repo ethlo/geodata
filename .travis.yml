@@ -3,3 +3,5 @@ jdk:
   - oraclejdk8
 sudo: required 
 dist: precise
+
+install: "mvn clean install -Ddockerfile.skip=true"
