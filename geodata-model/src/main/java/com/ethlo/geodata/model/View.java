@@ -33,30 +33,48 @@ public class View
 		
 	}
 	
+	/**
+	 * Minimum longitude of view
+	 */
     @NotNull
     @Min(-180)
     @Max(180)
 	private Double minLng;
     
+    /**
+     * Maximum longitude of view
+     */
     @NotNull
     @Min(-180)
     @Max(180)
 	private Double maxLng;
 	
+    /**
+     * Minimum latitude of view
+     */
     @NotNull
     @Min(-90)
     @Max(90)
     private Double minLat;
 
+    /**
+     * Maximum latitude of view
+     */
     @NotNull
     @Min(-90)
     @Max(90)
     private Double maxLat;
 	
+    /**
+     * Height of the view in pixels
+     */
     @NotNull
     @Min(32)
 	private Integer height;
     
+    /**
+     * Width of the view in pixels
+     */
     @NotNull
     @Min(32)
 	private Integer width;

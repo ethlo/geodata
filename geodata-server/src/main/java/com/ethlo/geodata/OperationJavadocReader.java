@@ -37,6 +37,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ReflectionUtils;
 
+import com.fasterxml.classmate.members.ResolvedField;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -44,16 +45,19 @@ import springfox.documentation.builders.OperationBuilder;
 import springfox.documentation.builders.ParameterBuilder;
 import springfox.documentation.service.Parameter;
 import springfox.documentation.spi.DocumentationType;
+import springfox.documentation.spi.service.ExpandedParameterBuilderPlugin;
 import springfox.documentation.spi.service.OperationBuilderPlugin;
 import springfox.documentation.spi.service.contexts.OperationContext;
+import springfox.documentation.spi.service.contexts.ParameterExpansionContext;
 import springfox.documentation.spi.service.contexts.RequestMappingContext;
 import springfox.documentation.spring.web.WebMvcRequestHandler;
 
 @Component
 @Order(Ordered.LOWEST_PRECEDENCE)
-public class OperationJavadocReader implements OperationBuilderPlugin
+public class OperationJavadocReader implements OperationBuilderPlugin, ExpandedParameterBuilderPlugin
 {
     private static final Logger logger = LoggerFactory.getLogger(OperationJavadocReader.class);
+    private static final ObjectMapper mapper = new ObjectMapper();
 
     @Override
     public void apply(OperationContext context)
@@ -72,23 +76,13 @@ public class OperationJavadocReader implements OperationBuilderPlugin
             @SuppressWarnings("unchecked")
             final List<Parameter> existingParams = (List<Parameter>) parametersField.get(context.operationBuilder());
             final Method method = handler.getHandlerMethod().getMethod();
-            final String methodName = method.getName();
-            
-            final ObjectMapper mapper = new ObjectMapper();
-            final String path = method.getDeclaringClass().getCanonicalName().replace('.', '/') + ".json";
-            final ClassPathResource res = new ClassPathResource(path);
-            
-            final JsonNode doc = mapper.readTree(res.getInputStream());
-            final JsonNode m = doc.path("methods");
-            final String description = m.path(methodName).path("comment").textValue();
+            final String description = getMethodDescription(method);
             context.operationBuilder().summary(description).notes(description);
 
             final List<Parameter> parameters = newArrayList();
             for (Parameter p : existingParams)
             {
-                final String paramName = p.getName();
-                final JsonNode jsonParam = m.path(methodName).path("parameters");
-                final String paramDesc = jsonParam.path(paramName).textValue();
+                final String paramDesc = getParameterDescription(method, p.getName());
                 parameters.add(new ParameterBuilder().parameterType(p.getParamType()).name(p.getName()).modelRef(p.getModelRef()).description(paramDesc).build());
             }
             
@@ -100,9 +94,46 @@ public class OperationJavadocReader implements OperationBuilderPlugin
         }
     }
 
+    private String getParameterDescription(Method method, String name) throws IOException
+    {
+        final JsonNode m = loadClassJavadoc(method.getDeclaringClass());
+        final JsonNode jsonParam = m.path(method.getName()).path("parameters");
+        return jsonParam.path(name).textValue();
+    }
+
+    private String getMethodDescription(final Method method) throws IOException
+    {
+        final JsonNode doc = loadClassJavadoc(method.getDeclaringClass());
+        return doc.path("methods").path(method.getName()).path("comment").textValue();
+    }
+
+    private JsonNode loadClassJavadoc(final Class<?> type) throws IOException
+    {
+        final String path = type.getCanonicalName().replace('.', '/') + ".json";
+        final ClassPathResource res = new ClassPathResource(path);
+        return mapper.readTree(res.getInputStream());
+    }
+
     @Override
     public boolean supports(DocumentationType delimiter)
     {
         return true;
+    }
+
+    @Override
+    public void apply(ParameterExpansionContext context)
+    {
+        final ResolvedField rField = context.getField();
+        final Field field = rField.getRawMember();
+        try
+        {
+            final JsonNode classDoc = loadClassJavadoc(field.getDeclaringClass());
+            final String description = classDoc.path("fields").path(field.getName()).path("comment").textValue();
+            context.getParameterBuilder().description(description);
+        }
+        catch (IOException exc)
+        {
+            throw new RuntimeException(exc);
+        }
     }
 }

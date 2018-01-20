@@ -31,11 +31,17 @@ public class Coordinates implements Serializable
 {
     private static final long serialVersionUID = -3056995518191959558L;
 
+    /**
+     * The latitude of the coordinate
+     */
     @NotNull
     @Min(-90)
     @Max(90)
     private double lat;
     
+    /**
+     * The longitude of the coordinate
+     */
     @NotNull
     @Min(-180)
     @Max(180)
