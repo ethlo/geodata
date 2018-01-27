@@ -24,9 +24,10 @@ package com.ethlo.geodata.importer;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.function.Consumer;
 
-public interface DataImporter
+import org.springframework.data.util.CloseableIterator;
+
+public interface PullDataImporter
 {
-    long processFile(Consumer<Map<String, String>> sink) throws IOException;
+    CloseableIterator<Map<String, String>> iterator() throws IOException;
 }

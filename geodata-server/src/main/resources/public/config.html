@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>System configuration properties</title>
+<script
+	src="https://cdnjs.cloudflare.com/ajax/libs/mustache.js/2.3.0/mustache.min.js"></script>
+<style type="text/css">
+html, body {
+	width: 100%;
+	height: 100%;
+	padding: 0;
+	margin: 0;
+	font-family: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.table {
+	border-collapse: collapse;
+	font-size: 14px;
+	min-width: 592px;
+}
+
+.table th, .table td {
+	padding: 7px 17px;
+	vertical-align: top;
+}
+
+.table caption {
+	margin: 7px;
+}
+
+.table thead th {
+	border-bottom: 2px solid #6ea1cc;
+	text-transform: uppercase;
+}
+
+.table tbody td {
+	border-bottom: 1px solid #e1edff;
+	color: #353535;
+}
+
+.table tbody tr:nth-child(odd) td {
+	background-color: #f4fbff;
+}
+
+.table tbody tr:hover td {
+	background-color: #ffffa2;
+	border-color: #ffff0f;
+}
+</style>
+</head>
+<body>
+
+	<div id="content">Content goes here</div>
+
+	<script type="text/javascript">
+		var url = "/management/config";
+
+		function received(data) {
+			var template = document.getElementById('template').innerHTML;
+			var output = Mustache.render(template, data);
+			document.getElementById('content').innerHTML = output;
+		}
+
+		var xhr = new XMLHttpRequest();
+		xhr.open('GET', url);
+		xhr.send(null);
+		xhr.onreadystatechange = function() {
+			var DONE = 4;
+			var OK = 200;
+			if (xhr.readyState === DONE) {
+				if (xhr.status === OK) {
+					received(JSON.parse(xhr.responseText));
+				} else {
+					console.log('Error: ' + xhr.status);
+				}
+			}
+		};
+	</script>
+
+	<script id="template" type="text/template">
+	<table class="table sortable">
+		<thead>
+		<tr>
+			<th>Property</th>
+			<th>Description</th>
+			<th>Value</th>
+			<th>Default</th>
+			<th>Allowed</th>
+		</tr>
+		</thead>
+		{{#properties}}
+		<tr>
+			<td>{{name}}</td>
+			<td>{{description}}</td>
+			<td style="word-wrap:break-word;">{{value}}</td>
+			<td>{{defaultValue}}</td>
+			<td><ul>{{#allowedValues}}<li>{{name}}</li>{{/allowedValues}}</ul></td>
+		</tr>
+		{{/properties}}
+	</table>
+	</script>
+
+</body>
+</html>

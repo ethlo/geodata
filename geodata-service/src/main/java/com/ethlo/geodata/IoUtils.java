@@ -33,12 +33,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import org.zeroturnaround.zip.commons.IOUtils;
-
 public class IoUtils
 {
-    private IoUtils(){}
-    
+    private IoUtils()
+    {
+    }
+
     public static long lineCount(File file)
     {
         final Path path = file.toPath();
@@ -55,5 +55,17 @@ public class IoUtils
     public static BufferedReader getBufferedReader(File file) throws FileNotFoundException
     {
         return new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8));
+    }
+
+    public static String humanReadableByteCount(long bytes, boolean si)
+    {
+        final int unit = si ? 1000 : 1024;
+        if (bytes < unit)
+        {
+            return bytes + " B";
+        }
+        final int exp = (int) (Math.log(bytes) / Math.log(unit));
+        String pre = (si ? "kMGTPE" : "KMGTPE").charAt(exp - 1) + (si ? "" : "i");
+        return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
     }
 }

@@ -1,0 +1,67 @@
+{"properties": [
+  {
+    "name": "geodata.geolite2.source",
+    "type": "java.lang.String",
+    "description": "The URL for downloading the the GeoLite2 data"
+  },
+  {
+    "name": "geodata.min-data-age",
+    "type": "java.lang.String",
+    "description": "The minimum age of the data before the data is considered for update",
+    "defaultValue": "30D"
+  }
+  ,
+  {
+    "name": "data.tmp.directory",
+    "type": "java.lang.String",
+    "description": "The directory where the server should store the downloaded temporary geodata files"
+  },
+  {
+    "name": "data.directory",
+    "type": "java.lang.String",
+    "description": "The directory where the server should store the geodata server's 'files"
+  }
+  ,
+  {
+    "name": "geodata.boundaries.quality",
+    "type": "java.lang.Integer",
+    "description": "An arbitray number used to tweak the quality of boundaries used for preview. Higher numbers give higher quality",
+    "defaultValue": "200000"
+  }
+  ,
+  {
+    "name": "geodata.geonames.source.alternatenames",
+    "type": "java.lang.String",
+    "description": "The URL for downloading the GeoNames.org alternate names data"
+  }
+  ,
+  {
+    "name": "geodata.geonames.source.country",
+    "type": "java.lang.String",
+    "description": "The URL for downloading the GeoNames.org country data"
+  }
+  ,
+  {
+    "name": "geodata.geonames.source.boundaries",
+    "type": "java.lang.String",
+    "description": "The URL for downloading the GeoNames.org boundary data"
+  }
+  ,
+  {
+    "name": "geodata.geonames.source.hierarchy",
+    "type": "java.lang.String",
+    "description": "The URL for downloading the GeoNames.org hierarchy data"
+  }
+  ,
+  {
+    "name": "geodata.geonames.source.names",
+    "type": "java.lang.String",
+    "description": "The URL for downloading the main GeoNames.org data"
+  }
+  ,
+  {
+    "name": "geodata.geonames.features.excluded",
+    "type": "java.lang.String[]",
+    "description": "GeoNames.org featureCodes that are to be excluded from the data import"
+  }
+]}

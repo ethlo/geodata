@@ -27,6 +27,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
+import com.ethlo.spring.actuator.ConfigurationPropertiesEndpoint;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 
@@ -86,4 +87,13 @@ public class GeodataCfg
           .validatorUrl(null)
           .build();
     }
+    
+    @Bean
+    public ConfigurationPropertiesEndpoint configEndpoint()
+    {
+        return new ConfigurationPropertiesEndpoint("config")
+            .setExclude("^ftp\\..*","^file\\..*","^java\\..*", "^\\..*", "^user\\..*", "^sun\\..*", "^[^\\.]*$", "^awt\\..*", "^catalina\\..*", "^os\\..*", "^local\\..*")
+            .setDocumentedOnly(true);
+    }
+
 }

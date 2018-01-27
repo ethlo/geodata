@@ -35,7 +35,7 @@ import org.springframework.util.StringUtils;
 
 import com.ethlo.geodata.IoUtils;
 
-public class HierarchyImporter implements DataImporter
+public class HierarchyImporter implements PushDataImporter
 {
     private final File hierarchyFile;
     

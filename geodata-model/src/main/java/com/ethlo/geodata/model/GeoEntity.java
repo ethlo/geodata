@@ -61,7 +61,7 @@ public class GeoEntity
     {
         return name;
     }
-
+    
     public GeoEntity setName(String name)
     {
         this.name = name;

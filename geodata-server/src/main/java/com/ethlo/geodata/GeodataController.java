@@ -65,15 +65,17 @@ public class GeodataController implements GeodataService
     private GeoMetaService geoMetaService;
     
     /**
-     * Find location(s) by name
+     * Find locations matching the specified filter
      * 
-     * @param name The name to search for. Uses wild-card matching at the end of the name.
+     * @param filter
+     * @param pageable
+     * @return
      */
-    @GetMapping("/v1/locations/name/{name}")
+    @GetMapping("/v1/locations")
     @Override
-    public Page<GeoLocation> findByName(@PathVariable("name") String name, Pageable pageable)
+    public Page<GeoLocation> filter(LocationFilter filter, Pageable pageable)
     {
-        return geodataService.findByName(name, pageable);
+        return geodataService.filter(filter, pageable);
     }
     
     /**
@@ -134,7 +136,7 @@ public class GeodataController implements GeodataService
     }
     
     /**
-     * Fetch dynamically simplified boundaries based on the max tolerance allowed in meters 
+     * Fetch dynamically simplified boundaries based on the max tolerance allowed (in meters) 
      */
     @GetMapping("/v1/locations/{id}/simpleboundaries")
     public void findBoundariesSimple(@PathVariable(name="id") long locationId, double maxTolerance, HttpServletResponse resp) throws IOException

@@ -35,7 +35,7 @@ import org.springframework.util.StringUtils;
 
 import com.ethlo.geodata.IoUtils;
 
-public class CountryImporter implements DataImporter
+public class CountryImporter implements PushDataImporter
 {
     private final File csvFile;
     

@@ -26,26 +26,25 @@ import static org.apache.commons.lang3.StringUtils.stripToNull;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.data.util.CloseableIterator;
 import org.springframework.util.StringUtils;
+import org.zeroturnaround.zip.commons.IOUtils;
 
 import com.ethlo.geodata.IoUtils;
-import com.ethlo.geodata.ProgressListener;
+import com.google.common.collect.AbstractIterator;
 
-public class GeonamesImporter implements DataImporter
+public class GeonamesImporter implements PullDataImporter
 {
     public static final String ALIAS = "locations";
     
@@ -60,81 +59,6 @@ public class GeonamesImporter implements DataImporter
     private final File hierarchyFile;
     
     private final File alternateNamesFile;
-
-    private ProgressListener progressListener;
-
-    @Override
-    public long processFile(Consumer<Map<String, String>> sink) throws IOException
-    {
-        final Map<Long, Long> childToParentMap = new HashMap<>();
-        final Set<Long> inHierarchy = new TreeSet<>();
-        new HierarchyImporter(hierarchyFile).processFile(h->
-        {
-            childToParentMap.put(Long.parseLong(h.get("child_id")), Long.parseLong(h.get("parent_id")));
-            inHierarchy.add(Long.parseLong(h.get("child_id")));
-            inHierarchy.add(Long.parseLong(h.get("parent_id")));
-        });
-        
-        // Load alternate names
-        final Map<Long, String> preferredNames = loadPreferredNames("EN");
-        
-        int count = 0;
-        try (BufferedReader reader = IoUtils.getBufferedReader(allCountriesFile))
-        {
-            String line;
-            while ((line = reader.readLine()) != null)
-            {
-                final String[] entry = StringUtils.delimitedListToStringArray(line, "\t");
-
-                if (entry.length == 19)
-                {
-                    final Map<String, String> paramMap = new TreeMap<>();
-
-                    final String lat = stripToNull(entry[4]);
-                    final String lng = stripToNull(entry[5]);
-                    final String featureCode = stripToNull(entry[7]);
-
-                    final long id = Long.parseLong(stripToNull(entry[0]));
-                    final Long parent = childToParentMap.get(id);
-                    
-                    paramMap.put("id", stripToNull(entry[0]));
-                    paramMap.put("parent_id", parent != null ? parent.toString() : null);
-                    
-                    final String preferredName = preferredNames.get(id);
-                    
-                    paramMap.put("name", preferredName != null ? preferredName : stripToNull(entry[1]));
-                    paramMap.put("lat", lat);
-                    paramMap.put("lng", lng);
-                    paramMap.put("feature_class", stripToNull(entry[6]));
-                    paramMap.put("feature_code", featureCode);
-                    paramMap.put("country_code", stripToNull(entry[8]));
-                    paramMap.put("population", stripToNull(entry[14]));
-                    paramMap.put("elevation_meters", stripToNull(entry[15]));
-                    paramMap.put("timezone", stripToNull(entry[17]));
-                    paramMap.put("last_modified", null);
-
-                    if (isIncluded(featureCode) && (!onlyHierarchical || inHierarchy.contains(id)))
-                    {
-                        sink.accept(paramMap);
-                    }
-                }
-                else
-                {
-                    logger.warn("Cannot process line: {}", line);
-                }
-
-                if (count % 100_000 == 0)
-                {
-                    logger.info("Progress: {}", count);
-                }
-                
-                progressListener.update();
-
-                count++;
-            }
-        }
-        return count;
-    }
 
     private Map<Long, String> loadPreferredNames(String preferredLanguage) throws IOException
     {
@@ -195,8 +119,7 @@ public class GeonamesImporter implements DataImporter
         private boolean onlyHierarchical;
         private File allCountriesFile;
         private File hierarchyFile;
-		public File alternateNamesFile;
-        private ProgressListener progressListener;
+		private File alternateNamesFile;
 
         public Builder exclusions(Set<String> exclusions)
         {
@@ -232,12 +155,6 @@ public class GeonamesImporter implements DataImporter
         {
             return new GeonamesImporter(this);
         }
-
-        public Builder progressListener(ProgressListener prg)
-        {
-            this.progressListener = prg;
-            return this;
-        }
     }
 
     private GeonamesImporter(Builder builder)
@@ -247,6 +164,114 @@ public class GeonamesImporter implements DataImporter
         this.allCountriesFile = builder.allCountriesFile;
         this.hierarchyFile = builder.hierarchyFile;
         this.alternateNamesFile = builder.alternateNamesFile;
-        this.progressListener = builder.progressListener;
+    }
+
+    @Override
+    public CloseableIterator<Map<String, String>> iterator() throws IOException
+    {
+        final Map<Long, Long> childToParentMap = new HashMap<>();
+        final Set<Long> inHierarchy = new TreeSet<>();
+        new HierarchyImporter(hierarchyFile).processFile(h->
+        {
+            childToParentMap.put(Long.parseLong(h.get("child_id")), Long.parseLong(h.get("parent_id")));
+            inHierarchy.add(Long.parseLong(h.get("child_id")));
+            inHierarchy.add(Long.parseLong(h.get("parent_id")));
+        });
+        
+        // Load alternate names
+        final Map<Long, String> preferredNames = loadPreferredNames("EN");
+        
+        final BufferedReader reader = IoUtils.getBufferedReader(allCountriesFile);
+
+        final AbstractIterator<Map<String, String>> actual = new AbstractIterator<Map<String, String>>()
+        {
+            @Override
+            protected Map<String, String> computeNext()
+            {
+                try
+                {
+                    String line;
+                    while ((line = reader.readLine()) != null)
+                    {
+                        final Map<String, String> map = lineToMap(line, preferredNames, childToParentMap, inHierarchy);
+                        if (map != null)
+                        {
+                            return map;
+                        }
+                    }
+                    return endOfData();
+                }
+                catch (IOException exc)
+                {
+                    throw new DataAccessResourceFailureException("Cannot read line from file", exc);
+                }
+            }
+        };
+        
+        return new CloseableIterator<Map<String,String>>()
+        {
+            @Override
+            public boolean hasNext()
+            {
+                return actual.hasNext();
+            }
+
+            @Override
+            public Map<String, String> next()
+            {
+                return actual.next();
+            }
+
+            @Override
+            public void close()
+            {
+                IOUtils.closeQuietly(reader);
+            }
+        };
+    }
+    
+    private Map<String, String> lineToMap(String line, Map<Long, String> preferredNames, Map<Long, Long> childToParentMap, Set<Long> inHierarchy)
+    {
+        final String[] entry = StringUtils.delimitedListToStringArray(line, "\t");
+
+        if (entry.length == 19)
+        {
+            final long id = Long.parseLong(stripToNull(entry[0]));
+            final String featureClass = stripToNull(entry[6]);
+            final String featureCode = stripToNull(entry[7]);
+            
+            if (featureCode == null || featureClass == null || !isIncluded(featureCode) || (onlyHierarchical && !inHierarchy.contains(id)))
+            {
+                return null;
+            }
+
+            final String lat = stripToNull(entry[4]);
+            final String lng = stripToNull(entry[5]);
+
+            final Map<String, String> paramMap = new TreeMap<>();
+            final Long parent = childToParentMap.get(id);
+            paramMap.put("id", Long.toString(id));
+            paramMap.put("parent_id", parent != null ? parent.toString() : null);
+            
+            final String preferredName = preferredNames.get(id);
+            
+            paramMap.put("name", preferredName != null ? preferredName : stripToNull(entry[1]));
+            paramMap.put("lat", lat);
+            paramMap.put("lng", lng);
+            paramMap.put("feature_class", featureClass);
+            paramMap.put("feature_code", featureCode);
+            paramMap.put("country_code", stripToNull(entry[8]));
+            paramMap.put("population", stripToNull(entry[14]));
+            paramMap.put("elevation_meters", stripToNull(entry[15]));
+            paramMap.put("timezone", stripToNull(entry[17]));
+            paramMap.put("last_modified", null);
+            
+            return paramMap;
+        }
+        else
+        {
+            logger.warn("Cannot process line: {}", line);
+            return null;
+        }
     }
 }

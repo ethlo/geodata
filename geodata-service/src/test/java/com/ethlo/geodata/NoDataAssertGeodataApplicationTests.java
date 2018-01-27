@@ -231,9 +231,9 @@ public class NoDataAssertGeodataApplicationTests
     }
     
     @Test
-    public void testFindCountryItaly()
+    public void testFindItaly()
     {
-        geodataService.findByName("italy", new PageRequest(0,  10));
+        geodataService.filter(new LocationFilter().setName("italy"), new PageRequest(0,  10));
     }
     
     @Test

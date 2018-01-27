@@ -38,7 +38,7 @@ import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.ParseException;
 import com.vividsolutions.jts.io.geojson.GeoJsonReader;
 
-public class GeonamesBoundaryImporter implements DataImporter
+public class GeonamesBoundaryImporter implements PushDataImporter
 {
     private final Logger logger = LoggerFactory.getLogger(GeonamesBoundaryImporter.class);
     

@@ -58,7 +58,7 @@ public class GeoLocation extends GeoEntity implements Serializable
     
     public String getFeatureCode()
     {
-        return featureCode;
+        return featureCode != null ? featureCode.toUpperCase() : null;
     }
 
     public CountrySummary getCountry()
@@ -112,7 +112,7 @@ public class GeoLocation extends GeoEntity implements Serializable
 
     public String getFeatureClass()
     {
-        return featureClass;
+        return featureClass != null ? featureClass.toUpperCase() : null;
     }
 
     public GeoLocation setFeatureClass(String featureClass)

@@ -41,7 +41,12 @@ public class ProgressListener
     
     public void update()
     {
-        final long cur = current.incrementAndGet();
+        update(1);
+    }
+
+    public void update(int delta)
+    {
+        final long cur = current.addAndGet(delta);
         if (limiter.tryAcquire())
         {
             consumer.accept(cur);

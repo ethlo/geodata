@@ -28,9 +28,9 @@
 			<version>8.8.4</version>
 		</dependency>
 		<dependency>
-		    <groupId>com.googlecode.libphonenumber</groupId>
-		    <artifactId>geocoder</artifactId>
-		    <version>2.81</version>
+			<groupId>com.googlecode.libphonenumber</groupId>
+			<artifactId>geocoder</artifactId>
+			<version>2.81</version>
 		</dependency>
 		<dependency>
 			<groupId>com.fasterxml.jackson.module</groupId>
@@ -65,6 +65,11 @@
 			<groupId>com.github.davidmoten</groupId>
 			<artifactId>rtree</artifactId>
 			<version>0.8-RC10</version>
+		</dependency>
+		<dependency>
+			<groupId>com.googlecode.cqengine</groupId>
+			<artifactId>cqengine</artifactId>
+			<version>2.12.4</version>
 		</dependency>
 		<dependency>
 			<groupId>org.zeroturnaround</groupId>

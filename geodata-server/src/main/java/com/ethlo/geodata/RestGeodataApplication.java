@@ -46,7 +46,7 @@ public class RestGeodataApplication
     {
         final ApplicationContext ctx = SpringApplication.run(RestGeodataApplication.class, args);
         
-        dumpMemUsage();
+        dumpMemUsage("Initial");
         
         if (args.length == 1 && "update".equals(args[0]))
         {
@@ -61,18 +61,27 @@ public class RestGeodataApplication
             }
         }
         
-        dumpMemUsage();
+        dumpMemUsage("Before load");
         
         ctx.getBean(GeodataServiceImpl.class).load();
         
-        dumpMemUsage();
+        dumpMemUsage("Completed");
     }
     
-    private static void dumpMemUsage()
+    private static void dumpMemUsage(String description)
     {
-        MemoryMXBean mbean = ManagementFactory.getMemoryMXBean();
+        if (! logger.isInfoEnabled())
+        {
+            return;
+        }
+        
+        final MemoryMXBean mbean = ManagementFactory.getMemoryMXBean();
         final MemoryUsage mem = mbean.getHeapMemoryUsage();
-        logger.info("Memory\nCommitted:{}\nMax: {}", mem.getCommitted(), mem.getMax());
+        logger.info("Memory status at stage '{}':\nUsed: {}\nCommitted: {}\nMax: {}",
+            description,
+            IoUtils.humanReadableByteCount(mem.getUsed(), false), 
+            IoUtils.humanReadableByteCount(mem.getCommitted(), false),
+            IoUtils.humanReadableByteCount(mem.getMax(), false));
     }
 
     @Bean

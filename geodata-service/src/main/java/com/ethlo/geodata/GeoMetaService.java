@@ -39,10 +39,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import com.ethlo.geodata.importer.DataType;
+import com.ethlo.geodata.importer.file.CqGeonamesRepository;
 import com.ethlo.geodata.importer.file.FileCountryImporter;
 import com.ethlo.geodata.importer.file.FileGeonamesBoundaryImporter;
 import com.ethlo.geodata.importer.file.FileGeonamesHierarchyImporter;
-import com.ethlo.geodata.importer.file.FileGeonamesImporter;
 import com.ethlo.geodata.importer.file.FileIpLookupImporter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -56,7 +56,7 @@ public class GeoMetaService
     private FileIpLookupImporter ipLookupImporter;
     
     @Autowired
-    private FileGeonamesImporter geonamesImporter;
+    private CqGeonamesRepository geonamesRepository;
     
     @Autowired
     private FileGeonamesBoundaryImporter boundaryImporter;
@@ -78,7 +78,7 @@ public class GeoMetaService
     
     private static final ObjectMapper mapper = new ObjectMapper();
     
-    @Value("${geodata.max-data-age}")
+    @Value("${geodata.min-data-age}")
     public void setMaxDataAge(String age)
     {
     	final Duration d = Duration.parse("P" + age);
@@ -164,11 +164,11 @@ public class GeoMetaService
             setSourceDataInfo(DataType.HIERARCHY, geonamesHierarchyTimestamp, imported);
         }
         
-        final Date geonamesTimestamp = geonamesImporter.lastRemoteModified();
-        if (! geonamesImporter.allFilesExists() || geonamesTimestamp.getTime() > getLastModified(DataType.LOCATION) + maxDataAgeMillis)
+        final Date geonamesTimestamp = geonamesRepository.lastRemoteModified();
+        if (geonamesTimestamp.getTime() > getLastModified(DataType.LOCATION) + maxDataAgeMillis)
         {
-            geonamesImporter.purge();
-            final long imported = geonamesImporter.importData();
+            geonamesRepository.purge();
+            final long imported = geonamesRepository.importData();
             setSourceDataInfo(DataType.LOCATION, geonamesTimestamp, imported);
         }
         

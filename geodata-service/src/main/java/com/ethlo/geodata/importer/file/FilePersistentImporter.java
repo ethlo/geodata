@@ -23,59 +23,24 @@ package com.ethlo.geodata.importer.file;
  */
 
 import java.io.File;
-import java.io.IOException;
-import java.util.Date;
 import java.util.List;
-import java.util.Map.Entry;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataAccessResourceFailureException;
-import org.springframework.util.Assert;
 
-import com.ethlo.geodata.DataLoadedEvent;
-import com.ethlo.geodata.importer.DataType;
-import com.ethlo.geodata.importer.PersistentImporter;
-import com.ethlo.geodata.util.ResourceUtil;
-
-public abstract class FilePersistentImporter implements PersistentImporter
+public abstract class FilePersistentImporter extends BaseImporter
 {
-    private File baseDirectory;
-    private ApplicationEventPublisher publisher;
     private String name;
-    private ResourceUtil res;
-    
-    @Value("${data.directory}")
-    public void setBaseDirectory(File baseDirectory)
-    {
-        this.baseDirectory = new File(baseDirectory.getPath().replaceFirst("^~",System.getProperty("user.home")));
-    }
-    
-    @Value("${data.tmp.directory}")
-    public void setBaseTmpDirectory(File dir) throws IOException
-    {
-        final File baseTmpDirectory = new File(dir.getPath().replaceFirst("^~",System.getProperty("user.home")));
-        if (! baseTmpDirectory.exists())
-        {
-            Assert.isTrue(baseTmpDirectory.mkdirs(), "Could not create directory " + baseTmpDirectory.getAbsolutePath());
-        }
-        this.res = new ResourceUtil(publisher, baseTmpDirectory);
-    }
     
     public FilePersistentImporter(ApplicationEventPublisher publisher, String name)
     {
-        this.publisher = publisher;
+        super(publisher);
         this.name = name;
     }
     
     protected File getFile()
     {
-        return new File(baseDirectory, name);
-    }
-    
-    protected void publish (DataLoadedEvent event)
-    {
-        this.publisher.publishEvent(event);
+        return new File(getBaseDirectory(), name);
     }
     
     protected void delete()
@@ -99,15 +64,5 @@ public abstract class FilePersistentImporter implements PersistentImporter
     public boolean allFilesExists()
     {
         return getFiles().size() == getFiles().stream().filter(File::exists).count();
-    }
-
-    public Entry<Date, File> fetchResource(DataType dataType, String url) throws IOException
-    {
-        return res.fetchResource(dataType, url);
-    }
-
-    public Date getLastModified(String url) throws IOException
-    {
-        return res.getLastModified(url);
     }
 }

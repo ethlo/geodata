@@ -25,7 +25,6 @@ package com.ethlo.geodata;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,12 +37,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.stream.Collectors;
 
 import javax.validation.Valid;
 
-import org.apache.commons.collections4.trie.PatriciaTrie;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,24 +58,22 @@ import org.springframework.data.util.CloseableIterator;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
-import org.springframework.util.StringUtils;
 
 import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.importer.HierarchyImporter;
 import com.ethlo.geodata.importer.Operation;
-import com.ethlo.geodata.importer.file.FileCountryImporter;
+import com.ethlo.geodata.importer.file.CqGeonamesRepository;
 import com.ethlo.geodata.importer.file.FileGeonamesBoundaryImporter;
-import com.ethlo.geodata.importer.file.JsonIoReader;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
-import com.ethlo.geodata.model.CountrySummary;
 import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
 import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.repository.GeoRepository;
 import com.ethlo.geodata.util.DistanceUtil;
 import com.ethlo.geodata.util.GeometryUtil;
+import com.github.davidmoten.guavamini.Lists;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
@@ -87,6 +83,10 @@ import com.google.common.primitives.UnsignedInteger;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
+import com.googlecode.cqengine.query.Query;
+import com.googlecode.cqengine.query.QueryFactory;
+import com.googlecode.cqengine.query.logical.And;
+import com.googlecode.cqengine.resultset.ResultSet;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.ParseException;
@@ -106,20 +106,19 @@ public class GeodataServiceImpl implements GeodataService
     private GeoMetaService geoMetaService;
     
     @Autowired
+    private CqGeonamesRepository geoNamesRepository;
+    
+    @Autowired
     private ApplicationEventPublisher publisher;
     
     private RangeMap<Long, Long> ipRanges;
-    
-    private PatriciaTrie<Long> trie = new PatriciaTrie<>();
-    
-    private Map<Long, GeoLocation> locations;
     
     private RtreeRepository rTree;
     
     private static final Map<String, Long> CONTINENT_IDS = new LinkedHashMap<>();
 
     public static final double RAD_TO_KM_RATIO = 111.195D;
-    
+
     static
     {
         CONTINENT_IDS.put("AF", 6255146L);
@@ -132,8 +131,6 @@ public class GeodataServiceImpl implements GeodataService
     }
     
     private Map<Long, Node> nodes;
-    private Map<String, Country> countries;
-    private Map<String, CountrySummary> countrySummaries;
 
     @Value("${geodata.boundaries.quality}")
     private int qualityConstant;
@@ -158,7 +155,6 @@ public class GeodataServiceImpl implements GeodataService
         }
         
         loadHierarchy();
-        loadCountries();
         
         final ThreadPoolTaskExecutor taskExecutor = new ThreadPoolTaskExecutor();
         taskExecutor.setCorePoolSize(3);
@@ -173,7 +169,40 @@ public class GeodataServiceImpl implements GeodataService
         taskExecutor.setWaitForTasksToCompleteOnShutdown(true);
         taskExecutor.shutdown();
         
+        //final ResultSet<GeoLocation> result = geoNamesRepository.retrieve(QueryFactory.equal(CqGeonamesRepository.ATTRIBUTE_FEATURE_CODE, "ADM1"));
+        //result.forEach(this::connectAdm1WithCountry);
+        
         publisher.publishEvent(new DataLoadedEvent(this, DataType.ALL, Operation.LOAD, 1, 1));
+    }
+    
+    private void connectAdm1WithCountry(GeoLocation l)
+    {
+        final Country c = geoNamesRepository.getCountries().get(l.getCountry().getCode());
+        final long countryId = c.getId();
+        l.setParentLocationId(countryId);
+        
+        final Node countryNode = findOrCreate(countryId);
+        final Node locationNode = findOrCreate(l.getId());
+        countryNode.addChild(locationNode);
+        nodes.put(countryId, countryNode);
+        nodes.put(l.getId(), locationNode);     
+    }
+    
+    private Node findOrCreate(long id)
+    {
+        Node existing = nodes.get(id);
+        if (existing == null)
+        {
+            existing = new Node(id);
+        }
+        return existing;
+    }
+    
+    private void loadLocations()
+    {
+        logger.info("Loading locations");
+        geoNamesRepository.load();
+        logger.info("Loaded {} locations", geoNamesRepository.size());
     }
     
     private void ensureBaseDirectory()
@@ -206,79 +235,7 @@ public class GeodataServiceImpl implements GeodataService
         logger.info("Loaded {} MBR boundaries", rTree.size());
         publisher.publishEvent(new DataLoadedEvent(this, DataType.BOUNDARY, Operation.LOAD, rTree.size(), rTree.size()));
     }
-    
-    public void loadLocations()
-    {
-        locations = new HashMap<>();
-        logger.info("Loading locations");
-        final long size = geoMetaService.getSourceDataInfo().get(DataType.LOCATION).getCount();
-        final ProgressListener prg = new ProgressListener(l->publisher.publishEvent(new DataLoadedEvent(this, DataType.LOCATION, Operation.LOAD, l, size)));
         
-        try (@SuppressWarnings("rawtypes") CloseableIterator<Map> iter = geoRepository.locations())
-        {
-            while (iter.hasNext())
-            {
-                final Map<?,?> m = iter.next();
-                final GeoLocation l = mapLocation(m);
-                locations.put(l.getId(), l);
-                
-                trie.put(l.getName().toLowerCase(), l.getId());
-                
-                // Attach ADM1 to countries
-                if ("adm1".equalsIgnoreCase(l.getFeatureCode()))
-                {
-                    final Country c = countries.get(l.getCountry().getCode());
-                    final long countryId = c.getId();
-                    l.setParentLocationId(countryId);
-                    
-                    final Node countryNode = findOrCreate(countryId);
-                    final Node locationNode = findOrCreate(l.getId());
-                    countryNode.addChild(locationNode);
-                    nodes.put(countryId, countryNode);
-                    nodes.put(l.getId(), locationNode);     
-                }
-                
-                prg.update();
-            }
-        }
-        publisher.publishEvent(new DataLoadedEvent(this, DataType.LOCATION, Operation.LOAD, locations.size(), locations.size()));
-        logger.info("Loaded {} locations", locations.size());
-    }
-    
-    private Node findOrCreate(long id)
-    {
-        Node existing = nodes.get(id);
-        if (existing == null)
-        {
-            existing = new Node(id);
-        }
-        return existing;
-    }
-    
-    private GeoLocation mapLocation(Map<?, ?> m)
-    {
-        final GeoLocation geoLocation = new GeoLocation();
-        final Long parentId = MapUtils.getLong(m, "parent_id") != null ? MapUtils.getLong(m, "parent_id") : null;
-        final String countryCode = MapUtils.getString(m, "country_code");
-
-        final CountrySummary country = countrySummaries.get(countryCode);
-        geoLocation.setCountry(country);
-        
-        final Long population = MapUtils.getLong(m, "population");
-        
-        geoLocation
-            .setFeatureCode(MapUtils.getString(m, "feature_code"))
-            .setFeatureClass(MapUtils.getString(m, "feature_class"))
-            .setPopulation(population != null && population > 0 ? population : null)
-            .setParentLocationId(parentId)
-            .setId(MapUtils.getLong(m, "id"))
-            .setName(MapUtils.getString(m, "name"))
-            .setCoordinates(Coordinates.from(MapUtils.getDouble(m, "lat"), MapUtils.getDouble(m, "lng")));
-            
-        return geoLocation;
-    }
-
-    
     public void loadIps()
     {
         logger.info("Loading IP ranges");
@@ -320,7 +277,8 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public GeoLocation findById(long geoNameId)
     {
-        return locations.get(geoNameId);
+        final Query<GeoLocation> query = QueryFactory.equal(CqGeonamesRepository.ATTRIBUTE_ID, geoNameId);
+        return geoNamesRepository.retrieve(query).uniqueResult();
     }
 
     @Override
@@ -355,7 +313,8 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public List<GeoLocation> findByIds(Collection<Long> ids)
     {
-        return ids.stream().map(id->locations.get(id)).collect(Collectors.toList());
+        final Query<GeoLocation> query = QueryFactory.in(CqGeonamesRepository.ATTRIBUTE_ID, ids);
+        return Lists.newArrayList(geoNamesRepository.retrieve(query).iterator());
     }
 
     @Override
@@ -418,7 +377,7 @@ public class GeodataServiceImpl implements GeodataService
     
     private Country findCountryById(Long id)
     {
-        for (Country c : countries.values())
+        for (Country c : geoNamesRepository.getCountries().values())
         {
             if (c.getId().equals(id))
             {
@@ -431,8 +390,8 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<Country> findCountries(Pageable pageable)
     {
-        final List<Country> content = countries.values().stream().skip(pageable.getOffset()).limit(pageable.getPageSize()).collect(Collectors.toList());
-        return new PageImpl<>(content, pageable, countries.size());
+        final List<Country> content = geoNamesRepository.getCountries().values().stream().skip(pageable.getOffset()).limit(pageable.getPageSize()).collect(Collectors.toList());
+        return new PageImpl<>(content, pageable, geoNamesRepository.getCountries().size());
     }
 
 
@@ -441,7 +400,7 @@ public class GeodataServiceImpl implements GeodataService
     {
         if (countryCode != null)
         {
-            return countries.get(countryCode.toUpperCase());
+            return geoNamesRepository.getCountries().get(countryCode.toUpperCase());
         }
         return null;
     }
@@ -449,53 +408,12 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<GeoLocation> findChildren(String countryCode, Pageable pageable)
     {
-        final Country country = countries.get(countryCode.toLowerCase());
+        final Country country = geoNamesRepository.getCountries().get(countryCode.toLowerCase());
         if (country == null)
         {
             return null;
         }
         return findChildren(country.getId(), pageable);
-    }
-    
-    public void loadCountries()
-    {
-        countries = new LinkedHashMap<>();
-        countrySummaries = new LinkedHashMap<>();
-        final File countriesFile = new File (baseDirectory, FileCountryImporter.FILENAME);
-        logger.info("Loading countries");
-        try (@SuppressWarnings("rawtypes") final CloseableIterator<Map> iter = new JsonIoReader<>(countriesFile, Map.class).iterator())
-        {
-            while (iter.hasNext())
-            {
-                @SuppressWarnings("unchecked")
-                final Map<String, Object> m = iter.next();
-                final Country c = mapCountry(m);
-                final CountrySummary summary = new CountrySummary().setId(MapUtils.getLong(m, "geoname_id")).withCode(MapUtils.getString(m, "iso")).withName(c.getName());
-                countries.put(summary.getCode(), c);
-                countrySummaries.put(summary.getCode(), summary);
-            }
-        }
-        logger.info("Loaded {} countries", countries.size());
-        publisher.publishEvent(new DataLoadedEvent(this, DataType.COUNTRY, Operation.LOAD, countries.size(), countries.size()));
-    }
-    
-    private Country mapCountry(Map<String, Object> map)
-    {
-        final Country country = new Country();
-        final Long id = MapUtils.getLong(map, "geoname_id");
-        country.setId(id);
-        country.setCode(MapUtils.getString(map, "iso"));
-        country.setName(MapUtils.getString(map, "country"));
-        country.setPopulation(MapUtils.getLong(map, "population"));
-        final Set<String> languages = StringUtils.commaDelimitedListToSet(MapUtils.getString(map, "languages"));
-        final String phone = MapUtils.getString(map, "phone");
-        country.setLanguages(new ArrayList<>(languages));
-        if (phone != null)
-        {
-            final Integer callingCode = Integer.parseInt(phone.replaceAll("[^\\d.]", ""));
-            country.setCallingCode(callingCode);
-        }
-        return country;
     }
     
     public int loadHierarchy()
@@ -571,7 +489,7 @@ public class GeodataServiceImpl implements GeodataService
         }
         
         final Integer countryCode = pn.getCountryCode();
-        for (Country country : countries.values())
+        for (Country country : geoNamesRepository.getCountries().values())
         {
             if (countryCode.equals(country.getCallingCode()))
             {
@@ -746,15 +664,65 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public Page<GeoLocation> findByName(String name, Pageable pageable)
+    public Page<GeoLocation> filter(LocationFilter filter, Pageable pageable)
     {
-        final SortedMap<String, Long> matches = trie.prefixMap(name.toLowerCase());
-        final List<GeoLocation> content = matches.values()
-            .stream()
-            .skip(pageable.getOffset())
-            .limit(pageable.getPageSize())
-            .map(this::findById)
-            .collect(Collectors.toList());
-        return new PageImpl<>(content, pageable, matches.size());
+        final Collection<Query<GeoLocation>> queries = new LinkedList<>();
+        
+        if (filter.getName() != null) 
+        {
+            if (filter.getName().endsWith("*"))
+            {
+                queries.add(QueryFactory.startsWith(CqGeonamesRepository.ATTRIBUTE_LC_NAME, StringUtils.strip(filter.getName(), "*")));
+            }
+            else
+            {
+                queries.add(QueryFactory.equal(CqGeonamesRepository.ATTRIBUTE_LC_NAME, filter.getName()));
+            }
+        }
+        
+        if (! filter.getFeatureClasses().isEmpty())
+        {
+            queries.add(QueryFactory.in(CqGeonamesRepository.ATTRIBUTE_FEATURE_CLASS, filter.getFeatureClasses()));
+        }
+        
+        if (! filter.getFeatureCodes().isEmpty())
+        {
+            queries.add(QueryFactory.in(CqGeonamesRepository.ATTRIBUTE_FEATURE_CODE, filter.getFeatureCodes()));
+        }
+
+        if (!filter.getCountryCodes().isEmpty())
+        {
+            queries.add(QueryFactory.in(CqGeonamesRepository.ATTRIBUTE_COUNTRY_CODE, filter.getCountryCodes()));
+        }
+        
+        Query<GeoLocation> query;
+        
+        if (queries.isEmpty())
+        {
+            query = QueryFactory.none(GeoLocation.class);
+        }
+        else if (queries.size() == 1)
+        {
+            query = queries.iterator().next();
+        }
+        else
+        {
+            query = new And<>(queries);
+        }
+        
+        final ResultSet<GeoLocation> result = geoNamesRepository.retrieve(query, 
+                        QueryFactory.queryOptions(QueryFactory.orderBy(QueryFactory.descending(QueryFactory.missingLast(CqGeonamesRepository.ATTRIBUTE_POPULATION)))));
+        int index = 0;
+        final List<GeoLocation> content = new LinkedList<>(); 
+        for (GeoLocation l : result)
+        {
+            if (index >= pageable.getOffset() && content.size() < pageable.getPageSize())
+            {
+                content.add(l);
+            }
+            index++;
+        }
+        
+        return new PageImpl<>(content, pageable, index);
     }
 }
