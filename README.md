@@ -6,11 +6,6 @@ Geodata
 
 Simple server and library that imports and manages Geonames and Geo-Lite2 data using Open-Source software. 
 
-### Design choices
-* The system is built for high performance, so all (sans the full boundary data), is kept in memory.  
-* It is somewhat memory hungry (recommended 5GB heap) as all data is loaded in in-memory structures. 
-* Loading the data from file-to-memory is fast and quite well optimized, however as there are about 11.7 million locations indexed it may take some time to start the service (usually around 60-70 seconds)
-
 ### License note
 I would very much like to release this under an even less restrictive license, but since the project relies on JTS, I unfortunately cannot use Apache2 licensing.
 
