@@ -35,7 +35,7 @@ public class GeodataControllerDoc extends AbstractControllerDoc
     public void findByName() throws Exception
     {
         mockMvc
-            .perform(get("/v1/locations/name/Mogadishu")
+            .perform(get("/v1/locations/?name=Mogadishu*")
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON))
             .andDo(print())

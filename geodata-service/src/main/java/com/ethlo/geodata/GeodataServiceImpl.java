@@ -278,7 +278,12 @@ public class GeodataServiceImpl implements GeodataService
     public GeoLocation findById(long geoNameId)
     {
         final Query<GeoLocation> query = QueryFactory.equal(CqGeonamesRepository.ATTRIBUTE_ID, geoNameId);
-        return geoNamesRepository.retrieve(query).uniqueResult();
+        return oneOrNull(geoNamesRepository.retrieve(query));
+    }
+
+    private GeoLocation oneOrNull(ResultSet<GeoLocation> results)
+    {
+        return results.isNotEmpty() ? results.iterator().next() : null;
     }
 
     @Override
