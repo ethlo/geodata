@@ -462,7 +462,7 @@ public class GeodataServiceImpl implements GeodataService
         return 0;
     }
 
-    public void loadHierarchy() throws IOException
+    public void loadHierarchy()
     {
         nodes = new HashMap<>();
         final Map<Long, Long> childToParent = new HashMap<>();

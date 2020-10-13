@@ -155,7 +155,7 @@ public class GeodataApplicationTests
     public void testListChildrenOfCountry()
     {
         final Page<GeoLocation> counties = geodataService.findChildren("No", PageRequest.of(0, 20));
-        assertThat(counties).hasSize(19);
+        assertThat(counties).hasSize(11);
     }
 
     @Test

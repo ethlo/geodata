@@ -92,7 +92,7 @@ public class ResourceUtil
     public static Map.Entry<Date, File> fetchResource(String alias, String urlStr) throws IOException
     {
         final String[] urlParts = StringUtils.split(urlStr, "|");
-        if (urlParts[0].endsWith(".zip"))
+        if (urlParts[0].endsWith("zip"))
         {
             return fetchZip(alias, urlParts[0], urlParts[1]);
         }

@@ -95,9 +95,6 @@ public class JdbcGeonamesImporter implements PersistentImporter
 
     private void doUpdate(File allCountriesFile, File alternateNamesFile, File hierarchyFile) throws IOException
     {
-        final String sql = "INSERT INTO geonames (id, parent_id, name, feature_class, feature_code, country_code, population, elevation_meters, timezone, last_modified, lat, lng, coord) VALUES ("
-                + ":id, :parent_id, :name, :feature_class, :feature_code, :country_code, :population, :elevation_meters, :timezone, :last_modified, :lat, :lng, ST_GeomFromText(:poly))";
-
         final GeonamesImporter geonamesImporter = new GeonamesImporter.Builder()
                 .allCountriesFile(allCountriesFile)
                 .alternateNamesFile(alternateNamesFile)
@@ -124,18 +121,23 @@ public class JdbcGeonamesImporter implements PersistentImporter
 
     private void flush(final List<Map<String, ?>> buffer)
     {
-        Map<String, ?>[] params = buffer.toArray(this::newArray);
+        Map<String, ?>[] params = buffer.toArray(JdbcGeonamesImporter::newArray);
 
         txnTemplate.execute((transactionStatus) ->
         {
-            jdbcTemplate.batchUpdate("INSERT INTO geonames (id, parent_id, name, feature_class, feature_code, country_code, population, elevation_meters, timezone, last_modified, lat, lng, coord) VALUES (:id, :parent_id, :name, :feature_class, :feature_code, :country_code, :population, :elevation_meters, :timezone, :last_modified, :lat, :lng, ST_GeomFromText(:poly))", params);
+            jdbcTemplate.batchUpdate("INSERT INTO geonames (id, parent_id, name, feature_class, " +
+                    "feature_code, country_code, population, elevation_meters, timezone, " +
+                    "last_modified, lat, lng, coord) " +
+                    "VALUES (:id, :parent_id, :name, :feature_class, :feature_code, :country_code, " +
+                    ":population, :elevation_meters, :timezone, :last_modified, :lat, :lng, ST_GeomFromText(:poly))",
+                    params);
             buffer.clear();
             return null;
         });
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, ?>[] newArray(int n)
+    public static Map<String, ?>[] newArray(int n)
     {
         return new Map[n];
     }
