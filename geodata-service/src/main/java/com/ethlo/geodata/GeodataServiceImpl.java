@@ -10,12 +10,12 @@ package com.ethlo.geodata;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -43,6 +43,11 @@ import java.util.stream.Collectors;
 
 import javax.validation.Valid;
 
+import org.locationtech.jts.geom.Envelope;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKBReader;
+import org.locationtech.jts.io.WKBWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,49 +76,14 @@ import com.google.common.base.Stopwatch;
 import com.google.common.io.Files;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
-import com.vividsolutions.jts.geom.Envelope;
-import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.io.ParseException;
-import com.vividsolutions.jts.io.WKBReader;
-import com.vividsolutions.jts.io.WKBWriter;
 
 @Service
 @PropertySource("queries.sql.properties")
 public class GeodataServiceImpl implements GeodataService
 {
-    private final Logger logger = LoggerFactory.getLogger(GeodataServiceImpl.class);
-    
-    @Autowired
-    private NamedParameterJdbcTemplate jdbcTemplate;
-    
+    public static final double RAD_TO_KM_RATIO = 111.195D;
     private static final Map<String, Long> CONTINENT_IDS = new LinkedHashMap<>();
 
-    public static final double RAD_TO_KM_RATIO = 111.195D;
-    
-    private final RowMapper<Country> COUNTRY_INFO_MAPPER = new RowMapper<Country>()
-    {
-        @Override
-        public Country mapRow(ResultSet rs, int rowNum) throws SQLException
-        {
-            final GeoLocation location = new GeoLocation();
-            mapLocation(location, rs);            
-            final Country c = Country.from(location);
-            c.setCountry(c.toSummary(rs.getString("iso")));
-            return c;
-        }            
-    };
-    
-    private final RowMapper<GeoLocation> GEONAMES_ROW_MAPPER = new RowMapper<GeoLocation>()
-    {
-        @Override
-        public GeoLocation mapRow(ResultSet rs, int rowNum) throws SQLException
-        {
-            final GeoLocation location = new GeoLocation();
-            mapLocation(location, rs);
-            return location;
-        }
-    };
-    
     static
     {
         CONTINENT_IDS.put("AF", 6255146L);
@@ -124,19 +94,45 @@ public class GeodataServiceImpl implements GeodataService
         CONTINENT_IDS.put("SA", 6255150L);
         CONTINENT_IDS.put("AN", 6255152L);
     }
-    
+
+    private final Logger logger = LoggerFactory.getLogger(GeodataServiceImpl.class);
+
+    @Autowired
+    private NamedParameterJdbcTemplate jdbcTemplate;
+
     private List<Continent> continents;
-    private Set<Node> roots;
     private Map<Long, Node> nodes;
     private Map<String, Country> countries;
+    private final RowMapper<Country> COUNTRY_INFO_MAPPER = new RowMapper<Country>()
+    {
+        @Override
+        public Country mapRow(ResultSet rs, int rowNum) throws SQLException
+        {
+            final GeoLocation location = new GeoLocation();
+            mapLocation(location, rs);
+            final Country c = Country.from(location);
+            c.setCountry(c.toSummary(rs.getString("iso")));
+            return c;
+        }
+    };
+    private final RowMapper<GeoLocation> GEONAMES_ROW_MAPPER = new RowMapper<GeoLocation>()
+    {
+        @Override
+        public GeoLocation mapRow(ResultSet rs, int rowNum) throws SQLException
+        {
+            final GeoLocation location = new GeoLocation();
+            mapLocation(location, rs);
+            return location;
+        }
+    };
     private Long locationCount;
 
     @Value("${geodata.sql.ipLookup}")
     private String ipLookupSql;
-    
+
     @Value("${geodata.sql.geonamesbyid}")
     private String geoNamesByIdSql;
-    
+
     @Value("${geodata.sql.geonamescount}")
     private String geoNamesCountSql;
 
@@ -166,16 +162,16 @@ public class GeodataServiceImpl implements GeodataService
 
     @Value("${geodata.sql.findcountrychildren}")
     private String findCountryChildrenSql;
-    
+
     @Value("${geodata.sql.findbyname}")
     private String findByNameSql;
-    
+
     @Value("${geodata.sql.countbyname}")
     private String countByNameSql;
 
     @Value("${geodata.boundaries.quality}")
     private int qualityConstant;
-        
+
     @Override
     public GeoLocation findByIp(String ip)
     {
@@ -186,7 +182,7 @@ public class GeodataServiceImpl implements GeodataService
         {
             return null;
         }
-        
+
         long ipLong;
         try
         {
@@ -196,12 +192,12 @@ public class GeodataServiceImpl implements GeodataService
         {
             throw new InvalidIpException(ip, exc.getMessage(), exc);
         }
-        
-        return jdbcTemplate.query(ipLookupSql, Collections.singletonMap("ip", ipLong), rs -> 
+
+        return jdbcTemplate.query(ipLookupSql, Collections.singletonMap("ip", ipLong), rs ->
         {
             if (rs.next())
             {
-                final Long geoNameId = rs.getLong("geoname_id") != 0 ? rs.getLong("geoname_id") : rs.getLong("geoname_country_id");
+                final long geoNameId = rs.getLong("geoname_id") != 0 ? rs.getLong("geoname_id") : rs.getLong("geoname_country_id");
                 return findById(geoNameId);
             }
             return null;
@@ -230,22 +226,22 @@ public class GeodataServiceImpl implements GeodataService
 
         final Country country = findCountryByCode(countryCode);
         final CountrySummary countrySummary = country != null ? country.toSummary(countryCode) : null;
-        
+
         t
-            .setId(rs.getLong("id"))
-            .setName(rs.getString("name"))
-            .setFeatureCode(rs.getString("feature_code"))
-            .setPopulation(rs.getLong("population"))
-            .setCoordinates(Coordinates.from(rs.getDouble("lat"), rs.getDouble("lng")))
-            .setParentLocationId(parentId)
-            .setCountry(countrySummary);
+                .setId(rs.getLong("id"))
+                .setName(rs.getString("name"))
+                .setFeatureCode(rs.getString("feature_code"))
+                .setPopulation(rs.getLong("population"))
+                .setCoordinates(Coordinates.from(rs.getDouble("lat"), rs.getDouble("lng")))
+                .setParentLocationId(parentId)
+                .setCountry(countrySummary);
     }
 
     @Override
     public GeoLocation findWithin(Coordinates point, int maxDistanceInKilometers)
     {
         int range = 25;
-        GeoLocation location = null; 
+        GeoLocation location = null;
         while (range <= maxDistanceInKilometers && location == null)
         {
             location = doFindContaining(point, range);
@@ -257,15 +253,15 @@ public class GeodataServiceImpl implements GeodataService
         }
         throw new EmptyResultDataAccessException("Cannot find location for " + point, 1);
     }
-    
+
     @Override
     public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable)
     {
         final List<GeoLocationDistance> locations = doFindNearest(point, maxDistanceInKilometers, pageable);
-        return new PageImpl<>(locations, pageable, getlocationCount());
+        return new PageImpl<>(locations, pageable, getLocationCount());
     }
-    
-    private long getlocationCount()
+
+    private long getLocationCount()
     {
         if (this.locationCount == null)
         {
@@ -279,59 +275,49 @@ public class GeodataServiceImpl implements GeodataService
         final double lat = point.getLat();
         final double lon = point.getLng();
         final double R = 6371;  // earth radius in km
-        double x1 = lon - Math.toDegrees(maxDistanceInKm/R/Math.cos(Math.toRadians(lat)));
-        double x2 = lon + Math.toDegrees(maxDistanceInKm/R/Math.cos(Math.toRadians(lat)));
-        double y1 = lat - Math.toDegrees(maxDistanceInKm/R);
-        double y2 = lat + Math.toDegrees(maxDistanceInKm/R);
-        
+        final double v = Math.toDegrees(maxDistanceInKm / R / Math.cos(Math.toRadians(lat)));
+        double x1 = lon - v;
+        double x2 = lon + v;
+        double y1 = lat - Math.toDegrees(maxDistanceInKm / R);
+        double y2 = lat + Math.toDegrees(maxDistanceInKm / R);
+
         final Map<String, Object> params = new TreeMap<>();
         params.put("point", "POINT(" + point.getLng() + " " + point.getLat() + ")");
         params.put("minPoint", "POINT(" + x1 + " " + y1 + ")");
         params.put("maxPoint", "POINT(" + x2 + " " + y2 + ")");
         params.put("x", point.getLng());
         params.put("y", point.getLat());
-        params.put("minX", x1); 
-        params.put("minY", y1); 
-        params.put("maxX", x2); 
-        params.put("maxY", y2); 
+        params.put("minX", x1);
+        params.put("minY", y1);
+        params.put("maxX", x2);
+        params.put("maxY", y2);
         params.put("offset", pageable.getOffset());
         params.put("limit", pageable.getPageSize());
         return params;
     }
-    
+
     private GeoLocation doFindContaining(Coordinates point, int maxDistanceInKm)
     {
-        final Map<String, Object> params = createParams(point, maxDistanceInKm, new PageRequest(0, 1));
-        final List<GeoLocation> res = jdbcTemplate.query(findWithinBoundariesSql, params, new RowMapper<GeoLocation>()
-        {
-            @Override
-            public GeoLocation mapRow(ResultSet rs, int rowNum) throws SQLException
-            {
-                return findById(rs.getLong("id"));
-            }
-        });
-        
+        final Map<String, Object> params = createParams(point, maxDistanceInKm, PageRequest.of(0, 1));
+        final List<GeoLocation> res = jdbcTemplate.query(findWithinBoundariesSql, params, (rs, rowNum) -> findById(rs.getLong("id")));
+
         return res.isEmpty() ? null : res.get(0);
     }
-    
+
     private List<GeoLocationDistance> doFindNearest(Coordinates point, int distance, Pageable pageable)
     {
         // Switch Lat/long
         final Coordinates coordinates = new Coordinates().setLat(point.getLng()).setLng(point.getLat());
-        
+
         final Map<String, Object> params = createParams(coordinates, distance, pageable);
-        return jdbcTemplate.query(nearestSql, params, new RowMapper<GeoLocationDistance>()
+        return jdbcTemplate.query(nearestSql, params, (rs, rowNum) ->
         {
-            @Override
-            public GeoLocationDistance mapRow(ResultSet rs, int rowNum) throws SQLException
-            {
-                final GeoLocation location = new GeoLocation();
-                mapLocation(location, rs);
-                
-                final double distance = BigDecimal.valueOf(rs.getDouble("distance") * RAD_TO_KM_RATIO).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue();
-                
-                return new GeoLocationDistance().setLocation(location).setDistance(distance);
-            }
+            final GeoLocation location = new GeoLocation();
+            mapLocation(location, rs);
+
+            final double distance1 = BigDecimal.valueOf(rs.getDouble("distance") * RAD_TO_KM_RATIO).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue();
+
+            return new GeoLocationDistance().setLocation(location).setDistance(distance1);
         });
     }
 
@@ -362,17 +348,17 @@ public class GeodataServiceImpl implements GeodataService
     public Page<GeoLocation> findChildren(long locationId, Pageable pageable)
     {
         loadNodes();
-        
+
         final Node node = nodes.get(locationId);
         final long total = node.getChildren().size();
         final List<Long> ids = node.getChildren()
-            .stream()
-            .skip(pageable.getOffset())
-            .limit(pageable.getPageSize())
-            .map(n->n.getId())
-            .collect(Collectors.toList());
+                .stream()
+                .skip(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .map(Node::getId)
+                .collect(Collectors.toList());
         final List<GeoLocation> locations = findByIds(ids);
-        locations.sort((a, b)->a.getName().compareTo(b.getName()));
+        locations.sort((a, b) -> a.getName().compareTo(b.getName()));
         return new PageImpl<>(locations, pageable, total);
     }
 
@@ -397,11 +383,11 @@ public class GeodataServiceImpl implements GeodataService
         if (continents == null)
         {
             continents = findByIds(CONTINENT_IDS.values())
-                .stream()
-                .map(l->new Continent(getContinentCode(l.getId()), l))
-                .collect(Collectors.toList());
+                    .stream()
+                    .map(l -> new Continent(getContinentCode(l.getId()), l))
+                    .collect(Collectors.toList());
         }
-        return new PageImpl<>(continents, new PageRequest(0, 7), 7);
+        return new PageImpl<>(continents, PageRequest.of(0, 7), 7);
     }
 
     private String getContinentCode(Long id)
@@ -427,7 +413,7 @@ public class GeodataServiceImpl implements GeodataService
         final long count = jdbcTemplate.queryForObject(countCountriesOnContinentSql, params, Long.class);
         return new PageImpl<>(locations, pageable, count);
     }
-    
+
     @Override
     public Page<Country> findCountries(Pageable pageable)
     {
@@ -441,7 +427,7 @@ public class GeodataServiceImpl implements GeodataService
     public Country findCountryByCode(String countryCode)
     {
         loadCountries();
-        
+
         if (countryCode != null)
         {
             return countries.get(countryCode.toUpperCase());
@@ -460,32 +446,41 @@ public class GeodataServiceImpl implements GeodataService
         final long total = jdbcTemplate.queryForObject(countCountryChildrenSql, params, Long.class);
         return new PageImpl<>(content, pageable, total);
     }
-    
+
     public int loadCountries()
     {
         if (countries == null)
         {
             countries = new LinkedHashMap<>();
             final Collection<Country> countryList = jdbcTemplate.query(
-                "SELECT * FROM geocountry c, geonames n "
-                + "WHERE c.geoname_id = n.id "
-                + "ORDER BY iso ASC", COUNTRY_INFO_MAPPER);
-            countryList.forEach(c->countries.put(c.getCountry().getCode(), c));
+                    "SELECT * FROM geocountry c, geonames n "
+                            + "WHERE c.geoname_id = n.id "
+                            + "ORDER BY iso ASC", COUNTRY_INFO_MAPPER);
+            countryList.forEach(c -> countries.put(c.getCountry().getCode(), c));
             return countryList.size();
         }
         return 0;
     }
-    
-    public int loadHierarchy() throws IOException
-    {
-        final byte[] data = fetchHierarchy();
 
+    public void loadHierarchy() throws IOException
+    {
         nodes = new HashMap<>();
         final Map<Long, Long> childToParent = new HashMap<>();
-        
-        final File hierarchyFile = File.createTempFile("hierarchy", ".tsv");
-        Files.write(data, hierarchyFile);
-        new HierarchyImporter(hierarchyFile).processFile(r->
+
+        final String sql = "SELECT id, parent_id FROM geohierarchy";
+        jdbcTemplate.query(sql, rs ->
+        {
+            while (rs.next())
+            {
+                final long id = rs.getLong("id");
+                final long parentId = rs.getLong("parent_id");
+                childToParent.put(id, parentId);
+            }
+            return null;
+        });
+
+        /*
+        new HierarchyImporter(hierarchyFile).processFile(r ->
         {
             final long parentId = Long.parseLong(r.get("parent_id"));
             final long childId = Long.parseLong(r.get("child_id"));
@@ -493,7 +488,7 @@ public class GeodataServiceImpl implements GeodataService
             final Node child = nodes.getOrDefault(childId, new Node(childId));
             nodes.put(parent.getId(), parent);
             nodes.put(child.getId(), child);
-            
+
             childToParent.put(childId, parentId);
         });
 
@@ -506,56 +501,33 @@ public class GeodataServiceImpl implements GeodataService
                 final Long id = CONTINENT_IDS.get(rs.getString("continent"));
                 childToParent.put(rs.getLong("geoname_id"), id);
                 return null;
-            }            
+            }
         });
-        
+
         // Process hierarchy after, as we do not know the order of the pairs
-        childToParent.entrySet().forEach(e->
-        {
-            final long child = e.getKey();
-            final long parent = e.getValue();
+        childToParent.forEach((key, value) -> {
+            final long child = key;
+            final long parent = value;
             final Node childNode = nodes.get(child);
             final Node parentNode = nodes.get(parent);
             parentNode.addChild(childNode);
             childNode.setParent(parentNode);
         });
-        
-        roots = new HashSet<>();
-        for (Entry<Long, Node> e : nodes.entrySet())
-        {
-            if (e.getValue().getParent() == null)
-            {
-                roots.add(e.getValue());
-            }
-        }
-        
-        return childToParent.size();
+        */
     }
 
-    private byte[] fetchHierarchy()
-    {
-        final String sql = "SELECT data FROM geohierarchy";
-        return jdbcTemplate.query(sql, rs->
-        {
-           if (rs.next())
-           {
-               return rs.getBytes("data");
-           }
-           return null;
-        });
-    }
-    
     @Override
     public Country findByPhonenumber(String phoneNumber)
     {
         String stripped = phoneNumber.replaceAll("[^\\d.]", "");
         stripped = stripped.replaceFirst("^0+(?!$)", "");
-        
-        final List<Country> countries = jdbcTemplate.query(findCountryByPhoneNumberSql, 
-                Collections.singletonMap("phone", stripped), COUNTRY_INFO_MAPPER);
+
+        final List<Country> countries = jdbcTemplate.query(findCountryByPhoneNumberSql,
+                Collections.singletonMap("phone", stripped), COUNTRY_INFO_MAPPER
+        );
         return countries.isEmpty() ? null : countries.get(0);
     }
-    
+
     @Override
     public boolean isInsideAny(List<Long> locations, long location)
     {
@@ -564,7 +536,7 @@ public class GeodataServiceImpl implements GeodataService
         {
             throw new EmptyResultDataAccessException("No such location found " + location, 1);
         }
-        
+
         for (Long l : locations)
         {
             if (l.equals(location) || isLocationInside(location, l))
@@ -574,7 +546,7 @@ public class GeodataServiceImpl implements GeodataService
         }
         return false;
     }
-    
+
     @Override
     public boolean isOutsideAll(List<Long> locations, long location)
     {
@@ -583,7 +555,7 @@ public class GeodataServiceImpl implements GeodataService
         {
             throw new EmptyResultDataAccessException("No such location found " + location, 1);
         }
-        
+
         for (long l : locations)
         {
             if (isLocationInside(l, loc.getId()))
@@ -600,11 +572,11 @@ public class GeodataServiceImpl implements GeodataService
         final List<Long> path = getPath(locationId);
         return path.contains(suspectedParentId);
     }
-        
+
     private List<Long> getPath(long id)
     {
         loadNodes();
-        
+
         Node node = this.nodes.get(id);
         final List<Long> path = new LinkedList<>();
         while (node != null)
@@ -637,45 +609,45 @@ public class GeodataServiceImpl implements GeodataService
     public GeoLocation findbyCoordinate(Coordinates point, int distance)
     {
         GeoLocation location = findWithin(point, distance);
-        
+
         // Fall back to nearest match
         if (location == null)
         {
-            final Page<GeoLocationDistance> nearest = findNear(point, distance, new PageRequest(0, 1));
+            final Page<GeoLocationDistance> nearest = findNear(point, distance, PageRequest.of(0, 1));
             location = nearest.hasContent() ? nearest.getContent().get(0).getLocation() : null;
         }
-        
+
         if (location != null)
         {
             return location;
         }
         throw new EmptyResultDataAccessException("Cannot find a location for position lat=" + point.getLat() + ", lng=" + point.getLng(), 1);
     }
-    
+
     @Override
     public byte[] findBoundaries(long id, @Valid View view)
     {
         final byte[] fullWkb = this.findBoundaries(id);
-    	
-    	if (fullWkb == null)
-    	{
-    		return null;
-    	}
-    	
+
+        if (fullWkb == null)
+        {
+            return null;
+        }
+
         final WKBReader reader = new WKBReader();
         try
         {
-	    	final Stopwatch stopwatch = Stopwatch.createStarted();
-	        final Geometry full = reader.read(fullWkb);
-	        Geometry simplified = GeometryUtil.simplify(full, view, qualityConstant);
-	        final Geometry clipped = GeometryUtil.clip(new Envelope(view.getMinLng(), view.getMaxLng(), view.getMinLat(), view.getMaxLat()), simplified);
-	        if (clipped != null)
-	        {
-	        	simplified = clipped;
-	        }
-	        
-	        logger.debug("locationId: {}, original points: {}, remaining points: {}, ratio: {}, elapsed: {}", id, full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double)simplified.getNumPoints(), stopwatch);
-	        return new WKBWriter().write(simplified);
+            final Stopwatch stopwatch = Stopwatch.createStarted();
+            final Geometry full = reader.read(fullWkb);
+            Geometry simplified = GeometryUtil.simplify(full, view, qualityConstant);
+            final Geometry clipped = GeometryUtil.clip(new Envelope(view.getMinLng(), view.getMaxLng(), view.getMinLat(), view.getMaxLat()), simplified);
+            if (clipped != null)
+            {
+                simplified = clipped;
+            }
+
+            logger.debug("locationId: {}, original points: {}, remaining points: {}, ratio: {}, elapsed: {}", id, full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double) simplified.getNumPoints(), stopwatch);
+            return new WKBWriter().write(simplified);
         }
         catch (ParseException exc)
         {
@@ -683,24 +655,24 @@ public class GeodataServiceImpl implements GeodataService
         }
     }
 
-	@Override
+    @Override
     public byte[] findBoundaries(long id, double maxTolerance)
     {
         final byte[] fullWkb = this.findBoundaries(id);
-    	
-    	if (fullWkb == null)
-    	{
-    		return null;
-    	}
-    	
+
+        if (fullWkb == null)
+        {
+            return null;
+        }
+
         final WKBReader reader = new WKBReader();
         try
         {
-	    	final Stopwatch stopwatch = Stopwatch.createStarted();
-	        final Geometry full = reader.read(fullWkb);
-	        final Geometry simplified = GeometryUtil.simplify(full, maxTolerance);
-	        logger.debug("locationId: {}, original points: {}, remaining points: {}, ratio: {}, elapsed: {}", id, full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double)simplified.getNumPoints(), stopwatch);
-	        return new WKBWriter().write(simplified);
+            final Stopwatch stopwatch = Stopwatch.createStarted();
+            final Geometry full = reader.read(fullWkb);
+            final Geometry simplified = GeometryUtil.simplify(full, maxTolerance);
+            logger.debug("locationId: {}, original points: {}, remaining points: {}, ratio: {}, elapsed: {}", id, full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double) simplified.getNumPoints(), stopwatch);
+            return new WKBWriter().write(simplified);
         }
         catch (ParseException exc)
         {

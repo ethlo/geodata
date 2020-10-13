@@ -1,7 +1,9 @@
-/target
+target
 .project
 .classpath
 .settings
 .DS_Store
 *.versionsBackup
-/bin
+bin
+.idea
+*.iml

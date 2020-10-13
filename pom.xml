@@ -3,13 +3,12 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.ethlo.geodata</groupId>
 	<artifactId>geodata</artifactId>
-	<version>0.3.2</version>
+	<version>1.0.0-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>1.5.6.RELEASE</version>
-		<relativePath />
+		<version>2.3.3.RELEASE</version>
 	</parent>
 	<modules>
 		<module>geodata-model</module>
@@ -35,7 +34,7 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-		<java.version>1.8</java.version>
+		<java.version>11</java.version>
 		<gpg.skip>true</gpg.skip>
 	</properties>
 	<distributionManagement>
@@ -171,10 +170,4 @@
 			</extension>
 		</extensions>
 	</build>
-	<repositories>
-		<repository>
-			<id>boundless</id>
-			<url>http://repo.boundlessgeo.com/main/</url>
-		</repository>
-	</repositories>
 </project>

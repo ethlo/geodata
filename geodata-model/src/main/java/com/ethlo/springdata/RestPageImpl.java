@@ -42,7 +42,7 @@ public class RestPageImpl<T> extends PageImpl<T>
                         @JsonProperty("size") int size,
                         @JsonProperty("totalElements") long total)
     {
-        super(content, new PageRequest(page, size), total);
+        super(content, PageRequest.of(page, size), total);
     }
 
     public RestPageImpl(List<T> content, Pageable pageable, long total)

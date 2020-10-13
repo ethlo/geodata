@@ -33,12 +33,11 @@ import java.util.TreeMap;
 import java.util.function.Consumer;
 
 import org.apache.commons.lang3.StringUtils;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.io.ParseException;
-import com.vividsolutions.jts.io.geojson.GeoJsonReader;
 
 public class GeonamesBoundaryImporter implements DataImporter
 {

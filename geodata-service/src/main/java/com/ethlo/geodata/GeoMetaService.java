@@ -73,7 +73,7 @@ public class GeoMetaService
     	maxDataAgeMillis = d.toMillis();
     }
     
-    public long getLastModified(String alias) throws IOException
+    public long getLastModified(String alias)
     {
         final String sql = "SELECT last_modified from metadata where alias = :alias";
         return jdbcTemplate.query(sql, Collections.singletonMap("alias", alias), rs->
@@ -121,13 +121,14 @@ public class GeoMetaService
             setLastModified("geonames", geonamesTimestamp);
         }
         
-        final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
+        /*final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
         if (boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)
         {
             boundaryImporter.purge();
             boundaryImporter.importData();
             setLastModified("geoboundaries", boundariesTimestamp);
         }
+        */
         
         final Date ipTimestamp = ipLookupImporter.lastRemoteModified();
         if (ipTimestamp.getTime() > getLastModified("geoip") + maxDataAgeMillis)

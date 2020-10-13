@@ -10,12 +10,12 @@ package com.ethlo.geodata.importer.jdbc;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -24,8 +24,10 @@ package com.ethlo.geodata.importer.jdbc;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -35,6 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 import com.ethlo.geodata.importer.GeonamesImporter;
@@ -44,25 +47,28 @@ import com.ethlo.geodata.util.ResourceUtil;
 public class JdbcGeonamesImporter implements PersistentImporter
 {
     @Autowired
+    private TransactionTemplate txnTemplate;
+
+    @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
-    
+
     @Value("${geodata.geonames.source.names}")
     private String geoNamesAllCountriesUrl;
-    
+
     @Value("${geodata.geonames.source.alternatenames}")
     private String geoNamesAlternateNamesUrl;
-    
+
     @Value("${geodata.geonames.source.hierarchy}")
     private String geoNamesHierarchyUrl;
-    
+
     private Set<String> exclusions;
-    
+
     @Value("${geodata.geonames.features.excluded}")
     public void setExclusions(String csv)
     {
         exclusions = StringUtils.commaDelimitedListToSet(csv);
     }
-    
+
     @Autowired
     public void setDataSource(DataSource dataSource)
     {
@@ -73,11 +79,11 @@ public class JdbcGeonamesImporter implements PersistentImporter
     public void importData() throws IOException
     {
         final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource("geonames_hierarchy", geoNamesHierarchyUrl);
-        
+
         final Map.Entry<Date, File> alternateNamesFile = ResourceUtil.fetchResource("geonames_alternatenames", geoNamesAlternateNamesUrl);
-        
+
         final Map.Entry<Date, File> allCountriesFile = ResourceUtil.fetchResource("geonames", geoNamesAllCountriesUrl);
-        
+
         doUpdate(allCountriesFile.getValue(), alternateNamesFile.getValue(), hierarchyFile.getValue());
     }
 
@@ -90,20 +96,48 @@ public class JdbcGeonamesImporter implements PersistentImporter
     private void doUpdate(File allCountriesFile, File alternateNamesFile, File hierarchyFile) throws IOException
     {
         final String sql = "INSERT INTO geonames (id, parent_id, name, feature_class, feature_code, country_code, population, elevation_meters, timezone, last_modified, lat, lng, coord) VALUES ("
-                        + ":id, :parent_id, :name, :feature_class, :feature_code, :country_code, :population, :elevation_meters, :timezone, :last_modified, :lat, :lng, ST_GeomFromText(:poly))";
+                + ":id, :parent_id, :name, :feature_class, :feature_code, :country_code, :population, :elevation_meters, :timezone, :last_modified, :lat, :lng, ST_GeomFromText(:poly))";
 
         final GeonamesImporter geonamesImporter = new GeonamesImporter.Builder()
-            .allCountriesFile(allCountriesFile)
-            .alternateNamesFile(alternateNamesFile)
-            .onlyHierarchical(false)
-            .exclusions(exclusions)
-            .hierarchyFile(hierarchyFile)
-            .build();
+                .allCountriesFile(allCountriesFile)
+                .alternateNamesFile(alternateNamesFile)
+                .onlyHierarchical(false)
+                .exclusions(exclusions)
+                .hierarchyFile(hierarchyFile)
+                .build();
 
-        geonamesImporter.processFile(entry->
+        final int bufferSize = 20_000;
+        final List<Map<String, ?>> buffer = new ArrayList<>(bufferSize);
+
+        geonamesImporter.processFile(entry ->
         {
-            jdbcTemplate.update(sql, entry);
+            buffer.add(entry);
+
+            if (buffer.size() == bufferSize)
+            {
+                flush(buffer);
+            }
         });
+
+        flush(buffer);
+    }
+
+    private void flush(final List<Map<String, ?>> buffer)
+    {
+        Map<String, ?>[] params = buffer.toArray(this::newArray);
+
+        txnTemplate.execute((transactionStatus) ->
+        {
+            jdbcTemplate.batchUpdate("INSERT INTO geonames (id, parent_id, name, feature_class, feature_code, country_code, population, elevation_meters, timezone, last_modified, lat, lng, coord) VALUES (:id, :parent_id, :name, :feature_class, :feature_code, :country_code, :population, :elevation_meters, :timezone, :last_modified, :lat, :lng, ST_GeomFromText(:poly))", params);
+            buffer.clear();
+            return null;
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, ?>[] newArray(int n)
+    {
+        return new Map[n];
     }
 
     @Override
