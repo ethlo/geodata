@@ -1,7 +1,5 @@
 package com.ethlo.geodata.importer.file;
 
-import static com.googlecode.cqengine.query.QueryFactory.attribute;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,55 +34,12 @@ import com.ethlo.geodata.model.CountrySummary;
 import com.ethlo.geodata.model.GeoLocation;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.UnmodifiableIterator;
-import com.googlecode.cqengine.ConcurrentIndexedCollection;
-import com.googlecode.cqengine.attribute.Attribute;
-import com.googlecode.cqengine.attribute.SimpleAttribute;
-import com.googlecode.cqengine.attribute.support.SimpleFunction;
-import com.googlecode.cqengine.index.disk.DiskIndex;
-import com.googlecode.cqengine.persistence.disk.DiskPersistence;
-import com.googlecode.cqengine.query.Query;
-import com.googlecode.cqengine.query.QueryFactory;
-import com.googlecode.cqengine.query.option.QueryOptions;
-import com.googlecode.cqengine.resultset.ResultSet;
 
 @Component
-public class CqGeonamesRepository extends BaseImporter
+public class ClickHouseGeonamesRepository extends BaseImporter
 {
-    public static final SimpleAttribute<GeoLocation, Long> ATTRIBUTE_ID = attribute(GeoLocation.class, Long.class, "id", GeoLocation::getId);
-    public static final SimpleAttribute<GeoLocation, String> ATTRIBUTE_FEATURE_CLASS = QueryFactory.attribute(GeoLocation.class, String.class, "featureClass", new SimpleFunction<GeoLocation, String>()
-    {
-        @Override
-        public String apply(GeoLocation object)
-        {
-            return object.getFeatureClass().toLowerCase();
-        }
-    });
-    public static final SimpleAttribute<GeoLocation, String> ATTRIBUTE_FEATURE_CODE = QueryFactory.attribute(GeoLocation.class, String.class, "featureCode", new SimpleFunction<GeoLocation, String>()
-    {
-        @Override
-        public String apply(GeoLocation object)
-        {
-            return object.getFeatureCode().toLowerCase();
-        }
-    });
-    public static final Attribute<GeoLocation, Long> ATTRIBUTE_POPULATION = QueryFactory.nullableAttribute(GeoLocation.class, Long.class, "population", GeoLocation::getPopulation);
-    public static final SimpleAttribute<GeoLocation, String> ATTRIBUTE_LC_NAME = QueryFactory.attribute(GeoLocation.class, String.class, "name", new SimpleFunction<GeoLocation, String>()
-    {
-        @Override
-        public String apply(GeoLocation object)
-        {
-            return object.getName().toLowerCase();
-        }
-    });
-    public static final Attribute<GeoLocation, String> ATTRIBUTE_COUNTRY_CODE = QueryFactory.nullableAttribute(GeoLocation.class, String.class, "country", new SimpleFunction<GeoLocation, String>()
-    {
-        @Override
-        public String apply(GeoLocation object)
-        {
-            return object.getCountry() != null ? object.getCountry().getCode().toLowerCase() : null;
-        }
-    });
-    private static final Logger logger = LoggerFactory.getLogger(CqGeonamesRepository.class);
+    private static final Logger logger = LoggerFactory.getLogger(ClickHouseGeonamesRepository.class);
+
     private Map<String, Country> countries;
     private Map<String, CountrySummary> countrySummaries;
 
@@ -101,7 +56,7 @@ public class CqGeonamesRepository extends BaseImporter
 
     private ConcurrentIndexedCollection<GeoLocation> locations;
 
-    public CqGeonamesRepository(ApplicationEventPublisher publisher)
+    public ClickHouseGeonamesRepository(ApplicationEventPublisher publisher)
     {
         super(publisher);
     }
@@ -195,7 +150,7 @@ public class CqGeonamesRepository extends BaseImporter
             {
                 final List<Map<String, String>> partition = partitions.next();
                 final List<GeoLocation> batch = partition.stream().map(this::mapLocation).collect(Collectors.toList());
-
+                logger.info("Processing batch of {}", batch.size());
                 prg.update(batchSize);
 
                 locations.addAll(batch);

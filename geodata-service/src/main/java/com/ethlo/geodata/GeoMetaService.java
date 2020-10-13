@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import com.ethlo.geodata.importer.DataType;
-import com.ethlo.geodata.importer.file.CqGeonamesRepository;
 import com.ethlo.geodata.importer.file.FileCountryImporter;
 import com.ethlo.geodata.importer.file.FileGeonamesBoundaryImporter;
 import com.ethlo.geodata.importer.file.FileGeonamesHierarchyImporter;

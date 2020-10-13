@@ -68,7 +68,6 @@ import org.springframework.util.Assert;
 import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.importer.HierarchyImporter;
 import com.ethlo.geodata.importer.Operation;
-import com.ethlo.geodata.importer.file.CqGeonamesRepository;
 import com.ethlo.geodata.importer.file.FileGeonamesBoundaryImporter;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;

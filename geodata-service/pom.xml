@@ -67,9 +67,9 @@
 			<version>0.8.7</version>
 		</dependency>
 		<dependency>
-			<groupId>com.googlecode.cqengine</groupId>
-			<artifactId>cqengine</artifactId>
-			<version>3.5.0</version>
+			<groupId>ru.yandex.clickhouse</groupId>
+			<artifactId>clickhouse-jdbc</artifactId>
+			<version>0.2.4</version>
 		</dependency>
 		<dependency>
 			<groupId>org.zeroturnaround</groupId>
