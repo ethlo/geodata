@@ -10,12 +10,12 @@ package com.ethlo.geodata;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -23,12 +23,18 @@ package com.ethlo.geodata;
  */
 
 import java.io.File;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Envelope;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.TopologyException;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKBReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -48,28 +54,23 @@ import com.github.davidmoten.rtree.internal.EntryDefault;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Iterators;
-import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.Envelope;
-import com.vividsolutions.jts.geom.GeometryFactory;
-import com.vividsolutions.jts.geom.TopologyException;
-import com.vividsolutions.jts.io.ParseException;
-import com.vividsolutions.jts.io.WKBReader;
+import com.google.common.primitives.Ints;
 
 public class RtreeRepository
 {
     private static final Logger logger = LoggerFactory.getLogger(RtreeRepository.class);
-    
+
     private RTree<RTreePayload, Geometry> tree;
     private WkbDataReader reader;
     private File envelopeFile;
-    
+
     public RtreeRepository(File file)
     {
         this.envelopeFile = new File(file.getParentFile(), FileGeonamesBoundaryImporter.ENVELOPE_FILENAME);
         this.reader = new WkbDataReader(file);
         this.tree = RTree.create();
     }
-    
+
     public RtreeRepository(Iterator<RTreePayload> entries)
     {
         final RTree<RTreePayload, Geometry> b = RTree.create();
@@ -78,28 +79,23 @@ public class RtreeRepository
             @Override
             protected Entry<RTreePayload, Geometry> computeNext()
             {
-                if (! entries.hasNext())
+                if (!entries.hasNext())
                 {
                     return endOfData();
                 }
-                
+
                 final RTreePayload e = entries.next();
                 return entry(e);
             }
         }));
     }
 
-    private Entry<RTreePayload, Geometry> entry(RTreePayload payload)
-    {
-        final Envelope env = payload.getEnvelope();
-        return EntryDefault.entry(payload, Geometries.rectangle(env.getMinX(), env.getMinY(), env.getMaxX(), env.getMaxY()));
-    }
-    
     private static <T> Iterable<T> once(final Iterator<T> source)
     {
         return new Iterable<T>()
         {
-            private AtomicBoolean exhausted = new AtomicBoolean();
+            private final AtomicBoolean exhausted = new AtomicBoolean();
+
             @Override
             public Iterator<T> iterator()
             {
@@ -109,20 +105,26 @@ public class RtreeRepository
         };
     }
 
+    private Entry<RTreePayload, Geometry> entry(RTreePayload payload)
+    {
+        final Envelope env = payload.getEnvelope();
+        return EntryDefault.entry(payload, Geometries.rectangle(env.getMinX(), env.getMinY(), env.getMaxX(), env.getMaxY()));
+    }
+
     public Long find(Coordinates coordinates)
     {
         final Point point = Geometries.point(coordinates.getLng(), coordinates.getLat());
         final Iterator<Entry<RTreePayload, Geometry>> iter = tree.search(point).toBlocking().getIterator();
-        final com.vividsolutions.jts.geom.Point target = new GeometryFactory().createPoint(new Coordinate(coordinates.getLng(), coordinates.getLat()));
+        final org.locationtech.jts.geom.Point target = new GeometryFactory().createPoint(new Coordinate(coordinates.getLng(), coordinates.getLat()));
         final List<Entry<RTreePayload, Geometry>> candidates = Lists.newArrayList(iter);
-        Collections.sort(candidates, (o1, o2)->Double.valueOf(o1.value().getArea()).compareTo(o2.value().getArea()));
+        candidates.sort(Comparator.comparingDouble(o -> o.value().getArea()));
         final WKBReader r = new WKBReader();
         for (Entry<RTreePayload, Geometry> candidate : candidates)
         {
             final byte[] wkb = reader.read(candidate.value().getId());
             try
             {
-                final com.vividsolutions.jts.geom.Geometry geometry = r.read(wkb);
+                final org.locationtech.jts.geom.Geometry geometry = r.read(wkb);
                 if (geometry.contains(target))
                 {
                     return candidate.value().getId();
@@ -131,7 +133,7 @@ public class RtreeRepository
             catch (TopologyException exc)
             {
                 logger.warn("Cannot process geometry for location {}: {}", candidate.value().getId(), exc.getMessage());
-                logger.debug("{}", exc);
+                logger.debug(exc.getMessage(), exc);
             }
             catch (ParseException exc)
             {
@@ -156,7 +158,7 @@ public class RtreeRepository
     {
         return reader;
     }
-    
+
     @SuppressWarnings("rawtypes")
     public JsonIoReader<Map> getEnvelopeReader()
     {
@@ -165,7 +167,7 @@ public class RtreeRepository
 
     public Iterator<Long> findNear(Coordinates point, double maxDistanceInKilometers, Pageable pageable)
     {
-        final Iterator<Entry<RTreePayload, Geometry>> e = tree.nearest(Geometries.point(point.getLng(), point.getLat()), maxDistanceInKilometers, pageable.getOffset() + pageable.getPageSize()).toBlocking().getIterator();
+        final Iterator<Entry<RTreePayload, Geometry>> e = tree.nearest(Geometries.point(point.getLng(), point.getLat()), maxDistanceInKilometers, Ints.saturatedCast(pageable.getOffset() + pageable.getPageSize())).toBlocking().getIterator();
         final Iterator<Long> iter = new AbstractIterator<Long>()
         {
             @Override
@@ -178,7 +180,7 @@ public class RtreeRepository
                 return endOfData();
             }
         };
-        Iterators.advance(iter, pageable.getOffset());
+        Iterators.advance(iter, Ints.saturatedCast(pageable.getOffset()));
         return iter;
     }
 }

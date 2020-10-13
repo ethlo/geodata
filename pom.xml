@@ -8,8 +8,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>1.5.9.RELEASE</version>
-		<relativePath />
+		<version>2.3.3.RELEASE</version>
 	</parent>
 	<modules>
 		<module>geodata-model</module>
@@ -175,8 +174,8 @@
 	</build>
 	<repositories>
 		<repository>
-			<id>boundless</id>
-			<url>http://repo.boundlessgeo.com/main/</url>
+			<id>osgeo</id>
+			<url>https://repo.osgeo.org/repository/release/</url>
 		</repository>
 	</repositories>
 </project>

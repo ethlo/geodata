@@ -10,12 +10,12 @@ package com.ethlo.geodata.importer;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -38,34 +38,34 @@ import com.ethlo.geodata.IoUtils;
 public class CountryImporter implements PushDataImporter
 {
     private final File csvFile;
-    
+
     public CountryImporter(File csvFile)
     {
         this.csvFile = csvFile;
     }
-    
+
     @Override
     public long processFile(Consumer<Map<String, String>> sink) throws IOException
     {
         /*
-         * ISO  
-         * ISO3    
-         * ISO-Numeric 
-         * fips    
-         * Country 
-         * Capital 
-         * Area(in sq km)  
-         * Population  
-         * Continent   
-         * tld 
-         * CurrencyCode    
+         * ISO
+         * ISO3
+         * ISO-Numeric
+         * fips
+         * Country
+         * Capital
+         * Area(in sq km)
+         * Population
+         * Continent
+         * tld
+         * CurrencyCode
          * CurrencyName
-         * Phone   
-         * Postal Code Format  
-         * Postal Code Regex   
-         * Languages   
-         * geonameid   
-         * neighbours  
+         * Phone
+         * Postal Code Format
+         * Postal Code Regex
+         * Languages
+         * geonameid
+         * neighbours
          * EquivalentFipsCode
          */
         long count = 0;
@@ -74,7 +74,7 @@ public class CountryImporter implements PushDataImporter
             String line;
             while ((line = reader.readLine()) != null)
             {
-                if (! line.startsWith("#"))
+                if (!line.startsWith("#"))
                 {
                     final String[] entry = StringUtils.delimitedListToStringArray(line, "\t");
                     final Map<String, String> paramMap = new TreeMap<>();
@@ -97,10 +97,10 @@ public class CountryImporter implements PushDataImporter
                     paramMap.put("geoname_id", stripToNull(entry[16]));
                     paramMap.put("neighbours", stripToNull(entry[17]));
                     paramMap.put("equivalent_fips_code", stripToNull(entry[18]));
-                    
+
                     sink.accept(paramMap);
                 }
-                
+
                 count++;
             }
         }

@@ -10,12 +10,12 @@ package com.ethlo.geodata;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -42,12 +42,18 @@ import java.util.stream.Collectors;
 import javax.validation.Valid;
 
 import org.apache.commons.lang3.StringUtils;
+import org.locationtech.jts.geom.Envelope;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKBReader;
+import org.locationtech.jts.io.WKBWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.context.annotation.Primary;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
@@ -87,37 +93,14 @@ import com.googlecode.cqengine.query.Query;
 import com.googlecode.cqengine.query.QueryFactory;
 import com.googlecode.cqengine.query.logical.And;
 import com.googlecode.cqengine.resultset.ResultSet;
-import com.vividsolutions.jts.geom.Envelope;
-import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.io.ParseException;
-import com.vividsolutions.jts.io.WKBReader;
-import com.vividsolutions.jts.io.WKBWriter;
 
 @Lazy
+@Primary
 @Service
 public class GeodataServiceImpl implements GeodataService
 {
-    private final Logger logger = LoggerFactory.getLogger(GeodataServiceImpl.class);
-
-    @Autowired
-    private GeoRepository geoRepository;
-    
-    @Autowired
-    private GeoMetaService geoMetaService;
-    
-    @Autowired
-    private CqGeonamesRepository geoNamesRepository;
-    
-    @Autowired
-    private ApplicationEventPublisher publisher;
-    
-    private RangeMap<Long, Long> ipRanges;
-    
-    private RtreeRepository rTree;
-    
-    private static final Map<String, Long> CONTINENT_IDS = new LinkedHashMap<>();
-
     public static final double RAD_TO_KM_RATIO = 111.195D;
+    private static final Map<String, Long> CONTINENT_IDS = new LinkedHashMap<>();
 
     static
     {
@@ -129,65 +112,75 @@ public class GeodataServiceImpl implements GeodataService
         CONTINENT_IDS.put("SA", 6255150L);
         CONTINENT_IDS.put("AN", 6255152L);
     }
-    
+
+    private final Logger logger = LoggerFactory.getLogger(GeodataServiceImpl.class);
+    @Autowired
+    private GeoRepository geoRepository;
+    @Autowired
+    private GeoMetaService geoMetaService;
+    @Autowired
+    private CqGeonamesRepository geoNamesRepository;
+    @Autowired
+    private ApplicationEventPublisher publisher;
+    private RangeMap<Long, Long> ipRanges;
+    private RtreeRepository rTree;
     private Map<Long, Node> nodes;
 
     @Value("${geodata.boundaries.quality}")
     private int qualityConstant;
+    private File baseDirectory;
 
     @Value("${data.directory}")
     public void setBaseDirectory(File baseDirectory)
     {
-        this.baseDirectory = new File(baseDirectory.getPath().replaceFirst("^~",System.getProperty("user.home")));
+        this.baseDirectory = new File(baseDirectory.getPath().replaceFirst("^~", System.getProperty("user.home")));
     }
-    
-    private File baseDirectory;
-         
+
     public void load()
     {
         ensureBaseDirectory();
-        
+
         final SourceDataInfoSet sourceInfo = geoMetaService.getSourceDataInfo();
         if (sourceInfo.isEmpty())
         {
             logger.error("Cannot start geodata server as there is no data. Please run with 'update' parameter to import data");
             System.exit(1);
         }
-        
+
         loadHierarchy();
-        
+
         final ThreadPoolTaskExecutor taskExecutor = new ThreadPoolTaskExecutor();
         taskExecutor.setCorePoolSize(3);
         taskExecutor.setThreadNamePrefix("data-loading-");
         taskExecutor.initialize();
-        
+
         taskExecutor.execute(this::loadLocations);
         taskExecutor.execute(this::loadMbr);
         taskExecutor.execute(this::loadIps);
-        
+
         taskExecutor.setAwaitTerminationSeconds(Integer.MAX_VALUE);
         taskExecutor.setWaitForTasksToCompleteOnShutdown(true);
         taskExecutor.shutdown();
-        
+
         //final ResultSet<GeoLocation> result = geoNamesRepository.retrieve(QueryFactory.equal(CqGeonamesRepository.ATTRIBUTE_FEATURE_CODE, "ADM1"));
         //result.forEach(this::connectAdm1WithCountry);
-        
+
         publisher.publishEvent(new DataLoadedEvent(this, DataType.ALL, Operation.LOAD, 1, 1));
     }
-    
+
     private void connectAdm1WithCountry(GeoLocation l)
     {
         final Country c = geoNamesRepository.getCountries().get(l.getCountry().getCode());
         final long countryId = c.getId();
         l.setParentLocationId(countryId);
-        
+
         final Node countryNode = findOrCreate(countryId);
         final Node locationNode = findOrCreate(l.getId());
         countryNode.addChild(locationNode);
         nodes.put(countryId, countryNode);
-        nodes.put(l.getId(), locationNode);     
+        nodes.put(l.getId(), locationNode);
     }
-    
+
     private Node findOrCreate(long id)
     {
         Node existing = nodes.get(id);
@@ -197,18 +190,18 @@ public class GeodataServiceImpl implements GeodataService
         }
         return existing;
     }
-    
+
     private void loadLocations()
     {
         logger.info("Loading locations");
         geoNamesRepository.load();
         logger.info("Loaded {} locations", geoNamesRepository.size());
     }
-    
+
     private void ensureBaseDirectory()
     {
         logger.info("Ensuring data directory {} exists", baseDirectory.getAbsolutePath());
-        if (! baseDirectory.exists())
+        if (!baseDirectory.exists())
         {
             Assert.isTrue(baseDirectory.mkdirs(), "Could not create directory " + baseDirectory.getAbsolutePath());
         }
@@ -219,61 +212,65 @@ public class GeodataServiceImpl implements GeodataService
     {
         logger.info("Loading MBR boundaries");
         rTree = new RtreeRepository(new File(baseDirectory, FileGeonamesBoundaryImporter.ENVELOPE_FILENAME));
-        
+
         final Iterator<Map> iter = rTree.getEnvelopeReader().iterator();
         while (iter.hasNext())
         {
             final Map map = iter.next();
             final long id = MapUtils.getLong(map, "id");
             final Envelope e = new Envelope(
-                MapUtils.getDouble(map, "minX"),
-                MapUtils.getDouble(map, "maxX"),
-                MapUtils.getDouble(map, "minY"),
-                MapUtils.getDouble(map, "maxY"));
+                    MapUtils.getDouble(map, "minX"),
+                    MapUtils.getDouble(map, "maxX"),
+                    MapUtils.getDouble(map, "minY"),
+                    MapUtils.getDouble(map, "maxY")
+            );
             rTree = rTree.add(new RTreePayload(id, e.getArea(), e));
         }
         logger.info("Loaded {} MBR boundaries", rTree.size());
         publisher.publishEvent(new DataLoadedEvent(this, DataType.BOUNDARY, Operation.LOAD, rTree.size(), rTree.size()));
     }
-        
+
     public void loadIps()
     {
         logger.info("Loading IP ranges");
-        
+
         final long size = geoMetaService.getSourceDataInfo().get(DataType.IP).getCount();
-        final ProgressListener prg = new ProgressListener(l->publisher.publishEvent(new DataLoadedEvent(this, DataType.IP, Operation.LOAD, l, size)));
-        
+        final ProgressListener prg = new ProgressListener(l -> publisher.publishEvent(new DataLoadedEvent(this, DataType.IP, Operation.LOAD, l, size)));
+
         ipRanges = TreeRangeMap.create();
         try (CloseableIterator<Map.Entry<Long, Range<Long>>> r = geoRepository.ipRanges())
         {
-            r.forEachRemaining(e->{ipRanges.put(e.getValue(), e.getKey()); prg.update();});
+            r.forEachRemaining(e -> {
+                ipRanges.put(e.getValue(), e.getKey());
+                prg.update();
+            });
         }
         publisher.publishEvent(new DataLoadedEvent(this, DataType.IP, Operation.LOAD, size, size));
         logger.info("Loaded {} IP ranges", size);
-        
+
     }
-    
+
     @Override
     public GeoLocation findByIp(String ip)
     {
-        if (! InetAddresses.isInetAddress(ip))
+        if (!InetAddresses.isInetAddress(ip))
         {
             return null;
         }
-        
+
         final InetAddress address = InetAddresses.forString(ip);
         final boolean isLocalAddress = address.isLoopbackAddress() || address.isAnyLocalAddress();
         if (isLocalAddress)
         {
             return null;
         }
-        
+
         final long ipLong = UnsignedInteger.fromIntBits(InetAddresses.coerceToInteger(InetAddresses.forString(ip))).longValue();
-        
+
         final Long id = ipRanges.get(ipLong);
         return id != null ? findById(id) : null;
     }
-    
+
     @Override
     public GeoLocation findById(long geoNameId)
     {
@@ -292,7 +289,7 @@ public class GeodataServiceImpl implements GeodataService
         final Long id = rTree.find(point);
         return id != null ? findById(id) : null;
     }
-    
+
     @Override
     public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable)
     {
@@ -314,7 +311,7 @@ public class GeodataServiceImpl implements GeodataService
         final long total = content.size();
         return new PageImpl<>(content, pageable, total);
     }
-    
+
     @Override
     public List<GeoLocation> findByIds(Collection<Long> ids)
     {
@@ -334,14 +331,14 @@ public class GeodataServiceImpl implements GeodataService
         final Node node = nodes.get(locationId);
         final long total = node.getChildren().size();
         final List<Long> ids = node.getChildren()
-            .stream()
-            .skip(pageable.getOffset())
-            .limit(pageable.getPageSize())
-            .map(Node::getId)
-            .collect(Collectors.toList());
+                .stream()
+                .skip(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .map(Node::getId)
+                .collect(Collectors.toList());
         final List<GeoLocation> content = findByIds(ids).stream().filter(Objects::nonNull).collect(Collectors.toList());
-        
-        content.sort((a, b)->a.getName().compareTo(b.getName()));
+
+        content.sort((a, b) -> a.getName().compareTo(b.getName()));
         return new PageImpl<>(content, pageable, total);
     }
 
@@ -351,7 +348,7 @@ public class GeodataServiceImpl implements GeodataService
         final List<Continent> continents = findByIds(CONTINENT_IDS.values())
                 .stream()
                 .filter(Objects::nonNull)
-                .map(l->new Continent(getContinentCode(l.getId()), l))
+                .map(l -> new Continent(getContinentCode(l.getId()), l))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
         return new PageImpl<>(continents);
@@ -377,9 +374,9 @@ public class GeodataServiceImpl implements GeodataService
         {
             return new PageImpl<>(Collections.emptyList());
         }
-        return findChildren(continentId, pageable).map(l->findCountryById(l.getId()));
+        return findChildren(continentId, pageable).map(l -> findCountryById(l.getId()));
     }
-    
+
     private Country findCountryById(Long id)
     {
         for (Country c : geoNamesRepository.getCountries().values())
@@ -420,21 +417,21 @@ public class GeodataServiceImpl implements GeodataService
         }
         return findChildren(country.getId(), pageable);
     }
-    
+
     public int loadHierarchy()
     {
         nodes = new HashMap<>();
-        
+
         final File hierarchyFile = new File(baseDirectory, "hierarchy");
-        if (! hierarchyFile.exists())
+        if (!hierarchyFile.exists())
         {
             return 0;
         }
-        
+
         final Map<Long, Long> childToParent = new HashMap<>();
         try
         {
-            new HierarchyImporter(hierarchyFile).processFile(r->
+            new HierarchyImporter(hierarchyFile).processFile(r ->
             {
                 final String featureCode = r.get("feature_code");
                 if (featureCode == null || "adm".equalsIgnoreCase(featureCode))
@@ -444,7 +441,7 @@ public class GeodataServiceImpl implements GeodataService
                     final Node parent = nodes.getOrDefault(parentId, new Node(parentId));
                     final Node child = nodes.getOrDefault(childId, new Node(childId));
                     nodes.put(parent.getId(), parent);
-                    nodes.put(child.getId(), child);            
+                    nodes.put(child.getId(), child);
                     childToParent.put(childId, parentId);
                 }
             });
@@ -453,9 +450,9 @@ public class GeodataServiceImpl implements GeodataService
         {
             throw new DataAccessResourceFailureException(exc.getMessage(), exc);
         }
-        
+
         // Process hierarchy after, as we do not know the order of the pairs
-        childToParent.entrySet().forEach(e->
+        childToParent.entrySet().forEach(e ->
         {
             final long child = e.getKey();
             final long parent = e.getValue();
@@ -464,7 +461,7 @@ public class GeodataServiceImpl implements GeodataService
             parentNode.addChild(childNode);
             childNode.setParent(parentNode);
         });
-        
+
         final Set<Node> roots = new HashSet<>();
         for (Entry<Long, Node> e : nodes.entrySet())
         {
@@ -473,9 +470,9 @@ public class GeodataServiceImpl implements GeodataService
                 roots.add(e.getValue());
             }
         }
-        
+
         publisher.publishEvent(new DataLoadedEvent(this, DataType.HIERARCHY, Operation.LOAD, childToParent.size(), childToParent.size()));
-        
+
         return childToParent.size();
     }
 
@@ -492,7 +489,7 @@ public class GeodataServiceImpl implements GeodataService
         {
             return null;
         }
-        
+
         final Integer countryCode = pn.getCountryCode();
         for (Country country : geoNamesRepository.getCountries().values())
         {
@@ -503,7 +500,7 @@ public class GeodataServiceImpl implements GeodataService
         }
         return null;
     }
-    
+
     @Override
     public boolean isInsideAny(List<Long> locations, long location)
     {
@@ -512,7 +509,7 @@ public class GeodataServiceImpl implements GeodataService
         {
             throw new EmptyResultDataAccessException("No such location found " + location, 1);
         }
-        
+
         for (Long l : locations)
         {
             if (l.equals(location) || isLocationInside(location, l))
@@ -522,7 +519,7 @@ public class GeodataServiceImpl implements GeodataService
         }
         return false;
     }
-    
+
     @Override
     public boolean isOutsideAll(List<Long> locations, long location)
     {
@@ -531,7 +528,7 @@ public class GeodataServiceImpl implements GeodataService
         {
             throw new EmptyResultDataAccessException("No such location found " + location, 1);
         }
-        
+
         for (long l : locations)
         {
             if (isLocationInside(l, loc.getId()))
@@ -548,7 +545,7 @@ public class GeodataServiceImpl implements GeodataService
         final List<Long> path = getPath(locationId);
         return path.contains(suspectedParentId);
     }
-        
+
     private List<Long> getPath(long id)
     {
         Node node = this.nodes.get(id);
@@ -583,50 +580,50 @@ public class GeodataServiceImpl implements GeodataService
     public GeoLocation findbyCoordinate(Coordinates point, int distance)
     {
         GeoLocation location = findWithin(point, distance);
-        
+
         // Fall back to nearest match
         if (location == null)
         {
-            final Page<GeoLocationDistance> nearest = findNear(point, distance, new PageRequest(0, 1));
+            final Page<GeoLocationDistance> nearest = findNear(point, distance, PageRequest.of(0, 1));
             location = nearest.hasContent() ? nearest.getContent().get(0).getLocation() : null;
         }
-        
+
         if (location != null)
         {
             return location;
         }
         throw new EmptyResultDataAccessException("Cannot find a location for position lat=" + point.getLat() + ", lng=" + point.getLng(), 1);
     }
-    
+
     @Override
     public byte[] findBoundaries(long id, @Valid View view)
     {
         final byte[] fullWkb = this.findBoundaries(id);
-    	
-    	if (fullWkb == null)
-    	{
-    		return null;
-    	}
-    	
+
+        if (fullWkb == null)
+        {
+            return null;
+        }
+
         final WKBReader reader = new WKBReader();
         try
         {
-	    	final Stopwatch stopwatch = Stopwatch.createStarted();
-	        final Geometry full = reader.read(fullWkb);
-	        Geometry simplified = GeometryUtil.simplify(full, view, qualityConstant);
-	        if (simplified == null)
-	        {
-	        	return createEmptyGeometry();
-	        }
-	        
-	        final Geometry clipped = GeometryUtil.clip(new Envelope(view.getMinLng(), view.getMaxLng(), view.getMinLat(), view.getMaxLat()), simplified);
-	        if (clipped != null)
-	        {
-	        	simplified = clipped;
-	        }
-	        
-	        logger.debug("locationId: {}, original points: {}, remaining points: {}, ratio: {}, elapsed: {}", id, full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double)simplified.getNumPoints(), stopwatch);
-	        return new WKBWriter().write(simplified);
+            final Stopwatch stopwatch = Stopwatch.createStarted();
+            final Geometry full = reader.read(fullWkb);
+            Geometry simplified = GeometryUtil.simplify(full, view, qualityConstant);
+            if (simplified == null)
+            {
+                return createEmptyGeometry();
+            }
+
+            final Geometry clipped = GeometryUtil.clip(new Envelope(view.getMinLng(), view.getMaxLng(), view.getMinLat(), view.getMaxLat()), simplified);
+            if (clipped != null)
+            {
+                simplified = clipped;
+            }
+
+            logger.debug("locationId: {}, original points: {}, remaining points: {}, ratio: {}, elapsed: {}", id, full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double) simplified.getNumPoints(), stopwatch);
+            return new WKBWriter().write(simplified);
         }
         catch (ParseException exc)
         {
@@ -634,33 +631,33 @@ public class GeodataServiceImpl implements GeodataService
         }
     }
 
-	private byte[] createEmptyGeometry()
-	{
-		return new WKBWriter().write(GeometryUtil.createEmptyGeomtryCollection());
-	}
+    private byte[] createEmptyGeometry()
+    {
+        return new WKBWriter().write(GeometryUtil.createEmptyGeomtryCollection());
+    }
 
-	@Override
+    @Override
     public byte[] findBoundaries(long id, double maxTolerance)
     {
         final byte[] fullWkb = this.findBoundaries(id);
-    	
-    	if (fullWkb == null)
-    	{
-    		return null;
-    	}
-    	
+
+        if (fullWkb == null)
+        {
+            return null;
+        }
+
         final WKBReader reader = new WKBReader();
         try
         {
-	    	final Stopwatch stopwatch = Stopwatch.createStarted();
-	        final Geometry full = reader.read(fullWkb);
-	        final Geometry simplified = GeometryUtil.simplify(full, maxTolerance);
-	        if (simplified == null)
-	        {
-	        	return createEmptyGeometry();
-	        }
-	        logger.debug("locationId: {}, original points: {}, remaining points: {}, ratio: {}, elapsed: {}", id, full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double)simplified.getNumPoints(), stopwatch);
-	        return new WKBWriter().write(simplified);
+            final Stopwatch stopwatch = Stopwatch.createStarted();
+            final Geometry full = reader.read(fullWkb);
+            final Geometry simplified = GeometryUtil.simplify(full, maxTolerance);
+            if (simplified == null)
+            {
+                return createEmptyGeometry();
+            }
+            logger.debug("locationId: {}, original points: {}, remaining points: {}, ratio: {}, elapsed: {}", id, full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double) simplified.getNumPoints(), stopwatch);
+            return new WKBWriter().write(simplified);
         }
         catch (ParseException exc)
         {
@@ -672,8 +669,8 @@ public class GeodataServiceImpl implements GeodataService
     public Page<GeoLocation> filter(LocationFilter filter, Pageable pageable)
     {
         final Collection<Query<GeoLocation>> queries = new LinkedList<>();
-        
-        if (filter.getName() != null) 
+
+        if (filter.getName() != null)
         {
             if (filter.getName().endsWith("*"))
             {
@@ -684,13 +681,13 @@ public class GeodataServiceImpl implements GeodataService
                 queries.add(QueryFactory.equal(CqGeonamesRepository.ATTRIBUTE_LC_NAME, filter.getName()));
             }
         }
-        
-        if (! filter.getFeatureClasses().isEmpty())
+
+        if (!filter.getFeatureClasses().isEmpty())
         {
             queries.add(QueryFactory.in(CqGeonamesRepository.ATTRIBUTE_FEATURE_CLASS, filter.getFeatureClasses()));
         }
-        
-        if (! filter.getFeatureCodes().isEmpty())
+
+        if (!filter.getFeatureCodes().isEmpty())
         {
             queries.add(QueryFactory.in(CqGeonamesRepository.ATTRIBUTE_FEATURE_CODE, filter.getFeatureCodes()));
         }
@@ -699,9 +696,9 @@ public class GeodataServiceImpl implements GeodataService
         {
             queries.add(QueryFactory.in(CqGeonamesRepository.ATTRIBUTE_COUNTRY_CODE, filter.getCountryCodes()));
         }
-        
+
         Query<GeoLocation> query;
-        
+
         if (queries.isEmpty())
         {
             query = QueryFactory.none(GeoLocation.class);
@@ -714,11 +711,12 @@ public class GeodataServiceImpl implements GeodataService
         {
             query = new And<>(queries);
         }
-        
-        final ResultSet<GeoLocation> result = geoNamesRepository.retrieve(query, 
-                        QueryFactory.queryOptions(QueryFactory.orderBy(QueryFactory.descending(QueryFactory.missingLast(CqGeonamesRepository.ATTRIBUTE_POPULATION)))));
+
+        final ResultSet<GeoLocation> result = geoNamesRepository.retrieve(query,
+                QueryFactory.queryOptions(QueryFactory.orderBy(QueryFactory.descending(QueryFactory.missingLast(CqGeonamesRepository.ATTRIBUTE_POPULATION))))
+        );
         int index = 0;
-        final List<GeoLocation> content = new LinkedList<>(); 
+        final List<GeoLocation> content = new LinkedList<>();
         for (GeoLocation l : result)
         {
             if (index >= pageable.getOffset() && content.size() < pageable.getPageSize())
@@ -727,7 +725,7 @@ public class GeodataServiceImpl implements GeodataService
             }
             index++;
         }
-        
+
         return new PageImpl<>(content, pageable, index);
     }
 }

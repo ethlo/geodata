@@ -2,28 +2,6 @@ package com.ethlo.geodata.importer.file;
 
 import static com.googlecode.cqengine.query.QueryFactory.attribute;
 
-/*-
- * #%L
- * geodata
- * %%
- * Copyright (C) 2017 Morten Haraldsen (ethlo)
- * %%
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU General Lesser Public
- * License along with this program.  If not, see
- * <http://www.gnu.org/licenses/lgpl-3.0.html>.
- * #L%
- */
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -72,8 +50,6 @@ import com.googlecode.cqengine.resultset.ResultSet;
 @Component
 public class CqGeonamesRepository extends BaseImporter
 {
-    private static final Logger logger = LoggerFactory.getLogger(CqGeonamesRepository.class);
-
     public static final SimpleAttribute<GeoLocation, Long> ATTRIBUTE_ID = attribute(GeoLocation.class, Long.class, "id", GeoLocation::getId);
     public static final SimpleAttribute<GeoLocation, String> ATTRIBUTE_FEATURE_CLASS = QueryFactory.attribute(GeoLocation.class, String.class, "featureClass", new SimpleFunction<GeoLocation, String>()
     {
@@ -83,7 +59,6 @@ public class CqGeonamesRepository extends BaseImporter
             return object.getFeatureClass().toLowerCase();
         }
     });
-    
     public static final SimpleAttribute<GeoLocation, String> ATTRIBUTE_FEATURE_CODE = QueryFactory.attribute(GeoLocation.class, String.class, "featureCode", new SimpleFunction<GeoLocation, String>()
     {
         @Override
@@ -92,9 +67,7 @@ public class CqGeonamesRepository extends BaseImporter
             return object.getFeatureCode().toLowerCase();
         }
     });
-    
     public static final Attribute<GeoLocation, Long> ATTRIBUTE_POPULATION = QueryFactory.nullableAttribute(GeoLocation.class, Long.class, "population", GeoLocation::getPopulation);
-    
     public static final SimpleAttribute<GeoLocation, String> ATTRIBUTE_LC_NAME = QueryFactory.attribute(GeoLocation.class, String.class, "name", new SimpleFunction<GeoLocation, String>()
     {
         @Override
@@ -103,7 +76,6 @@ public class CqGeonamesRepository extends BaseImporter
             return object.getName().toLowerCase();
         }
     });
-    
     public static final Attribute<GeoLocation, String> ATTRIBUTE_COUNTRY_CODE = QueryFactory.nullableAttribute(GeoLocation.class, String.class, "country", new SimpleFunction<GeoLocation, String>()
     {
         @Override
@@ -112,7 +84,7 @@ public class CqGeonamesRepository extends BaseImporter
             return object.getCountry() != null ? object.getCountry().getCode().toLowerCase() : null;
         }
     });
-
+    private static final Logger logger = LoggerFactory.getLogger(CqGeonamesRepository.class);
     private Map<String, Country> countries;
     private Map<String, CountrySummary> countrySummaries;
 
@@ -129,34 +101,33 @@ public class CqGeonamesRepository extends BaseImporter
 
     private ConcurrentIndexedCollection<GeoLocation> locations;
 
+    public CqGeonamesRepository(ApplicationEventPublisher publisher)
+    {
+        super(publisher);
+    }
+
     @Value("${geodata.geonames.features.excluded}")
     public void setExclusions(String csv)
     {
         exclusions = StringUtils.commaDelimitedListToSet(csv);
     }
 
-    public CqGeonamesRepository(ApplicationEventPublisher publisher)
-    {
-        super(publisher);
-    }
-    
     public void load()
     {
         loadCountries();
     }
-    
+
     private void loadCountries()
     {
         countries = new LinkedHashMap<>();
         countrySummaries = new LinkedHashMap<>();
-        final File countriesFile = new File (getBaseDirectory(), FileCountryImporter.FILENAME);
+        final File countriesFile = new File(getBaseDirectory(), FileCountryImporter.FILENAME);
         logger.info("Loading countries");
         try (@SuppressWarnings("rawtypes") final CloseableIterator<Map> iter = new JsonIoReader<>(countriesFile, Map.class).iterator())
         {
             while (iter.hasNext())
             {
-                @SuppressWarnings("unchecked")
-                final Map<String, Object> m = iter.next();
+                @SuppressWarnings("unchecked") final Map<String, Object> m = iter.next();
                 final Country c = mapCountry(m);
                 final CountrySummary summary = new CountrySummary().setId(MapUtils.getLong(m, "geoname_id")).withCode(MapUtils.getString(m, "iso")).withName(c.getName());
                 countries.put(summary.getCode(), c);
@@ -166,7 +137,7 @@ public class CqGeonamesRepository extends BaseImporter
         logger.info("Loaded {} countries", countries.size());
         publish(new DataLoadedEvent(this, DataType.COUNTRY, Operation.LOAD, countries.size(), countries.size()));
     }
-    
+
     private Country mapCountry(Map<String, Object> map)
     {
         final Country country = new Country();
@@ -190,7 +161,7 @@ public class CqGeonamesRepository extends BaseImporter
     public long importData() throws IOException
     {
         loadCountries();
-        
+
         final Map.Entry<Date, File> hierarchyFile = fetchResource(DataType.HIERARCHY, geoNamesHierarchyUrl);
 
         final Map.Entry<Date, File> alternateNamesFile = fetchResource(DataType.LOCATION_ALTERNATE_NAMES, geoNamesAlternateNamesUrl);
@@ -213,10 +184,10 @@ public class CqGeonamesRepository extends BaseImporter
         final ProgressListener prg = new ProgressListener(l -> publish(new DataLoadedEvent(this, DataType.LOCATION, Operation.IMPORT, l, total)));
 
         final GeonamesImporter geonamesImporter = new GeonamesImporter.Builder().allCountriesFile(allCountriesFile).alternateNamesFile(alternateNamesFile).onlyHierarchical(false)
-                        .exclusions(exclusions).hierarchyFile(hierarchyFile).build();
+                .exclusions(exclusions).hierarchyFile(hierarchyFile).build();
 
         final int batchSize = 100_000;
-        
+
         try (final CloseableIterator<Map<String, String>> iter = geonamesImporter.iterator())
         {
             final UnmodifiableIterator<List<Map<String, String>>> partitions = Iterators.partition(iter, batchSize);
@@ -235,7 +206,7 @@ public class CqGeonamesRepository extends BaseImporter
 
         return total;
     }
-    
+
     private GeoLocation mapLocation(Map<?, ?> m)
     {
         final GeoLocation geoLocation = new GeoLocation();
@@ -245,18 +216,18 @@ public class CqGeonamesRepository extends BaseImporter
         final CountrySummary country = countrySummaries.get(countryCode);
         Assert.notNull(country, "No country found for code " + countryCode);
         geoLocation.setCountry(country);
-        
+
         final Long population = MapUtils.getLong(m, "population");
-        
+
         geoLocation
-            .setFeatureCode(MapUtils.getString(m, "feature_code"))
-            .setFeatureClass(MapUtils.getString(m, "feature_class"))
-            .setPopulation(population != null && population > 0 ? population : null)
-            .setParentLocationId(parentId)
-            .setId(MapUtils.getLong(m, "id"))
-            .setName(MapUtils.getString(m, "name"))
-            .setCoordinates(Coordinates.from(MapUtils.getDouble(m, "lat"), MapUtils.getDouble(m, "lng")));
-            
+                .setFeatureCode(MapUtils.getString(m, "feature_code"))
+                .setFeatureClass(MapUtils.getString(m, "feature_class"))
+                .setPopulation(population != null && population > 0 ? population : null)
+                .setParentLocationId(parentId)
+                .setId(MapUtils.getLong(m, "id"))
+                .setName(MapUtils.getString(m, "name"))
+                .setCoordinates(Coordinates.from(MapUtils.getDouble(m, "lat"), MapUtils.getDouble(m, "lng")));
+
         return geoLocation;
     }
 
@@ -280,7 +251,7 @@ public class CqGeonamesRepository extends BaseImporter
     {
         return locations.size();
     }
-    
+
     @PostConstruct
     private void init()
     {
@@ -288,19 +259,19 @@ public class CqGeonamesRepository extends BaseImporter
         final File file = new File(getBaseDirectory(), "locations.cq");
         logger.info("Using locations file {}", file.getAbsolutePath());
         this.locations = new ConcurrentIndexedCollection<>(DiskPersistence.onPrimaryKeyInFile(ATTRIBUTE_ID, file));
-        
+
         final DiskIndex<String, GeoLocation, ? extends Comparable<?>> nameIndex = DiskIndex.onAttribute(ATTRIBUTE_LC_NAME);
         locations.addIndex(nameIndex);
-        
+
         final DiskIndex<Long, GeoLocation, ? extends Comparable<?>> populationIndex = DiskIndex.onAttribute(ATTRIBUTE_POPULATION);
         locations.addIndex(populationIndex);
-        
+
         final DiskIndex<String, GeoLocation, ? extends Comparable<?>> featureClassIndex = DiskIndex.onAttribute(ATTRIBUTE_FEATURE_CLASS);
         locations.addIndex(featureClassIndex);
-        
+
         final DiskIndex<String, GeoLocation, ? extends Comparable<?>> featureCodeIndex = DiskIndex.onAttribute(ATTRIBUTE_FEATURE_CODE);
         locations.addIndex(featureCodeIndex);
-        
+
         publish(new DataLoadedEvent(this, DataType.LOCATION, Operation.LOAD, 1, 1));
     }
 

@@ -10,12 +10,12 @@ package com.ethlo.geodata;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -40,7 +40,6 @@ import org.springframework.util.ReflectionUtils;
 import com.fasterxml.classmate.members.ResolvedField;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import springfox.documentation.builders.OperationBuilder;
 import springfox.documentation.builders.ParameterBuilder;
 import springfox.documentation.service.Parameter;
@@ -68,13 +67,12 @@ public class OperationJavadocReader implements OperationBuilderPlugin, ExpandedP
         handlerField.setAccessible(true);
         final Field parametersField = ReflectionUtils.findField(OperationBuilder.class, "parameters");
         parametersField.setAccessible(true);
-        
+
         try
         {
             final RequestMappingContext reqCtx = (RequestMappingContext) requestContextField.get(context);
             final WebMvcRequestHandler handler = (WebMvcRequestHandler) handlerField.get(reqCtx);
-            @SuppressWarnings("unchecked")
-            final List<Parameter> existingParams = (List<Parameter>) parametersField.get(context.operationBuilder());
+            @SuppressWarnings("unchecked") final List<Parameter> existingParams = (List<Parameter>) parametersField.get(context.operationBuilder());
             final Method method = handler.getHandlerMethod().getMethod();
             final String description = getMethodDescription(method);
             context.operationBuilder().summary(description).notes(description);
@@ -85,7 +83,7 @@ public class OperationJavadocReader implements OperationBuilderPlugin, ExpandedP
                 final String paramDesc = getParameterDescription(method, p.getName());
                 parameters.add(new ParameterBuilder().parameterType(p.getParamType()).name(p.getName()).modelRef(p.getModelRef()).description(paramDesc).build());
             }
-            
+
             context.operationBuilder().parameters(parameters);
         }
         catch (IllegalArgumentException | IllegalAccessException | IOException exc)

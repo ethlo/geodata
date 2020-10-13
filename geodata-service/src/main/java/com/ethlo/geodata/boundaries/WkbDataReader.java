@@ -10,12 +10,12 @@ package com.ethlo.geodata.boundaries;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -48,12 +48,12 @@ public class WkbDataReader implements AutoCloseable
     private final Map<Long, Map.Entry<Long, Integer>> offsetMap = new LinkedHashMap<>();
     private RandomAccessFile raf;
     private File file;
-    
+
     public WkbDataReader(File file)
     {
         this.file = file;
         final File indexFile = new File(file.getParentFile(), FileGeonamesBoundaryImporter.BOUNDARIES_FILENAME + ".index");
-        
+
         if (file.exists() && indexFile.exists())
         {
             try
@@ -67,7 +67,7 @@ public class WkbDataReader implements AutoCloseable
             }
         }
     }
-    
+
     private void openFile(File file) throws IOException
     {
         this.raf = new RandomAccessFile(new File(file.getParentFile(), FileGeonamesBoundaryImporter.BOUNDARIES_FILENAME), "r");
@@ -93,7 +93,7 @@ public class WkbDataReader implements AutoCloseable
             }
         }
     }
-    
+
     public byte[] read(long id)
     {
         final Map.Entry<Long, Integer> offsetAndLength = offsetMap.get(id);
@@ -130,9 +130,9 @@ public class WkbDataReader implements AutoCloseable
     @SuppressWarnings("resource")
     public CloseableIterator<Entry<Long, byte[]>> iterator()
     {
-        if (! file.exists())
+        if (!file.exists())
         {
-            return new CloseableIterator<Map.Entry<Long,byte[]>>()
+            return new CloseableIterator<Map.Entry<Long, byte[]>>()
             {
                 @Override
                 public boolean hasNext()
@@ -162,8 +162,8 @@ public class WkbDataReader implements AutoCloseable
         {
             throw new DataAccessResourceFailureException(exc.getMessage(), exc);
         }
-        
-        final Iterator<Map.Entry<Long,byte[]>> closable = new AbstractIterator<Map.Entry<Long,byte[]>>()
+
+        final Iterator<Map.Entry<Long, byte[]>> closable = new AbstractIterator<Map.Entry<Long, byte[]>>()
         {
             @Override
             protected Entry<Long, byte[]> computeNext()

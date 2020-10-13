@@ -1,27 +1,6 @@
 package com.ethlo.geodata.importer.file;
 
 import java.io.BufferedOutputStream;
-/*-
- * #%L
- * geodata
- * %%
- * Copyright (C) 2017 Morten Haraldsen (ethlo)
- * %%
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU General Lesser Public
- * License along with this program.  If not, see
- * <http://www.gnu.org/licenses/lgpl-3.0.html>.
- * #L%
- */
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -58,13 +37,11 @@ import com.google.common.primitives.UnsignedInteger;
 @Component
 public class FileIpLookupImporter extends FilePersistentImporter
 {
-    private static final Logger logger = LoggerFactory.getLogger(FileIpLookupImporter.class);
-
     public static final String FILENAME = "geoip.json";
-    
+    private static final Logger logger = LoggerFactory.getLogger(FileIpLookupImporter.class);
     @Value("${geodata.geolite2.source}")
     private String url;
-    
+
     public FileIpLookupImporter(ApplicationEventPublisher publisher)
     {
         super(publisher, FILENAME);
@@ -75,24 +52,24 @@ public class FileIpLookupImporter extends FilePersistentImporter
     {
         final Map.Entry<Date, File> ipDataFile = super.fetchResource(DataType.IP, url);
         final AtomicInteger count = new AtomicInteger(0);
-        
+
         final File csvFile = ipDataFile.getValue();
         final long total = IoUtils.lineCount(csvFile);
-        final ProgressListener prg = new ProgressListener(l->publish(new DataLoadedEvent(this, DataType.IP, Operation.IMPORT, l, total)));
+        final ProgressListener prg = new ProgressListener(l -> publish(new DataLoadedEvent(this, DataType.IP, Operation.IMPORT, l, total)));
 
         final IpLookupImporter ipLookupImporter = new IpLookupImporter(csvFile);
-        
+
         final JsonFactory f = new JsonFactory();
         f.enable(JsonGenerator.Feature.ESCAPE_NON_ASCII);
         f.disable(JsonGenerator.Feature.AUTO_CLOSE_TARGET);
         final ObjectMapper mapper = new ObjectMapper(f);
-        
+
         final byte newLine = (byte) "\n".charAt(0);
-        
+
         logger.info("Writing IP data to file {}", getFile().getAbsolutePath());
         try (final OutputStream out = new BufferedOutputStream(new FileOutputStream(getFile())))
         {
-            ipLookupImporter.processFile(entry->
+            ipLookupImporter.processFile(entry ->
             {
                 final String strGeoNameId = findMapValue(entry, "geoname_id", "represented_country_geoname_id", "registered_country_geoname_id");
                 final String strGeoNameCountryId = findMapValue(entry, "represented_country_geoname_id", "registered_country_geoname_id");
@@ -108,7 +85,7 @@ public class FileIpLookupImporter extends FilePersistentImporter
                     paramMap.put("geoname_country_id", geonameCountryId);
                     paramMap.put("first", lower);
                     paramMap.put("last", upper);
-                    
+
                     try
                     {
                         mapper.writeValue(out, paramMap);
@@ -118,26 +95,26 @@ public class FileIpLookupImporter extends FilePersistentImporter
                     {
                         throw new DataAccessResourceFailureException(exc.getMessage(), exc);
                     }
-                }                    
+                }
 
                 if (count.get() % 100_000 == 0)
                 {
                     logger.info("Processed {}", count.get());
                 }
-                
+
                 count.getAndIncrement();
-                
+
                 prg.update();
             });
         }
-        
+
         return total;
     }
-    
+
     private String findMapValue(Map<String, String> map, String... needles)
     {
         final Iterator<String> it = Arrays.asList(needles).iterator();
-        
+
         while (it.hasNext())
         {
             final String key = it.next();
@@ -145,7 +122,7 @@ public class FileIpLookupImporter extends FilePersistentImporter
             if (StringUtils.hasLength(val))
             {
                 return val;
-            } 
+            }
         }
         return null;
     }
@@ -161,7 +138,7 @@ public class FileIpLookupImporter extends FilePersistentImporter
     {
         return getLastModified(url);
     }
-    
+
     @Override
     protected List<File> getFiles()
     {

@@ -10,12 +10,12 @@ package com.ethlo.geodata.util;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -45,23 +45,29 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
+import org.springframework.util.Assert;
 import org.zeroturnaround.zip.ZipUtil;
 
 import com.ethlo.geodata.DataLoadedEvent;
 import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.importer.Operation;
-import com.vividsolutions.jts.util.Assert;
 
 public class ResourceUtil
 {
     private static final Logger logger = LoggerFactory.getLogger(ResourceUtil.class);
+
     private final File tmpDir;
-    private ApplicationEventPublisher publisher;
-    
+    private final ApplicationEventPublisher publisher;
+
     public ResourceUtil(ApplicationEventPublisher publisher, File tmpDir)
     {
         this.publisher = publisher;
         this.tmpDir = tmpDir;
+    }
+
+    private static LocalDateTime formatDate(long timestamp)
+    {
+        return LocalDateTime.ofEpochSecond(timestamp / 1_000, 0, ZoneOffset.UTC);
     }
 
     public Date getLastModified(String urlStr) throws IOException
@@ -78,7 +84,7 @@ public class ResourceUtil
     private Resource openConnection(String urlStr) throws IOException
     {
         final String[] urlParts = StringUtils.split(urlStr, "|");
-        
+
         if (urlStr.startsWith("file:"))
         {
             String path = urlParts[0].substring(7);
@@ -97,7 +103,7 @@ public class ResourceUtil
         {
             return new ClassPathResource(urlParts[0].substring(10));
         }
-            
+
         return new UrlResource(urlParts[0]);
     }
 
@@ -113,14 +119,14 @@ public class ResourceUtil
             return fetch(dataType, urlStr);
         }
     }
-    
-    private  Map.Entry<Date,File> fetchZip(DataType dataType, String url, String zipEntry) throws IOException
+
+    private Map.Entry<Date, File> fetchZip(DataType dataType, String url, String zipEntry) throws IOException
     {
         final Resource resource = openConnection(url);
-        return downloadIfNewer(dataType, resource, f->
+        return downloadIfNewer(dataType, resource, f ->
         {
-            final File unzipDir = new File(tmpDir, dataType.name().toLowerCase() + "_unzip"); 
-            ZipUtil.unpack(f.toFile(), unzipDir, name->name.endsWith(zipEntry) ? zipEntry : null, StandardCharsets.UTF_8);
+            final File unzipDir = new File(tmpDir, dataType.name().toLowerCase() + "_unzip");
+            ZipUtil.unpack(f.toFile(), unzipDir, name -> name.endsWith(zipEntry) ? zipEntry : null, StandardCharsets.UTF_8);
             final File file = new File(unzipDir, zipEntry);
             Assert.isTrue(file.exists(), "File " + file + " does not exist");
             return file.toPath();
@@ -129,35 +135,31 @@ public class ResourceUtil
 
     private Entry<Date, File> downloadIfNewer(DataType dataType, Resource resource, CheckedFunction<Path, Path> fun) throws IOException
     {
-        publisher.publishEvent(new DataLoadedEvent(this, dataType, Operation.DOWNLOAD, 0,1));
+        publisher.publishEvent(new DataLoadedEvent(this, dataType, Operation.DOWNLOAD, 0, 1));
         final String alias = dataType.name().toLowerCase();
         final File tmpDownloadedFile = new File(tmpDir, alias);
         final Date remoteLastModified = new Date(resource.lastModified());
         final long localLastModified = tmpDownloadedFile.exists() ? tmpDownloadedFile.lastModified() : -2;
-        logger.info("Local file for alias {}" 
-                        + "\nPath: {}" 
-                        + "\nExists: {}" 
+        logger.info("Local file for alias {}"
+                        + "\nPath: {}"
+                        + "\nExists: {}"
                         + "\nLocal last-modified: {} "
-                        + "\nRemote last modified: {}", 
-                        alias, tmpDownloadedFile.getAbsolutePath(), tmpDownloadedFile.exists(), formatDate(localLastModified), formatDate(remoteLastModified.getTime()));
+                        + "\nRemote last modified: {}",
+                alias, tmpDownloadedFile.getAbsolutePath(), tmpDownloadedFile.exists(), formatDate(localLastModified), formatDate(remoteLastModified.getTime())
+        );
 
-        if (! tmpDownloadedFile.exists() || remoteLastModified.getTime() > localLastModified)
+        if (!tmpDownloadedFile.exists() || remoteLastModified.getTime() > localLastModified)
         {
             logger.info("Downloading {}", resource.getURL());
             Files.copy(resource.getInputStream(), tmpDownloadedFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
             logger.info("Download complete");
         }
-        
+
         final Path preppedFile = fun.apply(tmpDownloadedFile.toPath());
         Files.setLastModifiedTime(tmpDownloadedFile.toPath(), FileTime.fromMillis(remoteLastModified.getTime()));
         Files.setLastModifiedTime(preppedFile, FileTime.fromMillis(remoteLastModified.getTime()));
-        publisher.publishEvent(new DataLoadedEvent(this, dataType, Operation.DOWNLOAD, 1,1));
+        publisher.publishEvent(new DataLoadedEvent(this, dataType, Operation.DOWNLOAD, 1, 1));
         return new AbstractMap.SimpleEntry<>(new Date(remoteLastModified.getTime()), preppedFile.toFile());
-    }
-
-    private static LocalDateTime formatDate(long timestamp)
-    {
-        return LocalDateTime.ofEpochSecond(timestamp / 1_000, 0, ZoneOffset.UTC);
     }
 
     private Entry<Date, File> fetch(DataType dataType, String url) throws IOException

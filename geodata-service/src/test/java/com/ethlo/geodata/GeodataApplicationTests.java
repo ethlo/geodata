@@ -10,12 +10,12 @@ package com.ethlo.geodata;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -25,7 +25,6 @@ package com.ethlo.geodata;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
-import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.Date;
 
@@ -54,29 +53,29 @@ import com.ethlo.geodata.model.GeoLocationDistance;
 @Ignore
 @RunWith(SpringRunner.class)
 @SpringBootTest
-@TestPropertySource(locations="classpath:test-application.properties")
+@TestPropertySource(locations = "classpath:test-application.properties")
 @ActiveProfiles("test")
-@TestExecutionListeners(inheritListeners=false, listeners={DependencyInjectionTestExecutionListener.class})
+@TestExecutionListeners(inheritListeners = false, listeners = {DependencyInjectionTestExecutionListener.class})
 public class GeodataApplicationTests
 {
     private static boolean initialized = false;
-    
+
     @Autowired
     private GeodataService geodataService;
-    
+
     @Autowired
     private GeoMetaService geoMetaService;
-    
+
     @Before
-    public void contextLoads() throws IOException, SQLException
+    public void contextLoads() throws IOException
     {
-        if (! initialized)
+        if (!initialized)
         {
             geoMetaService.update();
             initialized = true;
         }
     }
-    
+
     @Test
     @Transactional
     public void metadataTest() throws IOException
@@ -93,7 +92,7 @@ public class GeodataApplicationTests
         geoMetaService.setSourceDataInfo(DataType.COUNTRY, expected, 123);
         assertThat(geoMetaService.getLastModified(DataType.COUNTRY)).isEqualTo(expected.getTime());
     }
-    
+
     @Test
     public void testQueryForLocationByIp()
     {
@@ -105,14 +104,14 @@ public class GeodataApplicationTests
     {
         assertThat(geodataService.findById(1581130)).isNotNull();
     }
-        
+
     @Test
     public void testQueryForNearestLocationByPoint()
     {
-        final Page<GeoLocationDistance> location = geodataService.findNear(Coordinates.from(10, 64), 100, new PageRequest(0, 10));
+        final Page<GeoLocationDistance> location = geodataService.findNear(Coordinates.from(10, 64), 100, PageRequest.of(0, 10));
         assertThat(location).isNotNull();
     }
-    
+
     @Test
     public void testQueryForPointInsideArea()
     {
@@ -123,48 +122,48 @@ public class GeodataApplicationTests
     @Test
     public void testListCountriesOnContinentAfrica()
     {
-        final Page<Country> countriesInAfrica = geodataService.findCountriesOnContinent("AF", new PageRequest(0, 100));
+        final Page<Country> countriesInAfrica = geodataService.findCountriesOnContinent("AF", PageRequest.of(0, 100));
         assertThat(countriesInAfrica).isNotNull();
         assertThat(countriesInAfrica).hasSize(58);
     }
-    
+
     @Test
     public void testListCountriesOnContinentEurope()
     {
-        final Page<Country> countriesInEurope = geodataService.findCountriesOnContinent("EU", new PageRequest(0, 100));
+        final Page<Country> countriesInEurope = geodataService.findCountriesOnContinent("EU", PageRequest.of(0, 100));
         assertThat(countriesInEurope).isNotNull();
         assertThat(countriesInEurope).hasSize(54);
     }
-    
+
     @Test
     public void testListCountriesOnContinentEuropeWithLimit()
     {
-        final Page<Country> countriesInEurope = geodataService.findCountriesOnContinent("EU", new PageRequest(0, 10));
+        final Page<Country> countriesInEurope = geodataService.findCountriesOnContinent("EU", PageRequest.of(0, 10));
         assertThat(countriesInEurope).isNotNull();
         assertThat(countriesInEurope).hasSize(10);
     }
-    
+
     @Test
     public void testGetCountryByCode()
     {
         final Country country = geodataService.findCountryByCode("NO");
         assertThat(country).isNotNull();
     }
-    
+
     @Test
     public void testListContinents()
     {
         final Page<Continent> continents = geodataService.findContinents();
         assertThat(continents).hasSize(7);
     }
-    
+
     @Test
     public void testListChildrenOfCountry()
     {
-        final Page<GeoLocation> counties = geodataService.findChildren("No", new PageRequest(0, 20));
+        final Page<GeoLocation> counties = geodataService.findChildren("No", PageRequest.of(0, 20));
         assertThat(counties).hasSize(19);
     }
-    
+
     @Test
     public void testQueryForBoundaries()
     {

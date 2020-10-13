@@ -10,12 +10,12 @@ package com.ethlo.geodata.restdocs;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -36,12 +36,12 @@ import org.springframework.web.method.HandlerMethod;
 public class ResponseSchemaSnippet extends AbstractJacksonFieldSnippet
 {
     public static final String NAME = "response-schema";
-    
+
     public ResponseSchemaSnippet()
     {
         super(NAME, Collections.emptyMap());
     }
-    
+
     @Override
     public String getFileName()
     {
@@ -79,17 +79,28 @@ public class ResponseSchemaSnippet extends AbstractJacksonFieldSnippet
     protected Type getType(HandlerMethod method)
     {
         Class<?> returnType = method.getReturnType().getParameterType();
-        if (returnType == ResponseEntity.class) {
+        if (returnType == ResponseEntity.class)
+        {
             return firstGenericType(method.getReturnType());
-        } else if (returnType == HttpEntity.class) {
+        }
+        else if (returnType == HttpEntity.class)
+        {
             return firstGenericType(method.getReturnType());
-        } else if (returnType == Page.class) {
+        }
+        else if (returnType == Page.class)
+        {
             return firstGenericType(method.getReturnType());
-        } else if (isCollection(returnType)) {
+        }
+        else if (isCollection(returnType))
+        {
             return firstGenericType(method.getReturnType());
-        } else if ("void".equals(returnType.getName())) {
+        }
+        else if ("void".equals(returnType.getName()))
+        {
             return null;
-        } else {
+        }
+        else
+        {
             return returnType;
         }
     }

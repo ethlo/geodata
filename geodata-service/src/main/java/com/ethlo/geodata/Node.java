@@ -10,12 +10,12 @@ package com.ethlo.geodata;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -29,9 +29,9 @@ import java.util.stream.Collectors;
 public class Node implements Comparable<Node>
 {
     private Long id;
-    
+
     private Set<Node> children;
-    
+
     private Node parent;
 
     public Node(Long id)
@@ -43,11 +43,6 @@ public class Node implements Comparable<Node>
     public void addChild(Node child)
     {
         this.children.add(child);
-    }
-
-    public void setParent(Node parent)
-    {
-        this.parent = parent;
     }
 
     public Long getId()
@@ -64,7 +59,12 @@ public class Node implements Comparable<Node>
     {
         return parent;
     }
-    
+
+    public void setParent(Node parent)
+    {
+        this.parent = parent;
+    }
+
     @Override
     public int hashCode()
     {
@@ -90,9 +90,9 @@ public class Node implements Comparable<Node>
     @Override
     public String toString()
     {
-        return "Node [" + (id != null ? "id=" + id + ", " : "") + 
-            (children != null ? "children=" + children.stream().map(c->c.getId().toString()).collect(Collectors.joining(",")) : "") + 
-            (parent != null ? "parent=" + parent.getId() : "") + "]";
+        return "Node [" + (id != null ? "id=" + id + ", " : "") +
+                (children != null ? "children=" + children.stream().map(c -> c.getId().toString()).collect(Collectors.joining(",")) : "") +
+                (parent != null ? "parent=" + parent.getId() : "") + "]";
     }
 
     @Override

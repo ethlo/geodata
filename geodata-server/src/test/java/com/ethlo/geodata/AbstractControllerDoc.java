@@ -3,29 +3,6 @@ package com.ethlo.geodata;
 import java.io.IOException;
 import java.sql.SQLException;
 
-/*-
- * #%L
- * geodata-server
- * %%
- * Copyright (C) 2017 Morten Haraldsen (ethlo)
- * %%
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Lesser Public License for more details.
- * 
- * You should have received a copy of the GNU General Lesser Public
- * License along with this program.  If not, see
- * <http://www.gnu.org/licenses/lgpl-3.0.html>.
- * #L%
- */
-
-
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.runner.RunWith;
@@ -46,54 +23,49 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
-import com.ethlo.geodata.restdocs.RequestSchemaSnippet;
-import com.ethlo.geodata.restdocs.ResponseSchemaSnippet;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import capital.scalable.restdocs.AutoDocumentation;
 import capital.scalable.restdocs.SnippetRegistry;
 import capital.scalable.restdocs.jackson.JacksonResultHandlers;
 import capital.scalable.restdocs.response.ResponseModifyingPreprocessors;
+import com.ethlo.geodata.restdocs.RequestSchemaSnippet;
+import com.ethlo.geodata.restdocs.ResponseSchemaSnippet;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = RestGeodataApplication.class)
 @WebAppConfiguration
 @ActiveProfiles("test")
-@TestPropertySource(locations="classpath:test-application.properties")
-@TestExecutionListeners(inheritListeners=false, listeners={DependencyInjectionTestExecutionListener.class})
+@TestPropertySource(locations = "classpath:test-application.properties")
+@TestExecutionListeners(inheritListeners = false, listeners = {DependencyInjectionTestExecutionListener.class})
 public abstract class AbstractControllerDoc
 {
+    private static boolean initialized = false;
+    private static boolean loaded = false;
     @Rule
     public final JUnitRestDocumentation restDocumentation = new JUnitRestDocumentation("target/generated-snippets");
-
+    protected MockMvc mockMvc;
     @Autowired
     private WebApplicationContext context;
-    
     @Autowired
     private GeoMetaService geoMetaService;
 
-    protected MockMvc mockMvc;
-
-    private static boolean initialized = false;
-    private static boolean loaded = false;
-    
     @Before
     public void contextLoads() throws IOException, SQLException
     {
-        if (! initialized)
+        if (!initialized)
         {
             geoMetaService.update();
             initialized = true;
         }
 
         final GeodataServiceImpl impl = context.getBean(GeodataServiceImpl.class);
-        if (! loaded)
+        if (!loaded)
         {
             impl.load();
             loaded = true;
         }
     }
-    
+
     @Before
     public void setUp() throws Exception
     {
@@ -106,7 +78,9 @@ public abstract class AbstractControllerDoc
                         Preprocessors.preprocessResponse(
                                 ResponseModifyingPreprocessors.replaceBinaryContent(),
                                 ResponseModifyingPreprocessors.limitJsonArrayLength(objectMapper),
-                                Preprocessors.prettyPrint())))
+                                Preprocessors.prettyPrint()
+                        )
+                ))
                 .apply(MockMvcRestDocumentation.documentationConfiguration(restDocumentation)
                         .uris()
                         .withScheme("http")
@@ -114,27 +88,29 @@ public abstract class AbstractControllerDoc
                         .withPort(8080)
                         .and().snippets()
                         .withDefaults(
-                            CliDocumentation.curlRequest(),
-                            new RequestSchemaSnippet(),
-                            new ResponseSchemaSnippet(),
-                            HttpDocumentation.httpRequest(),
-                            HttpDocumentation.httpResponse(),
-                            AutoDocumentation.pathParameters(),
-                            AutoDocumentation.requestParameters(),
-                            AutoDocumentation.description(),
-                            AutoDocumentation.methodAndPath(),
-                            AutoDocumentation.sectionBuilder()
-                            .snippetNames(
-                                SnippetRegistry.CURL_REQUEST,
-                                SnippetRegistry.PATH_PARAMETERS,
-                                SnippetRegistry.REQUEST_PARAMETERS,
-                                SnippetRegistry.REQUEST_FIELDS,
-                                "request-schema",
-                                SnippetRegistry.RESPONSE_FIELDS,
-                                "response-schema",
-                                SnippetRegistry.HTTP_RESPONSE)
-                            .skipEmpty(true) 
-                            .build()))
+                                CliDocumentation.curlRequest(),
+                                new RequestSchemaSnippet(),
+                                new ResponseSchemaSnippet(),
+                                HttpDocumentation.httpRequest(),
+                                HttpDocumentation.httpResponse(),
+                                AutoDocumentation.pathParameters(),
+                                AutoDocumentation.requestParameters(),
+                                AutoDocumentation.description(),
+                                AutoDocumentation.methodAndPath(),
+                                AutoDocumentation.sectionBuilder()
+                                        .snippetNames(
+                                                SnippetRegistry.CURL_REQUEST,
+                                                SnippetRegistry.PATH_PARAMETERS,
+                                                SnippetRegistry.REQUEST_PARAMETERS,
+                                                SnippetRegistry.REQUEST_FIELDS,
+                                                "request-schema",
+                                                SnippetRegistry.RESPONSE_FIELDS,
+                                                "response-schema",
+                                                SnippetRegistry.HTTP_RESPONSE
+                                        )
+                                        .skipEmpty(true)
+                                        .build()
+                        ))
                 .build();
     }
 }

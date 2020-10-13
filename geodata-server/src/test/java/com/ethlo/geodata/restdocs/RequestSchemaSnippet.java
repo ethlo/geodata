@@ -10,12 +10,12 @@ package com.ethlo.geodata.restdocs;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -41,7 +41,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 public class RequestSchemaSnippet extends AbstractJacksonFieldSnippet
 {
     public static final String NAME = "request-schema";
-    
+
     protected final SnippetSchemaGenerator jsonSchemaGenerator;
 
     public RequestSchemaSnippet()
@@ -49,7 +49,7 @@ public class RequestSchemaSnippet extends AbstractJacksonFieldSnippet
         super(NAME, Collections.emptyMap());
         this.jsonSchemaGenerator = new SnippetSchemaGenerator();
     }
-    
+
     @Override
     public String getFileName()
     {
@@ -70,9 +70,9 @@ public class RequestSchemaSnippet extends AbstractJacksonFieldSnippet
         model.put("request", "");
         if (isPutOrPost(operation))
         {
-            final Class<?> requestBodyType = (Class<?>)getType(method);
+            final Class<?> requestBodyType = (Class<?>) getType(method);
             final ObjectNode schema = (ObjectNode) getSchema(operation, requestBodyType, false);
-            
+
             try
             {
                 model.put("request", objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(schema));
@@ -85,11 +85,13 @@ public class RequestSchemaSnippet extends AbstractJacksonFieldSnippet
         return model;
     }
 
-    private boolean isRequestBody(MethodParameter param) {
+    private boolean isRequestBody(MethodParameter param)
+    {
         return param.getParameterAnnotation(RequestBody.class) != null;
     }
 
-    private boolean isModelAttribute(MethodParameter param) {
+    private boolean isModelAttribute(MethodParameter param)
+    {
         return param.getParameterAnnotation(ModelAttribute.class) != null;
     }
 
@@ -101,24 +103,32 @@ public class RequestSchemaSnippet extends AbstractJacksonFieldSnippet
     @Override
     protected Type getType(HandlerMethod method)
     {
-        for (MethodParameter param : method.getMethodParameters()) {
-            if (isRequestBody(param) || isModelAttribute(param)) {
+        for (MethodParameter param : method.getMethodParameters())
+        {
+            if (isRequestBody(param) || isModelAttribute(param))
+            {
                 return getType(param);
             }
         }
         return null;
     }
-    
-    private Type getType(final MethodParameter param) {
-        if (super.isCollection(param.getParameterType())) {
-            return new GenericArrayType() {
+
+    private Type getType(final MethodParameter param)
+    {
+        if (super.isCollection(param.getParameterType()))
+        {
+            return new GenericArrayType()
+            {
 
                 @Override
-                public Type getGenericComponentType() {
+                public Type getGenericComponentType()
+                {
                     return firstGenericType(param);
                 }
             };
-        } else {
+        }
+        else
+        {
             return param.getParameterType();
         }
     }
