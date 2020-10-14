@@ -25,6 +25,7 @@ package com.ethlo.geodata;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.Date;
 
@@ -59,7 +60,7 @@ public class GeodataApplicationTests
     private GeoMetaService geoMetaService;
 
     @Before
-    public void contextLoads() throws IOException
+    public void contextLoads() throws IOException, SQLException
     {
         if (!initialized)
         {
@@ -155,6 +156,13 @@ public class GeodataApplicationTests
     public void testListChildrenOfCountry()
     {
         final Page<GeoLocation> counties = geodataService.findChildren("No", PageRequest.of(0, 20));
+        assertThat(counties).hasSize(11);
+    }
+
+    @Test
+    public void testListChildrenOfLocationId()
+    {
+        final Page<GeoLocation> counties = geodataService.findChildren(3143244, PageRequest.of(0, 20));
         assertThat(counties).hasSize(11);
     }
 

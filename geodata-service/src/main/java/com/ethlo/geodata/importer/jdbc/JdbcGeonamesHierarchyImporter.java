@@ -33,6 +33,7 @@ import java.util.TreeMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -75,7 +76,18 @@ public class JdbcGeonamesHierarchyImporter implements PersistentImporter
                 final Map<String, Object> params = new TreeMap<>();
                 params.put("id", id);
                 params.put("parent_id", parentId);
-                jdbcTemplate.update("INSERT INTO geohierarchy (id, parent_id) VALUES(:id, :parent_id)", params);
+
+                // TODO: Understand how these hierarchies work as there are some duplicated ones
+
+                // TODO: Make this batch inserts
+                try
+                {
+                    jdbcTemplate.update("INSERT INTO geohierarchy (id, parent_id) VALUES(:id, :parent_id)", params);
+                }
+                catch (DuplicateKeyException ignored)
+                {
+
+                }
             }
         }
     }

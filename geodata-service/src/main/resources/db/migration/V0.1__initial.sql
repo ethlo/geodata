@@ -30,9 +30,9 @@ create table geocountry
 create table geohierarchy
 (
     id        int unsigned not null,
-    parent_id int unsigned not null
+    parent_id int unsigned not null,
+    primary key (id)
 );
-
 
 create table geonames
 (
@@ -46,6 +46,10 @@ create table geonames
     elevation_meters int,
     timezone         varchar(40),
     last_modified    date,
+    admin_code1      varchar(20),
+    admin_code2      varchar(80),
+    admin_code3      varchar(20),
+    admin_code4      varchar(20),
     lat              double not null,
     lng              double not null,
     coord            point  not null
@@ -66,10 +70,8 @@ create table geoip
 );
 
 -- InnoDB only
-ALTER TABLE geoip
-    ADD CONSTRAINT fk_geoname_id FOREIGN KEY (geoname_id) REFERENCES `geonames` (`id`);
-ALTER TABLE geoip
-    ADD CONSTRAINT fk_geoname_country_id FOREIGN KEY (geoname_country_id) REFERENCES `geonames` (`id`);
+-- ALTER TABLE geoip ADD CONSTRAINT fk_geoname_id FOREIGN KEY (geoname_id) REFERENCES `geonames` (`id`);
+-- ALTER TABLE geoip ADD CONSTRAINT fk_geoname_country_id FOREIGN KEY (geoname_country_id) REFERENCES `geonames` (`id`);
 
 CREATE INDEX idx_range ON geoip (first, last);
 

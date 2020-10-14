@@ -10,12 +10,12 @@ package com.ethlo.geodata;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -48,35 +48,35 @@ public class GeoMetaService
 {
     @Autowired
     private JdbcCountryImporter countryImporter;
-    
+
     @Autowired
     private JdbcIpLookupImporter ipLookupImporter;
-    
+
     @Autowired
     private JdbcGeonamesImporter geonamesImporter;
-    
+
     @Autowired
     private JdbcGeonamesBoundaryImporter boundaryImporter;
-    
+
     @Autowired
     private JdbcGeonamesHierarchyImporter hierarchyImporter;
-    
+
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
-    
+
     private long maxDataAgeMillis;
-    
+
     @Value("${geodata.max-data-age}")
     public void setMaxDataAge(String age)
     {
-    	final Duration d = Duration.parse("P" + age);
-    	maxDataAgeMillis = d.toMillis();
+        final Duration d = Duration.parse("P" + age);
+        maxDataAgeMillis = d.toMillis();
     }
-    
+
     public long getLastModified(String alias)
     {
         final String sql = "SELECT last_modified from metadata where alias = :alias";
-        return jdbcTemplate.query(sql, Collections.singletonMap("alias", alias), rs->
+        return jdbcTemplate.query(sql, Collections.singletonMap("alias", alias), rs ->
         {
             if (rs.next())
             {
@@ -85,7 +85,7 @@ public class GeoMetaService
             return 0L;
         });
     }
-    
+
     public void setLastModified(String alias, Date lastModified) throws IOException
     {
         final String sql = "REPLACE INTO `metadata` (`alias`, `last_modified`) VALUES (:alias, :last_modified)";
@@ -95,7 +95,7 @@ public class GeoMetaService
         jdbcTemplate.update(sql, params);
     }
 
-    public void update() throws IOException
+    public void update() throws IOException, SQLException
     {
         final Date countryTimestamp = countryImporter.lastRemoteModified();
         if (countryTimestamp.getTime() > getLastModified("geonames_country") + maxDataAgeMillis)
@@ -104,15 +104,15 @@ public class GeoMetaService
             countryImporter.importData();
             setLastModified("geonames_country", countryTimestamp);
         }
-        
-        final Date geonamesHierarchyTimestamp = hierarchyImporter.lastRemoteModified();
+
+        /*final Date geonamesHierarchyTimestamp = hierarchyImporter.lastRemoteModified();
         if (geonamesHierarchyTimestamp.getTime() > getLastModified("geonames_hierarchy") + maxDataAgeMillis)
         {
             hierarchyImporter.purge();
             hierarchyImporter.importData();
             setLastModified("geonames_hierarchy", geonamesHierarchyTimestamp);
-        }
-        
+        }*/
+
         final Date geonamesTimestamp = geonamesImporter.lastRemoteModified();
         if (geonamesTimestamp.getTime() > getLastModified("geonames") + maxDataAgeMillis)
         {
@@ -129,7 +129,7 @@ public class GeoMetaService
             setLastModified("geoboundaries", boundariesTimestamp);
         }
         */
-        
+
         final Date ipTimestamp = ipLookupImporter.lastRemoteModified();
         if (ipTimestamp.getTime() > getLastModified("geoip") + maxDataAgeMillis)
         {
@@ -150,7 +150,7 @@ public class GeoMetaService
                 retVal.put(rs.getString("alias"), rs.getTimestamp("last_modified"));
                 return null;
             }
-            
+
         });
         return retVal;
     }

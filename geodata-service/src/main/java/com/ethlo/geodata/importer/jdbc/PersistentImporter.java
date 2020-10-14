@@ -23,13 +23,14 @@ package com.ethlo.geodata.importer.jdbc;
  */
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.Date;
 
 public interface PersistentImporter
 {
     void purge() throws IOException;
     
-    void importData() throws IOException;
+    void importData() throws IOException, SQLException;
     
     Date lastRemoteModified() throws IOException;
 }

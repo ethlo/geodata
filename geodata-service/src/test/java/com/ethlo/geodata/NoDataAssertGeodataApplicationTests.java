@@ -63,7 +63,7 @@ public class NoDataAssertGeodataApplicationTests
     private GeoMetaService geoMetaService;
 
     @Before
-    public void contextLoads() throws IOException
+    public void contextLoads() throws IOException, SQLException
     {
         if (!initialized)
         {

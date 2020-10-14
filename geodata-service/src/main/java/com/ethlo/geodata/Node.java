@@ -114,7 +114,7 @@ public class Node
     public String toString()
     {
         return "Node [" + (id != null ? "id=" + id + ", " : "") + 
-            (children != null ? "children=" + children.stream().map(c->c.getId().toString()).collect(Collectors.joining(",")) : "") + 
+            "children=" + children.stream().map(c->c.getId().toString()).collect(Collectors.joining(",")) + ", " +
             (parent != null ? "parent=" + parent.getId() : "") + "]";
     }
 }

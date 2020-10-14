@@ -22,25 +22,24 @@ package com.ethlo.geodata;
  * #L%
  */
 
-import java.io.File;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.InetAddress;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import javax.annotation.Nonnull;
+import javax.sql.DataSource;
 import javax.validation.Valid;
 
 import org.locationtech.jts.geom.Envelope;
@@ -62,8 +61,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
-import com.ethlo.geodata.importer.HierarchyImporter;
+import com.ethlo.geodata.importer.jdbc.MysqlCursorUtil;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
@@ -73,7 +73,6 @@ import com.ethlo.geodata.model.GeoLocationDistance;
 import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.util.GeometryUtil;
 import com.google.common.base.Stopwatch;
-import com.google.common.io.Files;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
 
@@ -100,13 +99,16 @@ public class GeodataServiceImpl implements GeodataService
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private DataSource dataSource;
+
     private List<Continent> continents;
     private Map<Long, Node> nodes;
     private Map<String, Country> countries;
     private final RowMapper<Country> COUNTRY_INFO_MAPPER = new RowMapper<Country>()
     {
         @Override
-        public Country mapRow(ResultSet rs, int rowNum) throws SQLException
+        public Country mapRow(@Nonnull ResultSet rs, int rowNum) throws SQLException
         {
             final GeoLocation location = new GeoLocation();
             mapLocation(location, rs);
@@ -118,7 +120,7 @@ public class GeodataServiceImpl implements GeodataService
     private final RowMapper<GeoLocation> GEONAMES_ROW_MAPPER = new RowMapper<GeoLocation>()
     {
         @Override
-        public GeoLocation mapRow(ResultSet rs, int rowNum) throws SQLException
+        public GeoLocation mapRow(@Nonnull ResultSet rs, int rowNum) throws SQLException
         {
             final GeoLocation location = new GeoLocation();
             mapLocation(location, rs);
@@ -171,6 +173,9 @@ public class GeodataServiceImpl implements GeodataService
 
     @Value("${geodata.boundaries.quality}")
     private int qualityConstant;
+
+    @Autowired
+    private TransactionTemplate txnTemplate;
 
     @Override
     public GeoLocation findByIp(String ip)
@@ -265,7 +270,8 @@ public class GeodataServiceImpl implements GeodataService
     {
         if (this.locationCount == null)
         {
-            locationCount = jdbcTemplate.queryForObject(geoNamesCountSql, Collections.emptyMap(), Long.class);
+            final Long result = jdbcTemplate.queryForObject(geoNamesCountSql, Collections.emptyMap(), Long.class);
+            locationCount = result != null ? result : 0;
         }
         return locationCount;
     }
@@ -358,7 +364,7 @@ public class GeodataServiceImpl implements GeodataService
                 .map(Node::getId)
                 .collect(Collectors.toList());
         final List<GeoLocation> locations = findByIds(ids);
-        locations.sort((a, b) -> a.getName().compareTo(b.getName()));
+        locations.sort(Comparator.comparing(GeoLocation::getName));
         return new PageImpl<>(locations, pageable, total);
     }
 
@@ -370,9 +376,9 @@ public class GeodataServiceImpl implements GeodataService
             {
                 loadHierarchy();
             }
-            catch (IOException exc)
+            catch (SQLException exc)
             {
-                throw new DataAccessResourceFailureException(exc.getMessage(), exc);
+                throw new RuntimeException(exc);
             }
         }
     }
@@ -462,58 +468,38 @@ public class GeodataServiceImpl implements GeodataService
         return 0;
     }
 
-    public void loadHierarchy()
+    public void loadHierarchy() throws SQLException
     {
-        nodes = new HashMap<>();
         final Map<Long, Long> childToParent = new HashMap<>();
-
         final String sql = "SELECT id, parent_id FROM geohierarchy";
-        jdbcTemplate.query(sql, rs ->
+        new MysqlCursorUtil(dataSource).query(sql, Collections.emptyMap(), rs ->
         {
-            while (rs.next())
+            try
             {
-                final long id = rs.getLong("id");
-                final long parentId = rs.getLong("parent_id");
-                childToParent.put(id, parentId);
+                while (rs.next())
+                {
+                    final long id = rs.getLong("id");
+                    final long parentId = rs.getLong("parent_id");
+                    childToParent.put(id, parentId);
+                }
             }
-            return null;
-        });
-
-        /*
-        new HierarchyImporter(hierarchyFile).processFile(r ->
-        {
-            final long parentId = Long.parseLong(r.get("parent_id"));
-            final long childId = Long.parseLong(r.get("child_id"));
-            final Node parent = nodes.getOrDefault(parentId, new Node(parentId));
-            final Node child = nodes.getOrDefault(childId, new Node(childId));
-            nodes.put(parent.getId(), parent);
-            nodes.put(child.getId(), child);
-
-            childToParent.put(childId, parentId);
-        });
-
-        // Connect children directly to continents
-        jdbcTemplate.query("SELECT * FROM geocountry", new RowMapper<Object>()
-        {
-            @Override
-            public Object mapRow(ResultSet rs, int rowNum) throws SQLException
+            catch (SQLException exc)
             {
-                final Long id = CONTINENT_IDS.get(rs.getString("continent"));
-                childToParent.put(rs.getLong("geoname_id"), id);
-                return null;
+                throw new RuntimeException(exc);
             }
         });
 
-        // Process hierarchy after, as we do not know the order of the pairs
-        childToParent.forEach((key, value) -> {
-            final long child = key;
-            final long parent = value;
-            final Node childNode = nodes.get(child);
-            final Node parentNode = nodes.get(parent);
+        // Build node hierarchy
+        nodes = new HashMap<>(childToParent.size());
+        childToParent.forEach((child, parent) ->
+        {
+            final Node childNode = nodes.computeIfAbsent(child, Node::new);
+            final Node parentNode = nodes.computeIfAbsent(parent, Node::new);
             parentNode.addChild(childNode);
             childNode.setParent(parentNode);
         });
-        */
+
+        logger.info("Loaded node hierarchy of {} locations", nodes.size());
     }
 
     @Override

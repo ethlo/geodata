@@ -45,8 +45,6 @@ public class GeonamesImporter implements DataImporter
 
     private final Set<String> exclusions;
 
-    private final boolean onlyHierarchical;
-
     private final File allCountriesFile;
 
     private final File hierarchyFile;
@@ -56,7 +54,6 @@ public class GeonamesImporter implements DataImporter
     private GeonamesImporter(Builder builder)
     {
         this.exclusions = builder.exclusions;
-        this.onlyHierarchical = builder.onlyHierarchical;
         this.allCountriesFile = builder.allCountriesFile;
         this.hierarchyFile = builder.hierarchyFile;
         this.alternateNamesFile = builder.alternateNamesFile;
@@ -66,14 +63,12 @@ public class GeonamesImporter implements DataImporter
     public void processFile(Consumer<Map<String, String>> sink) throws IOException
     {
         final Map<Long, Long> childToParentMap = new HashMap<>();
-        final Set<Long> inHierarchy = new TreeSet<>();
+
         if (hierarchyFile != null)
         {
             new HierarchyImporter(hierarchyFile).processFile(h ->
             {
                 childToParentMap.put(Long.parseLong(h.get("child_id")), Long.parseLong(h.get("parent_id")));
-                inHierarchy.add(Long.parseLong(h.get("child_id")));
-                inHierarchy.add(Long.parseLong(h.get("parent_id")));
             });
         }
 
@@ -100,7 +95,6 @@ public class GeonamesImporter implements DataImporter
                     final Long parent = childToParentMap.get(id);
 
                     paramMap.put("id", stripToNull(entry[0]));
-                    paramMap.put("parent_id", parent != null ? parent.toString() : null);
 
                     final String preferredName = preferredNames.get(id);
 
@@ -110,13 +104,29 @@ public class GeonamesImporter implements DataImporter
                     paramMap.put("poly", "POINT(" + lat + " " + lng + ")");
                     paramMap.put("feature_class", stripToNull(entry[6]));
                     paramMap.put("feature_code", featureCode);
+
                     paramMap.put("country_code", stripToNull(entry[8]));
+
+                    final String adminCode1 = stripToNull(entry[10]);
+                    final String adminCode2 = stripToNull(entry[11]);
+                    final String adminCode3 = stripToNull(entry[12]);
+                    final String adminCode4 = stripToNull(entry[13]);
+
+                    paramMap.put("admin_code1", adminCode1);
+                    paramMap.put("admin_code2", adminCode2);
+                    paramMap.put("admin_code3", adminCode3);
+                    paramMap.put("admin_code4", adminCode4);
+
+                    paramMap.put("parent_id", parent != null ? parent.toString() : null);
+
                     paramMap.put("population", stripToNull(entry[14]));
                     paramMap.put("elevation_meters", stripToNull(entry[15]));
                     paramMap.put("timezone", stripToNull(entry[17]));
-                    paramMap.put("last_modified", null); // TODO: stripToNull(entry[18]));
 
-                    if (isIncluded(featureCode) && (!onlyHierarchical || inHierarchy.contains(id)))
+                    final String modifiedStr = stripToNull(entry[18]);
+                    paramMap.put("last_modified", modifiedStr);
+
+                    if (isIncluded(featureCode))
                     {
                         sink.accept(paramMap);
                     }
@@ -193,19 +203,12 @@ public class GeonamesImporter implements DataImporter
     {
         public File alternateNamesFile;
         private Set<String> exclusions;
-        private boolean onlyHierarchical;
         private File allCountriesFile;
         private File hierarchyFile;
 
         public Builder exclusions(Set<String> exclusions)
         {
             this.exclusions = exclusions;
-            return this;
-        }
-
-        public Builder onlyHierarchical(boolean onlyHierarchical)
-        {
-            this.onlyHierarchical = onlyHierarchical;
             return this;
         }
 
