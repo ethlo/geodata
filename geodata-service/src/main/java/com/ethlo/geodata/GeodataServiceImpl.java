@@ -353,6 +353,10 @@ public class GeodataServiceImpl implements GeodataService
         loadNodes();
 
         final Node node = nodes.get(locationId);
+        if (node == null)
+        {
+            throw new EmptyResultDataAccessException("No location with id " + locationId + " found", 1);
+        }
         final long total = node.getChildren().size();
         final List<Long> ids = node.getChildren()
                 .stream()

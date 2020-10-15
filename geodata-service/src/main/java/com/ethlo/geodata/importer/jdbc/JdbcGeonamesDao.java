@@ -2,14 +2,16 @@ package com.ethlo.geodata.importer.jdbc;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.sql.DataSource;
 
-import org.locationtech.jts.util.Assert;
+import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,15 +32,14 @@ public class JdbcGeonamesDao
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
 
-    public static String getNulled(final String[] strings, int offset)
+    public static String nullAfterOffset(final String[] strings, int offset)
     {
-        Assert.isTrue(offset >= 1, "offset must be 1 or greater");
-        //final String[] copy = Arrays.copyOf(strings, strings.length);
-        for (int i = offset; i < strings.length; i++)
+        final String[] copy = Arrays.copyOf(strings, strings.length);
+        for (int i = offset + 1; i < copy.length; i++)
         {
-            strings[i] = null;
+            copy[i] = null;
         }
-        return StringUtils.arrayToDelimitedString(strings, "|");
+        return StringUtils.arrayToDelimitedString(copy, "|");
     }
 
     public Map<Long, Long> buildHierarchyDataFromAdminCodes() throws SQLException
@@ -89,15 +90,15 @@ public class JdbcGeonamesDao
                 {
                     final long id = rs.getLong("id");
                     final String name = rs.getString("name");
+                    final String featureCode = rs.getString("feature_code");
                     final String countryCode = rs.getString("country_code");
                     final String[] adminCodeArray = getAdminCodeArray(rs);
 
-                    logger.debug("Finding parent of {} {} {}", id, name, countryCode);
-                    Long parentId = getParentId(countryToId, cache, countryCode, adminCodeArray);
+                    //logger.info("Finding parent of {} {} {} {}", id, name, countryCode, featureCode);
+                    Long parentId = getParentId(id, featureCode, countryToId, cache, countryCode, adminCodeArray).orElse(null);
 
                     if (parentId == null)
                     {
-                        logger.debug("No parent for {}", id);
                         noMatch.incrementAndGet();
                     }
                     else if (id == parentId)
@@ -138,46 +139,51 @@ public class JdbcGeonamesDao
         }
     }
 
-    private Long getParentId(final Map<String, Long> countryToId, final Map<String, Long> cache, final String countryCode, final String[] adminCodeArray)
+    private Optional<Long> getParentId(final long id, final String featureCode, final Map<String, Long> countryToId, final Map<String, Long> cache, final String countryCode, final String[] adminCodeArray)
     {
-        final int start = indexOf(adminCodeArray);
+        String adminLevelCode;
+        String adminCodes;
 
-        if (start == 0)
+        if (ArrayUtils.contains(adminCodeLevels, featureCode))
         {
-            return countryToId.get(countryCode);
-        }
-
-        for (int i = start; i > 0; i--)
-        {
-            final String currentFeatureCode = getFeatureCode(i - 1);
-            final String adminCodes = getNulled(adminCodeArray, i);
-            final String key = countryCode + "|" + adminCodes + "|" + currentFeatureCode;
-            Long parent = cache.get(key);
-            if (parent != null)
+            // We are processing an ADMx level
+            final int index = Arrays.binarySearch(adminCodeLevels, featureCode);
+            if (index == 0)
             {
-                return parent;
+                // Country level
+                return Optional.ofNullable(countryToId.get(countryCode));
             }
+
+            adminLevelCode = adminCodeLevels[index - 1];
+            adminCodes = nullAfterOffset(adminCodeArray, index - 1);
+        }
+        else
+        {
+            // We are processing a non-ADMx location
+            final int lastNonNullIndex = lastOfNonNull(adminCodeArray);
+            adminLevelCode = adminCodeLevels[lastNonNullIndex];
+            adminCodes = StringUtils.arrayToDelimitedString(adminCodeArray, "|");
         }
 
-        //logger.info("Direct to country");
-        return countryToId.get(countryCode);
-    }
-
-    private String getFeatureCode(final int index)
-    {
-        return adminCodeLevels[index];
-    }
-
-    private int indexOf(final String[] codes)
-    {
-        for (int i = 0; i < codes.length; i++)
+        final String key = countryCode + "|" + adminCodes + "|" + adminLevelCode;
+        final Long parentId = cache.get(key);
+        if (parentId == null)
         {
-            if (codes[i] == null)
+            logger.debug("No match for parent for {} - {} - {}: {}", id, featureCode, countryCode, key);
+        }
+        return Optional.ofNullable(parentId);
+    }
+
+    private int lastOfNonNull(final String[] codes)
+    {
+        for (int i = codes.length - 1; i >= 0; i--)
+        {
+            if (codes[i] != null)
             {
                 return i;
             }
         }
-        return 0;
+        return -1;
     }
 
     private String getConcatenatedAdminCodes(final ResultSet rs) throws SQLException

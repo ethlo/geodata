@@ -160,10 +160,24 @@ public class GeodataApplicationTests
     }
 
     @Test
-    public void testListChildrenOfLocationId()
+    public void testListCountiesOfNorway()
     {
-        final Page<GeoLocation> locations = geodataService.findChildren(12110622, PageRequest.of(0, 2000));
-        assertThat(locations).hasSize(1503);
+        final Page<GeoLocation> counties = geodataService.findChildren(3144096, PageRequest.of(0, 20));
+        assertThat(counties).hasSize(11);
+    }
+
+    @Test
+    public void testListCountiesOfUsa()
+    {
+        final Page<GeoLocation> counties = geodataService.findChildren(6252001, PageRequest.of(0, 100));
+        assertThat(counties).hasSize(51);
+    }
+
+    @Test
+    public void testLocationsInOsloCounty()
+    {
+        final Page<GeoLocation> locations = geodataService.findChildren(3143242, PageRequest.of(0, 100));
+        assertThat(locations).isNotEmpty();
     }
 
     @Test
