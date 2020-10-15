@@ -162,8 +162,8 @@ public class GeodataApplicationTests
     @Test
     public void testListChildrenOfLocationId()
     {
-        final Page<GeoLocation> counties = geodataService.findChildren(3143244, PageRequest.of(0, 20));
-        assertThat(counties).hasSize(11);
+        final Page<GeoLocation> locations = geodataService.findChildren(12110622, PageRequest.of(0, 2000));
+        assertThat(locations).hasSize(1503);
     }
 
     @Test

@@ -39,6 +39,7 @@ import org.springframework.stereotype.Service;
 
 import com.ethlo.geodata.importer.jdbc.JdbcCountryImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcGeonamesBoundaryImporter;
+import com.ethlo.geodata.importer.jdbc.JdbcGeonamesDao;
 import com.ethlo.geodata.importer.jdbc.JdbcGeonamesHierarchyImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcGeonamesImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcIpLookupImporter;
@@ -54,6 +55,9 @@ public class GeoMetaService
 
     @Autowired
     private JdbcGeonamesImporter geonamesImporter;
+
+    @Autowired
+    private JdbcGeonamesDao geonamesDao;
 
     @Autowired
     private JdbcGeonamesBoundaryImporter boundaryImporter;

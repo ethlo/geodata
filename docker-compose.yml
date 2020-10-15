@@ -1,0 +1,15 @@
+version: '3'
+services:
+  db:
+    image: mysql:5.7
+    environment:
+      - 'MYSQL_ROOT_PASSWORD=qwerty123'
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --innodb-buffer-pool-size=4G
+      - --innodb_flush_log_at_trx_commit=2
+      - --disable-log-bin
+    expose:
+      - 3306
+    ports:
+      - "4000:3306"

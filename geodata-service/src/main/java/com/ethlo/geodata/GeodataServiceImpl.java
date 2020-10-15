@@ -38,7 +38,6 @@ import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-import javax.annotation.Nonnull;
 import javax.sql.DataSource;
 import javax.validation.Valid;
 
@@ -63,6 +62,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.ethlo.geodata.importer.jdbc.JdbcGeonamesDao;
 import com.ethlo.geodata.importer.jdbc.MysqlCursorUtil;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
@@ -100,33 +100,30 @@ public class GeodataServiceImpl implements GeodataService
     private NamedParameterJdbcTemplate jdbcTemplate;
 
     @Autowired
+    private JdbcGeonamesDao geonamesDao;
+
+    @Autowired
     private DataSource dataSource;
 
     private List<Continent> continents;
     private Map<Long, Node> nodes;
     private Map<String, Country> countries;
-    private final RowMapper<Country> COUNTRY_INFO_MAPPER = new RowMapper<Country>()
+    private final RowMapper<Country> COUNTRY_INFO_MAPPER = (rs, rowNum) ->
     {
-        @Override
-        public Country mapRow(@Nonnull ResultSet rs, int rowNum) throws SQLException
-        {
-            final GeoLocation location = new GeoLocation();
-            mapLocation(location, rs);
-            final Country c = Country.from(location);
-            c.setCountry(c.toSummary(rs.getString("iso")));
-            return c;
-        }
+        final GeoLocation location = new GeoLocation();
+        mapLocation(location, rs);
+        final Country c = Country.from(location);
+        c.setCountry(c.toSummary(rs.getString("iso")));
+        return c;
     };
-    private final RowMapper<GeoLocation> GEONAMES_ROW_MAPPER = new RowMapper<GeoLocation>()
+
+    private final RowMapper<GeoLocation> GEONAMES_ROW_MAPPER = (rs, rowNum) ->
     {
-        @Override
-        public GeoLocation mapRow(@Nonnull ResultSet rs, int rowNum) throws SQLException
-        {
-            final GeoLocation location = new GeoLocation();
-            mapLocation(location, rs);
-            return location;
-        }
+        final GeoLocation location = new GeoLocation();
+        mapLocation(location, rs);
+        return location;
     };
+
     private Long locationCount;
 
     @Value("${geodata.sql.ipLookup}")
@@ -470,7 +467,9 @@ public class GeodataServiceImpl implements GeodataService
 
     public void loadHierarchy() throws SQLException
     {
-        final Map<Long, Long> childToParent = new HashMap<>();
+        final Map<Long, Long> childToParent = geonamesDao.buildHierarchyDataFromAdminCodes();
+
+        logger.info("Loading explicit hierarchy structure");
         final String sql = "SELECT id, parent_id FROM geohierarchy";
         new MysqlCursorUtil(dataSource).query(sql, Collections.emptyMap(), rs ->
         {
