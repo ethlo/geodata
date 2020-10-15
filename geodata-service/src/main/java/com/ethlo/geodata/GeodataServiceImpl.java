@@ -50,6 +50,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -60,7 +61,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import com.ethlo.geodata.importer.jdbc.JdbcGeonamesDao;
 import com.ethlo.geodata.importer.jdbc.MysqlCursorUtil;
@@ -76,8 +76,10 @@ import com.google.common.base.Stopwatch;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.UnsignedInteger;
 
+@SuppressWarnings({"UnstableApiUsage"})
+@Primary
 @Service
-@PropertySource("queries.sql.properties")
+@PropertySource("classpath:queries.sql.properties")
 public class GeodataServiceImpl implements GeodataService
 {
     public static final double RAD_TO_KM_RATIO = 111.195D;
@@ -95,19 +97,10 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     private final Logger logger = LoggerFactory.getLogger(GeodataServiceImpl.class);
-
-    @Autowired
-    private NamedParameterJdbcTemplate jdbcTemplate;
-
-    @Autowired
-    private JdbcGeonamesDao geonamesDao;
-
-    @Autowired
-    private DataSource dataSource;
-
-    private List<Continent> continents;
-    private Map<Long, Node> nodes;
-    private Map<String, Country> countries;
+    private final Map<Long, Node> nodes = new HashMap<>();
+    private Map<Integer, MapFeature> featureCodes = new HashMap<>();
+    private final Map<Integer, String> timezones = new HashMap<>();
+    private final Map<String, Country> countries = new HashMap<>();
     private final RowMapper<Country> COUNTRY_INFO_MAPPER = (rs, rowNum) ->
     {
         final GeoLocation location = new GeoLocation();
@@ -116,14 +109,19 @@ public class GeodataServiceImpl implements GeodataService
         c.setCountry(c.toSummary(rs.getString("iso")));
         return c;
     };
-
     private final RowMapper<GeoLocation> GEONAMES_ROW_MAPPER = (rs, rowNum) ->
     {
         final GeoLocation location = new GeoLocation();
         mapLocation(location, rs);
         return location;
     };
-
+    @Autowired
+    private NamedParameterJdbcTemplate jdbcTemplate;
+    @Autowired
+    private JdbcGeonamesDao geonamesDao;
+    @Autowired
+    private DataSource dataSource;
+    private List<Continent> continents = new LinkedList<>();
     private Long locationCount;
 
     @Value("${geodata.sql.ipLookup}")
@@ -170,9 +168,6 @@ public class GeodataServiceImpl implements GeodataService
 
     @Value("${geodata.boundaries.quality}")
     private int qualityConstant;
-
-    @Autowired
-    private TransactionTemplate txnTemplate;
 
     @Override
     public GeoLocation findByIp(String ip)
@@ -223,16 +218,21 @@ public class GeodataServiceImpl implements GeodataService
 
     private <T extends GeoLocation> void mapLocation(T t, ResultSet rs) throws SQLException
     {
-        final Long parentId = rs.getLong("parent_id") != 0 ? rs.getLong("parent_id") : null;
         final String countryCode = rs.getString("country_code");
 
         final Country country = findCountryByCode(countryCode);
         final CountrySummary countrySummary = country != null ? country.toSummary(countryCode) : null;
 
+        final long id = rs.getLong("id");
+        final Node node = nodes.get(id);
+        final Long parentId = node != null ? node.getParent().getId() : null;
+        final int featureCodeId = rs.getInt("feature_code_id");
+        final String featureCode = featureCodeId != 0 ? featureCodes.get(featureCodeId).getFeatureCode() : null;
+
         t
-                .setId(rs.getLong("id"))
+                .setId(id)
                 .setName(rs.getString("name"))
-                .setFeatureCode(rs.getString("feature_code"))
+                .setFeatureCode(featureCode)
                 .setPopulation(rs.getLong("population"))
                 .setCoordinates(Coordinates.from(rs.getDouble("lat"), rs.getDouble("lng")))
                 .setParentLocationId(parentId)
@@ -350,8 +350,6 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<GeoLocation> findChildren(long locationId, Pageable pageable)
     {
-        loadNodes();
-
         final Node node = nodes.get(locationId);
         if (node == null)
         {
@@ -369,31 +367,36 @@ public class GeodataServiceImpl implements GeodataService
         return new PageImpl<>(locations, pageable, total);
     }
 
-    private void loadNodes()
+    @Override
+    public void load()
     {
-        if (nodes == null)
-        {
-            try
+        this.featureCodes = geonamesDao.loadFeatureCodes();
+        loadTimeZones();
+
+        continents = findByIds(CONTINENT_IDS.values())
+                .stream()
+                .map(l -> new Continent(getContinentCode(l.getId()), l))
+                .collect(Collectors.toList());
+
+        loadCountries();
+        loadHierarchy();
+    }
+
+    private void loadTimeZones()
+    {
+        jdbcTemplate.query("SELECT * FROM timezone", rs -> {
+            while (rs.next())
             {
-                loadHierarchy();
+                final int id = rs.getInt("id");
+                final String timezone = rs.getString("value");
+                timezones.put(id, timezone);
             }
-            catch (SQLException exc)
-            {
-                throw new RuntimeException(exc);
-            }
-        }
+        });
     }
 
     @Override
     public Page<Continent> findContinents()
     {
-        if (continents == null)
-        {
-            continents = findByIds(CONTINENT_IDS.values())
-                    .stream()
-                    .map(l -> new Continent(getContinentCode(l.getId()), l))
-                    .collect(Collectors.toList());
-        }
         return new PageImpl<>(continents, PageRequest.of(0, 7), 7);
     }
 
@@ -417,14 +420,13 @@ public class GeodataServiceImpl implements GeodataService
         params.put("offset", pageable.getOffset());
         params.put("max", pageable.getPageSize());
         final List<Country> locations = jdbcTemplate.query(findCountriesOnContinentSql, params, COUNTRY_INFO_MAPPER);
-        final long count = jdbcTemplate.queryForObject(countCountriesOnContinentSql, params, Long.class);
+        final long count = count(countCountriesOnContinentSql, params);
         return new PageImpl<>(locations, pageable, count);
     }
 
     @Override
     public Page<Country> findCountries(Pageable pageable)
     {
-        loadCountries();
         final List<Country> content = countries.values().stream().skip(pageable.getOffset()).limit(pageable.getPageSize()).collect(Collectors.toList());
         return new PageImpl<>(content, pageable, countries.size());
     }
@@ -433,8 +435,6 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Country findCountryByCode(String countryCode)
     {
-        loadCountries();
-
         if (countryCode != null)
         {
             return countries.get(countryCode.toUpperCase());
@@ -450,26 +450,39 @@ public class GeodataServiceImpl implements GeodataService
         params.put("offset", pageable.getOffset());
         params.put("max", pageable.getPageSize());
         final List<GeoLocation> content = jdbcTemplate.query(findCountryChildrenSql, params, GEONAMES_ROW_MAPPER);
-        final long total = jdbcTemplate.queryForObject(countCountryChildrenSql, params, Long.class);
+        final long total = count(countCountryChildrenSql, params);
         return new PageImpl<>(content, pageable, total);
     }
 
-    public int loadCountries()
+    private long count(final String sql, final Map<String, Object> params)
     {
-        if (countries == null)
-        {
-            countries = new LinkedHashMap<>();
-            final Collection<Country> countryList = jdbcTemplate.query(
-                    "SELECT * FROM geocountry c, geonames n "
-                            + "WHERE c.geoname_id = n.id "
-                            + "ORDER BY iso ASC", COUNTRY_INFO_MAPPER);
-            countryList.forEach(c -> countries.put(c.getCountry().getCode(), c));
-            return countryList.size();
-        }
-        return 0;
+        final Long result = jdbcTemplate.queryForObject(sql, params, Long.class);
+        return result != null ? result : 0;
     }
 
-    public void loadHierarchy() throws SQLException
+    private int loadCountries()
+    {
+        final Collection<Country> countryList = jdbcTemplate.query(
+                "SELECT *, st_x(coord) as lat, st_y(coord) as lng FROM geocountry c, geonames n "
+                        + "WHERE c.geoname_id = n.id "
+                        + "ORDER BY iso ASC", COUNTRY_INFO_MAPPER);
+        countryList.forEach(c -> countries.put(c.getCountry().getCode(), c));
+        return countryList.size();
+    }
+
+    public void loadHierarchy()
+    {
+        try
+        {
+            doLoadHierarchy();
+        }
+        catch (SQLException exc)
+        {
+            throw new RuntimeException(exc);
+        }
+    }
+
+    private void doLoadHierarchy() throws SQLException
     {
         final Map<Long, Long> childToParent = geonamesDao.buildHierarchyDataFromAdminCodes();
 
@@ -493,7 +506,6 @@ public class GeodataServiceImpl implements GeodataService
         });
 
         // Build node hierarchy
-        nodes = new HashMap<>(childToParent.size());
         childToParent.forEach((child, parent) ->
         {
             final Node childNode = nodes.computeIfAbsent(child, Node::new);
@@ -564,8 +576,6 @@ public class GeodataServiceImpl implements GeodataService
 
     private List<Long> getPath(long id)
     {
-        loadNodes();
-
         Node node = this.nodes.get(id);
         final List<Long> path = new LinkedList<>();
         while (node != null)

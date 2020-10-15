@@ -13,6 +13,7 @@
 	<modules>
 		<module>geodata-model</module>
 		<module>geodata-service</module>
+		<module>geodata-server</module>
 	</modules>
 	<developers>
 		<developer>

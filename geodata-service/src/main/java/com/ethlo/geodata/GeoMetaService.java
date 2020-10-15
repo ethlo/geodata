@@ -23,13 +23,15 @@ package com.ethlo.geodata;
  */
 
 import java.io.IOException;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,9 +39,9 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.importer.jdbc.JdbcCountryImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcGeonamesBoundaryImporter;
-import com.ethlo.geodata.importer.jdbc.JdbcGeonamesDao;
 import com.ethlo.geodata.importer.jdbc.JdbcGeonamesHierarchyImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcGeonamesImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcIpLookupImporter;
@@ -55,9 +57,6 @@ public class GeoMetaService
 
     @Autowired
     private JdbcGeonamesImporter geonamesImporter;
-
-    @Autowired
-    private JdbcGeonamesDao geonamesDao;
 
     @Autowired
     private JdbcGeonamesBoundaryImporter boundaryImporter;
@@ -77,24 +76,24 @@ public class GeoMetaService
         maxDataAgeMillis = d.toMillis();
     }
 
-    public long getLastModified(String alias)
+    public Optional<Date> getLastModified(DataType alias)
     {
         final String sql = "SELECT last_modified from metadata where alias = :alias";
-        return jdbcTemplate.query(sql, Collections.singletonMap("alias", alias), rs ->
+        return jdbcTemplate.query(sql, Collections.singletonMap("alias", alias.name().toLowerCase()), rs ->
         {
             if (rs.next())
             {
-                return rs.getTimestamp("last_modified").getTime();
+                return Optional.of(rs.getTimestamp("last_modified"));
             }
-            return 0L;
+            return Optional.empty();
         });
     }
 
-    public void setLastModified(String alias, Date lastModified) throws IOException
+    public void setLastModified(DataType type, Date lastModified)
     {
         final String sql = "REPLACE INTO `metadata` (`alias`, `last_modified`) VALUES (:alias, :last_modified)";
         final Map<String, Object> params = new TreeMap<>();
-        params.put("alias", alias);
+        params.put("alias", type.name().toLowerCase());
         params.put("last_modified", lastModified);
         jdbcTemplate.update(sql, params);
     }
@@ -102,12 +101,12 @@ public class GeoMetaService
     public void update() throws IOException, SQLException
     {
         final Date countryTimestamp = countryImporter.lastRemoteModified();
-        if (countryTimestamp.getTime() > getLastModified("geonames_country") + maxDataAgeMillis)
+        ifExpired(DataType.COUNTRY, countryTimestamp, () ->
         {
             countryImporter.purge();
             countryImporter.importData();
-            setLastModified("geonames_country", countryTimestamp);
-        }
+            setLastModified(DataType.COUNTRY, countryTimestamp);
+        });
 
         /*final Date geonamesHierarchyTimestamp = hierarchyImporter.lastRemoteModified();
         if (geonamesHierarchyTimestamp.getTime() > getLastModified("geonames_hierarchy") + maxDataAgeMillis)
@@ -118,12 +117,12 @@ public class GeoMetaService
         }*/
 
         final Date geonamesTimestamp = geonamesImporter.lastRemoteModified();
-        if (geonamesTimestamp.getTime() > getLastModified("geonames") + maxDataAgeMillis)
+        ifExpired(DataType.LOCATION, geonamesTimestamp, () ->
         {
             geonamesImporter.purge();
             geonamesImporter.importData();
-            setLastModified("geonames", geonamesTimestamp);
-        }
+            setLastModified(DataType.LOCATION, geonamesTimestamp);
+        });
         
         /*final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
         if (boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)
@@ -135,27 +134,43 @@ public class GeoMetaService
         */
 
         final Date ipTimestamp = ipLookupImporter.lastRemoteModified();
-        if (ipTimestamp.getTime() > getLastModified("geoip") + maxDataAgeMillis)
+        ifExpired(DataType.IP, geonamesTimestamp, () ->
         {
             ipLookupImporter.purge();
             ipLookupImporter.importData();
-            setLastModified("geoip", ipTimestamp);
+            setLastModified(DataType.IP, ipTimestamp);
+        });
+    }
+
+    private void ifExpired(final DataType type, final Date sourceTimestamp, final Runnable updater)
+    {
+        final Optional<Date> modified = getLastModified(type);
+        if (modified.isEmpty() || sourceTimestamp.getTime() > +maxDataAgeMillis + modified.get().getTime())
+        {
+            updater.run();
+            setLastModified(type, sourceTimestamp);
         }
     }
 
     public Map<String, Date> getLastModified()
     {
         final Map<String, Date> retVal = new TreeMap<>();
-        jdbcTemplate.query("SELECT alias, last_modified FROM metadata", Collections.emptyMap(), new RowMapper<Void>()
+        jdbcTemplate.query("SELECT alias, last_modified FROM metadata", Collections.emptyMap(), (RowMapper<Void>) (rs, rowNum) ->
         {
-            @Override
-            public Void mapRow(ResultSet rs, int rowNum) throws SQLException
-            {
-                retVal.put(rs.getString("alias"), rs.getTimestamp("last_modified"));
-                return null;
-            }
-
+            retVal.put(rs.getString("alias"), rs.getTimestamp("last_modified"));
+            return null;
         });
         return retVal;
+    }
+
+    public SourceDataInfoSet getSourceDataInfo()
+    {
+        SourceDataInfoSet result = new SourceDataInfoSet();
+        result.addAll(Arrays.stream(DataType.values()).map(type ->
+        {
+            final Date lastModified = getLastModified(type).orElse(null);
+            return new SourceDataInfo(type, 0, lastModified);
+        }).collect(Collectors.toList()));
+        return result;
     }
 }

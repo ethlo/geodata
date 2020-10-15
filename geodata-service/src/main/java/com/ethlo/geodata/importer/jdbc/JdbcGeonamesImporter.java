@@ -24,8 +24,7 @@ package com.ethlo.geodata.importer.jdbc;
 
 import java.io.File;
 import java.io.IOException;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -34,11 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.sql.DataSource;
-
-import org.locationtech.jts.util.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -87,15 +82,19 @@ public class JdbcGeonamesImporter implements PersistentImporter
     }
 
     @Override
-    public void importData() throws IOException, SQLException
+    public void importData()
     {
-        final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource("geonames_hierarchy", geoNamesHierarchyUrl);
-
-        final Map.Entry<Date, File> alternateNamesFile = ResourceUtil.fetchResource("geonames_alternatenames", geoNamesAlternateNamesUrl);
-
-        final Map.Entry<Date, File> allCountriesFile = ResourceUtil.fetchResource("geonames", geoNamesAllCountriesUrl);
-
-        doUpdate(allCountriesFile.getValue(), alternateNamesFile.getValue(), hierarchyFile.getValue());
+        try
+        {
+            final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource("geonames_hierarchy", geoNamesHierarchyUrl);
+            final Map.Entry<Date, File> alternateNamesFile = ResourceUtil.fetchResource("geonames_alternatenames", geoNamesAlternateNamesUrl);
+            final Map.Entry<Date, File> allCountriesFile = ResourceUtil.fetchResource("geonames", geoNamesAllCountriesUrl);
+            doUpdate(allCountriesFile.getValue(), alternateNamesFile.getValue(), hierarchyFile.getValue());
+        }
+        catch (IOException exc)
+        {
+            throw new UncheckedIOException(exc);
+        }
     }
 
     @Override
@@ -104,7 +103,7 @@ public class JdbcGeonamesImporter implements PersistentImporter
         jdbcTemplate.update("DELETE FROM geonames", Collections.emptyMap());
     }
 
-    private void doUpdate(File allCountriesFile, File alternateNamesFile, File hierarchyFile) throws IOException, SQLException
+    private void doUpdate(File allCountriesFile, File alternateNamesFile, File hierarchyFile) throws IOException
     {
         final GeonamesImporter geonamesImporter = new GeonamesImporter.Builder()
                 .allCountriesFile(allCountriesFile)
@@ -116,52 +115,73 @@ public class JdbcGeonamesImporter implements PersistentImporter
         final int bufferSize = 20_000;
         final List<Map<String, ?>> buffer = new ArrayList<>(bufferSize);
 
+        final Map<String, Integer> timezones = new HashMap<>();
+        final Map<String, Integer> featureCodes = new HashMap<>();
+
         geonamesImporter.processFile(entry ->
         {
+            final String timezone = entry.get("timezone");
+            final Integer timezoneId = timezones.computeIfAbsent(timezone, this::insertTimezone);
+
+            final String featureClass = entry.get("feature_class");
+            final String featureCode = entry.get("feature_code");
+
+            Integer featureCodeId = null;
+            if (featureClass != null && featureCode != null)
+            {
+                featureCodeId = featureCodes.computeIfAbsent(featureClass + "." + featureCode, combined -> insertFeatureCode(featureClass, featureCode, null));
+            }
+            else
+            {
+                logger.info("No feature code for {}", entry.get("id"));
+            }
+
+            entry.put("feature_code_id", featureCodeId != null ? Integer.toString(featureCodeId) : null);
+            entry.put("timezone_id", timezoneId != null ? Integer.toString(timezoneId) : null);
+
             buffer.add(entry);
 
             if (buffer.size() == bufferSize)
             {
-                flush(buffer);
+                flush(buffer, timezones, featureCodes);
             }
         });
 
-        flush(buffer);
+        flush(buffer, timezones, featureCodes);
     }
 
-
-    private void saveHierarchyData(final Map<Long, Long> childToParent)
+    private Integer insertTimezone(final String ts)
     {
-        final AtomicInteger index = new AtomicInteger();
-        final Map<String, Object>[] params = new Map[childToParent.size()];
-        childToParent.forEach((child, parent) ->
+        if (ts == null)
         {
-            final Map<String, Object> map = new TreeMap<>();
-            map.put("id", child);
-            map.put("parent_id", parent);
-            params[index.getAndIncrement()] = map;
-        });
-
-        txnTemplate.execute(t ->
-        {
-            jdbcTemplate.batchUpdate("INSERT INTO geohierarchy (id, parent_id) VALUES(:id, :parent_id)", params);
-            logger.info("Inserted hierarchy data");
             return null;
-        });
+        }
+        jdbcTemplate.update("INSERT INTO timezone (id, value) VALUES(null, :ts)", Collections.singletonMap("ts", ts));
+        return jdbcTemplate.queryForObject("select last_insert_id()", Collections.emptyMap(), Integer.class);
     }
 
-    private void flush(final List<Map<String, ?>> buffer)
+    private int insertFeatureCode(final String featureClass, final String featureCode, String description)
+    {
+        final Map<String, Object> params = new TreeMap<>();
+        params.put("feature_class", featureClass);
+        params.put("feature_code", featureCode);
+        params.put("description", description);
+        jdbcTemplate.update("INSERT INTO feature_codes (feature_class, feature_code, description) VALUES(:feature_class, :feature_code, :description)", params);
+        return jdbcTemplate.queryForObject("select last_insert_id()", Collections.emptyMap(), Integer.class);
+    }
+
+    private void flush(final List<Map<String, ?>> buffer, final Map<String, Integer> timezones, final Map<String, Integer> featureCodes)
     {
         Map<String, ?>[] params = buffer.toArray(JdbcGeonamesImporter::newArray);
 
         txnTemplate.execute((transactionStatus) ->
         {
-            jdbcTemplate.batchUpdate("INSERT INTO geonames (id, parent_id, name, feature_class, " +
-                            "feature_code, country_code, population, elevation_meters, timezone, " +
-                            "last_modified, admin_code1, admin_code2, admin_code3, admin_code4, lat, lng, coord) " +
-                            "VALUES (:id, :parent_id, :name, :feature_class, :feature_code, :country_code, " +
-                            ":population, :elevation_meters, :timezone, :last_modified, :admin_code1, :admin_code2, :admin_code3, :admin_code4, " +
-                            ":lat, :lng, ST_GeomFromText(:poly))",
+            jdbcTemplate.batchUpdate("INSERT INTO geonames (id, name, feature_code_id, " +
+                            "country_code, population, elevation_meters, timezone_id, " +
+                            "last_modified, admin_code1, admin_code2, admin_code3, admin_code4, coord) " +
+                            "VALUES (:id, :name, :feature_code_id, :country_code, " +
+                            ":population, :elevation_meters, :timezone_id, :last_modified, :admin_code1, :admin_code2, :admin_code3, :admin_code4, " +
+                            "ST_GeomFromText(:poly))",
                     params
             );
             buffer.clear();

@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ethlo geodata server</title>
+
+<link rel="stylesheet"
+	href="https://unpkg.com/purecss@1.0.0/build/pure-min.css"
+	integrity="sha384-" crossorigin="anonymous">
+<link rel="stylesheet"
+	href="https://unpkg.com/purecss@1.0.0/build/grids-responsive-min.css">
+<link rel="stylesheet"
+	href="https://netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css">
+<link rel="stylesheet" href="css/layouts/marketing.css">
+
+<style>
+.done {
+	color: green;
+}
+
+.waiting {
+	color: #34495e;
+}
+
+th {
+	text-align: left;
+}
+
+th, td {
+	padding: 10px;
+	color:black;
+}
+
+td.numeric {text-align:right;}
+</style>
+</head>
+<body style="background: #1f8dd6">
+
+
+	<div class="header">
+		<div class="home-menu pure-menu pure-menu-horizontal pure-menu-fixed">
+			<a class="pure-menu-heading" href="http://ethlo.com">ethlo</a>
+
+			<ul class="pure-menu-list">
+				<li class="pure-menu-item"><a href="#" class="pure-menu-link">Home</a></li>
+				<li class="pure-menu-item"><a href="/swagger-ui.html"
+					class="pure-menu-link">API documentation</a></li>
+				<li class="pure-menu-item"><a
+					href="https://github.com/ethlo/geodata" class="pure-menu-link">GitHub</a></li>
+			</ul>
+		</div>
+	</div>
+
+	<div class="splash-container">
+		<div class="splash">
+			<h1 class="splash-head">ethlo geodata server</h1>
+			<p class="splash-subhead">Simple, fast and free geodata server
+				for on-site deployment</p>
+			<p>
+				<a href="https://github.com/ethlo/geodata"
+					class="pure-button pure-button-primary">GitHub</a>
+			</p>
+		</div>
+	</div>
+
+	<div class="content-wrapper">
+		<div class="content">
+			<table class="pure-table pure-table-bordered" style="width:100%">
+				<thead>
+					<tr>
+						<th>Data</th>
+						<th>Operation</th>
+						<th>Current</th>
+						<th>Total</th>
+						<th>Progress</th>
+					</tr>
+				</thead>
+				<tr>
+					<td>Location hierarchies</td>
+					<td data-operation="hierarchy">Idle</td>
+					<td class="numeric" data-current="hierarchy">0</td>
+					<td class="numeric" data-total="hierarchy">?</td>
+					<td class="numeric" data-progress="hierarchy">?</td>
+				</tr>
+				<tr>
+					<td>IP locations</td>
+					<td data-operation="ip">Idle</td>
+					<td class="numeric" data-current="ip">0</td>
+					<td class="numeric" data-total="ip">?</td>
+					<td class="numeric" data-progress="ip">?</td>
+				</tr>
+				<tr>
+					<td>Countries</td>
+					<td data-operation="country">Idle</td>
+					<td class="numeric" data-current="country">0</td>
+					<td class="numeric" data-total="country">?</td>
+					<td class="numeric" data-progress="country">?</td>
+				</tr>
+				<tr>
+					<td>Locations</td>
+					<td data-operation="location">Idle</td>
+					<td class="numeric" data-current="location">0</td>
+					<td class="numeric" data-total="location">?</td>
+					<td class="numeric" data-progress="location">?</td>
+				</tr>
+				<tr>
+					<td>Boundaries</td>
+					<td data-operation="boundary">Idle</td>
+					<td class="numeric" data-current="boundary">0</td>
+					<td class="numeric"data-total="boundary">?</td>
+					<td class="numeric"data-progress="boundary">?</td>
+				</tr>
+			</table>
+		</div>
+	</div>
+
+	<div class="footer l-box is-center">Copyright Morten Haraldsen
+		2017-2018</div>
+
+	<script>
+		
+		const numberWithCommas = (x) => {
+		  var parts = x.toString().split(".");
+		  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+		  return parts.join(".");
+		}
+	
+		var source = new EventSource('/init.stream');
+		var initialized = 0;
+		source.addEventListener('message', function(e) {
+
+			var arr = e.data.split(":");
+			var name = arr[0];
+			var operation = arr[1];
+			var progress = parseFloat(Math.round(arr[2] * 100)).toFixed(2);
+			var current = arr[3];
+			var total = arr[4];
+			
+			var cssColor = 'orange';
+			if (current === total) {
+				cssColor = 'green';
+			}
+
+			var ele = document.querySelector('td[data-operation="' + name + '"]');
+			if (ele) {
+				ele.innerHTML = operation;
+				ele.style='color:' + cssColor;
+			}
+
+			var ele = document.querySelector('td[data-current="' + name + '"]');
+			if (ele) {
+				ele.innerHTML = numberWithCommas(current);
+				ele.style='color:' + cssColor;
+			}
+			
+			var ele = document.querySelector('td[data-total="' + name + '"]');
+			if (ele) {
+				ele.innerHTML = numberWithCommas(total);
+				ele.style='color:' + cssColor;
+			}
+			
+			var ele = document.querySelector('td[data-progress="' + name + '"]');
+			if (ele) {
+				ele.innerHTML = progress + ' %';
+				ele.style='color:' + cssColor;
+			}
+		});
+
+		source.addEventListener('complete', function(e) {
+			window.location.reload();
+		});
+	</script>
+</body>
+</html>

@@ -1,12 +1,38 @@
 package com.ethlo.geodata.importer.jdbc;
 
+/*-
+ * #%L
+ * Geodata service
+ * %%
+ * Copyright (C) 2017 - 2020 Morten Haraldsen (ethlo)
+ * %%
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU General Lesser Public
+ * License along with this program.  If not, see
+ * <http://www.gnu.org/licenses/lgpl-3.0.html>.
+ * #L%
+ */
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.sql.DataSource;
@@ -18,6 +44,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
+
+import com.ethlo.geodata.MapFeature;
 
 @Repository
 public class JdbcGeonamesDao
@@ -44,15 +72,18 @@ public class JdbcGeonamesDao
 
     public Map<Long, Long> buildHierarchyDataFromAdminCodes() throws SQLException
     {
+        final Map<Integer, MapFeature> featureCodes = loadFeatureCodes();
+
         logger.info("Loading administrative levels for hierarchy building");
         final Map<String, Long> countryToId = loadCountryToId();
 
         final AtomicInteger count = new AtomicInteger();
         final Map<String, Long> cache = new HashMap<>();
+        final List<Integer> administrativeLevelIds = getAdministrativeLevelIds(featureCodes);
 
-        final String sqlAdminCodes = "SELECT id, country_code, name, feature_code, admin_code1, admin_code2, admin_code3, admin_code4 FROM geonames WHERE feature_code in ('ADM1', 'ADM2', 'ADM3', 'ADM4')";
+        final String sqlAdminCodes = "SELECT id, country_code, name, feature_code_id, admin_code1, admin_code2, admin_code3, admin_code4 FROM geonames WHERE feature_code_id in (?)";
         final MysqlCursorUtil cursorUtil = new MysqlCursorUtil(dataSource);
-        cursorUtil.query(sqlAdminCodes, Collections.emptyMap(), rs ->
+        cursorUtil.query(sqlAdminCodes, Collections.singletonMap(1, administrativeLevelIds), rs ->
         {
             try
             {
@@ -60,7 +91,8 @@ public class JdbcGeonamesDao
                 {
                     final long id = rs.getLong("id");
                     final String countryCode = rs.getString("country_code");
-                    final String featureCode = rs.getString("feature_code");
+                    final int featureCodeId = rs.getInt("feature_code_id");
+                    final String featureCode = featureCodeId != 0 ? featureCodes.get(featureCodeId).getFeatureCode() : null;
                     final String adminCode = getConcatenatedAdminCodes(rs);
                     addToCache(cache, featureCode, countryCode, adminCode, id);
                 }
@@ -73,7 +105,7 @@ public class JdbcGeonamesDao
 
         logger.info("Loaded administrative levels");
 
-        final String sqlAll = "SELECT id, country_code, name, feature_code, admin_code1, admin_code2, admin_code3, admin_code4 FROM geonames" +
+        final String sqlAll = "SELECT id, country_code, name, feature_code_id, admin_code1, admin_code2, admin_code3, admin_code4 FROM geonames" +
                 " WHERE admin_code1 is not null" +
                 " OR admin_code1 is not null" +
                 " OR admin_code2 is not null" +
@@ -89,8 +121,9 @@ public class JdbcGeonamesDao
                 while (rs.next())
                 {
                     final long id = rs.getLong("id");
-                    final String name = rs.getString("name");
-                    final String featureCode = rs.getString("feature_code");
+                    //final String name = rs.getString("name");
+                    final int featureCodeId = rs.getInt("feature_code_id");
+                    final String featureCode = featureCodes.get(featureCodeId).getFeatureCode();
                     final String countryCode = rs.getString("country_code");
                     final String[] adminCodeArray = getAdminCodeArray(rs);
 
@@ -127,6 +160,20 @@ public class JdbcGeonamesDao
 
         logger.info("Processed hierarchy for a total of {} rows, {} nodes. No parent match: {}. Self match: {}", count.get(), childToParent.size(), noMatch.get(), selfMatch.get());
         return childToParent;
+    }
+
+    private List<Integer> getAdministrativeLevelIds(final Map<Integer, MapFeature> featureCodes)
+    {
+        final Set<String> levelNames = new HashSet<>(Arrays.asList("ADM1", "ADM2", "ADM3", "ADM4"));
+        final List<Integer> result = new ArrayList<>();
+        featureCodes.forEach((id, feature) ->
+        {
+            if (levelNames.contains(feature.getFeatureCode()))
+            {
+                result.add(id);
+            }
+        });
+        return result;
     }
 
     private void addToCache(Map<String, Long> cache, String featureCode, String countryCode, String adminCode, long id)
@@ -213,5 +260,20 @@ public class JdbcGeonamesDao
             return null;
         });
         return countryCodeToId;
+    }
+
+    public Map<Integer, MapFeature> loadFeatureCodes()
+    {
+        final Map<Integer, MapFeature> featureCodes = new HashMap<>();
+        jdbcTemplate.query("SELECT * FROM feature_codes", rs -> {
+            while (rs.next())
+            {
+                final int id = rs.getInt("id");
+                final String featureClass = rs.getString("feature_class");
+                final String featureCode = rs.getString("feature_code");
+                featureCodes.put(id, new MapFeature(featureClass, featureCode));
+            }
+        });
+        return featureCodes;
     }
 }

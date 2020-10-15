@@ -24,6 +24,7 @@ package com.ethlo.geodata.importer.jdbc;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -65,9 +66,20 @@ public class JdbcIpLookupImporter implements PersistentImporter
     private String url;
 
     @Override
-    public void importData() throws IOException
+    public void importData()
     {
-        final String sql = "INSERT INTO geoip(geoname_id, geoname_country_id, first, last) VALUES (:geoname_id, :geoname_country_id, :first, :last)";
+        try
+        {
+            doUpdate();
+        }
+        catch (IOException exc)
+        {
+            throw new UncheckedIOException(exc);
+        }
+    }
+
+    private void doUpdate() throws IOException
+    {
         final Map.Entry<Date, File> ipDataFile = ResourceUtil.fetchResource("ipData", url);
 
         final AtomicInteger count = new AtomicInteger(0);
@@ -118,8 +130,6 @@ public class JdbcIpLookupImporter implements PersistentImporter
             paramMap.put("geoname_country_id", geonameCountryId);
             paramMap.put("first", lower);
             paramMap.put("last", upper);
-            paramMap.put("lat", lat);
-            paramMap.put("lng", lng);
             return Optional.of(paramMap);
         }
 

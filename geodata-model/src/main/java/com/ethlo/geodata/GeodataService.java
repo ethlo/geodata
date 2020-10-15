@@ -82,4 +82,6 @@ public interface GeodataService
     List<GeoLocation> findByIds(Collection<Long> ids);
     
     Page<GeoLocation> findByName(String name, Pageable pageable);
+
+    void load();
 }

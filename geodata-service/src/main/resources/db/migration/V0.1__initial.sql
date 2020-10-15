@@ -34,29 +34,40 @@ create table geohierarchy
     primary key (id)
 );
 
+create table timezone
+(
+    id    smallint unsigned not null auto_increment primary key,
+    value varchar(200)      not null
+);
+
+create table feature_codes
+(
+    id            smallint unsigned not null auto_increment primary key,
+    feature_class char(1)           not null,
+    feature_code  varchar(80)       not null,
+    description   varchar(255)      null
+);
+
+
 create table geonames
 (
-    id               bigint not null primary key,
-    parent_id        bigint,
+    id               int unsigned not null primary key,
     name             varchar(200),
-    feature_class    char(1),
-    feature_code     varchar(10),
+    feature_code_id  smallint unsigned,
     country_code     varchar(2),
     population       bigint,
-    elevation_meters int,
-    timezone         varchar(40),
+    elevation_meters smallint,
+    timezone_id      smallint unsigned,
     last_modified    date,
     admin_code1      varchar(20),
     admin_code2      varchar(80),
     admin_code3      varchar(20),
     admin_code4      varchar(20),
-    lat              double not null,
-    lng              double not null,
-    coord            point  not null
+    coord            point        not null
 ) engine = InnoDB
   character set utf8;
-ALTER TABLE geonames
-    ADD INDEX idx_filter (country_code, feature_code);
+ALTER TABLE geonames ADD INDEX idx_filter (country_code, feature_code_id);
+-- ALTER TABLE geonames ADD UNIQUE INDEX uniq_properties (country_code, feature_code_id, admin_code1, admin_code2, admin_code3, admin_code4);
 CREATE SPATIAL INDEX geonames_coord ON geonames (coord);
 CREATE FULLTEXT INDEX ft_name_geonames on geonames (name);
 

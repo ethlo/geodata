@@ -32,7 +32,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
@@ -92,7 +91,6 @@ public class GeonamesImporter implements DataImporter
                     final String featureCode = stripToNull(entry[7]);
 
                     final long id = Long.parseLong(stripToNull(entry[0]));
-                    final Long parent = childToParentMap.get(id);
 
                     paramMap.put("id", stripToNull(entry[0]));
 
@@ -116,8 +114,6 @@ public class GeonamesImporter implements DataImporter
                     paramMap.put("admin_code2", adminCode2);
                     paramMap.put("admin_code3", adminCode3);
                     paramMap.put("admin_code4", adminCode4);
-
-                    paramMap.put("parent_id", parent != null ? parent.toString() : null);
 
                     paramMap.put("population", stripToNull(entry[14]));
                     paramMap.put("elevation_meters", stripToNull(entry[15]));
@@ -148,6 +144,7 @@ public class GeonamesImporter implements DataImporter
 
     private Map<Long, String> loadPreferredNames(String preferredLanguage) throws IOException
     {
+        int count = 0;
         final Map<Long, String> preferredNames = new HashMap<>();
         try (final BufferedReader alternateReader = new BufferedReader(new FileReader(alternateNamesFile)))
         {
@@ -158,15 +155,22 @@ public class GeonamesImporter implements DataImporter
 
                 if (entry.length == 8)
                 {
-                    final long geonameId = Long.parseLong(stripToNull(entry[1]));
                     final String languageCode = stripToNull(entry[2]);
                     final String preferredName = stripToNull(entry[3]);
                     final boolean isShort = "1".equals(stripToNull(entry[5]));
                     if (preferredLanguage.equalsIgnoreCase(languageCode) && isShort)
                     {
+                        final long geonameId = Long.parseLong(stripToNull(entry[1]));
                         preferredNames.put(geonameId, preferredName);
                     }
                 }
+
+                if (count % 100_000 == 0 && count > 0)
+                {
+                    logger.info("Loading preferred names: {}", count);
+                }
+
+                count++;
             }
         }
 
