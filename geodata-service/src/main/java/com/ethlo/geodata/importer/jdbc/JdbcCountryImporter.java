@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import org.flywaydb.core.internal.util.StringUtils;
@@ -50,22 +51,25 @@ public class JdbcCountryImporter implements PersistentImporter
     private String url;
 
     @Override
-    public void importData()
+    public long importData()
     {
+        final AtomicInteger count = new AtomicInteger();
         try
         {
             final Map.Entry<Date, File> countryFile = ResourceUtil.fetchResource("geocountry", url);
-
             final CountryImporter importer = new CountryImporter(countryFile.getValue());
             importer.processFile(entry ->
             {
                 jdbcTemplate.update(makeSql("geocountry", entry), entry);
+                count.incrementAndGet();
             });
         }
         catch (IOException exc)
         {
             throw new UncheckedIOException(exc);
         }
+
+        return count.get();
     }
 
     private String makeSql(String tablename, Map<String, String> entry)

@@ -1,10 +1,10 @@
-package com.ethlo.geodata.importer.jdbc;
+package com.ethlo.geodata.dao;
 
 /*-
  * #%L
- * geodata
+ * Geodata service
  * %%
- * Copyright (C) 2017 Morten Haraldsen (ethlo)
+ * Copyright (C) 2017 - 2020 Morten Haraldsen (ethlo)
  * %%
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -22,15 +22,9 @@ package com.ethlo.geodata.importer.jdbc;
  * #L%
  */
 
-import java.io.IOException;
-import java.sql.SQLException;
-import java.util.Date;
+import java.util.Optional;
 
-public interface PersistentImporter
+public interface IpDao
 {
-    void purge() throws IOException;
-    
-    long importData() throws IOException, SQLException;
-    
-    Date lastRemoteModified() throws IOException;
+    Optional<Long> findByIp(String ip);
 }

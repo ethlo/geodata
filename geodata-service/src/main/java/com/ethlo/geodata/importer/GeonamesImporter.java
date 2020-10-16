@@ -28,6 +28,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -59,19 +60,20 @@ public class GeonamesImporter implements DataImporter
     }
 
     @Override
-    public void processFile(Consumer<Map<String, String>> sink) throws IOException
+    public long processFile(Consumer<Map<String, String>> sink)
     {
-        final Map<Long, Long> childToParentMap = new HashMap<>();
-
-        if (hierarchyFile != null)
+        try
         {
-            new HierarchyImporter(hierarchyFile).processFile(h ->
-            {
-                childToParentMap.put(Long.parseLong(h.get("child_id")), Long.parseLong(h.get("parent_id")));
-            });
+            return doProcess(sink);
         }
+        catch (IOException e)
+        {
+            throw new UncheckedIOException(e);
+        }
+    }
 
-        // Load alternate names
+    private long doProcess(final Consumer<Map<String, String>> sink) throws IOException
+    {
         final Map<Long, String> preferredNames = loadPreferredNames("EN");
 
         int count = 0;
@@ -125,6 +127,7 @@ public class GeonamesImporter implements DataImporter
                     if (isIncluded(featureCode))
                     {
                         sink.accept(paramMap);
+                        count++;
                     }
                 }
                 else
@@ -140,6 +143,7 @@ public class GeonamesImporter implements DataImporter
                 count++;
             }
         }
+        return count;
     }
 
     private Map<Long, String> loadPreferredNames(String preferredLanguage) throws IOException

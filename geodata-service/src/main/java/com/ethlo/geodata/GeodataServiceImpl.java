@@ -23,7 +23,6 @@ package com.ethlo.geodata;
  */
 
 import java.math.BigDecimal;
-import java.net.InetAddress;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
@@ -38,6 +37,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import javax.sql.DataSource;
@@ -64,7 +64,8 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import com.ethlo.geodata.importer.jdbc.JdbcGeonamesDao;
+import com.ethlo.geodata.dao.jdbc.JdbcGeonamesDao;
+import com.ethlo.geodata.dao.jdbc.JdbcIpDao;
 import com.ethlo.geodata.importer.jdbc.MysqlCursorUtil;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
@@ -75,8 +76,6 @@ import com.ethlo.geodata.model.GeoLocationDistance;
 import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.util.GeometryUtil;
 import com.google.common.base.Stopwatch;
-import com.google.common.net.InetAddresses;
-import com.google.common.primitives.UnsignedInteger;
 
 @SuppressWarnings({"UnstableApiUsage"})
 @Primary
@@ -117,17 +116,20 @@ public class GeodataServiceImpl implements GeodataService
         mapLocation(location, rs);
         return location;
     };
+
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
+
     @Autowired
     private JdbcGeonamesDao geonamesDao;
+
+    @Autowired
+    private JdbcIpDao ipDao;
+
     @Autowired
     private DataSource dataSource;
     private List<Continent> continents = new LinkedList<>();
     private Long locationCount;
-
-    @Value("${geodata.sql.ipLookup}")
-    private String ipLookupSql;
 
     @Value("${geodata.sql.geonamesbyid}")
     private String geoNamesByIdSql;
@@ -174,33 +176,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public GeoLocation findByIp(String ip)
     {
-        final boolean isValid = InetAddresses.isInetAddress(ip);
-        final InetAddress address = InetAddresses.forString(ip);
-        final boolean isLocalAddress = address.isLoopbackAddress() || address.isAnyLocalAddress();
-        if (!isValid || isLocalAddress)
-        {
-            return null;
-        }
-
-        long ipLong;
-        try
-        {
-            ipLong = UnsignedInteger.fromIntBits(InetAddresses.coerceToInteger(InetAddresses.forString(ip))).longValue();
-        }
-        catch (IllegalArgumentException exc)
-        {
-            throw new InvalidIpException(ip, exc.getMessage(), exc);
-        }
-
-        return jdbcTemplate.query(ipLookupSql, Collections.singletonMap("ip", ipLong), rs ->
-        {
-            if (rs.next())
-            {
-                final long geoNameId = rs.getLong("geoname_id") != 0 ? rs.getLong("geoname_id") : rs.getLong("geoname_country_id");
-                return findById(geoNameId);
-            }
-            return null;
-        });
+        return ipDao.findByIp(ip).map(this::findById).orElseThrow(() -> new EmptyResultDataAccessException("Cannot find location for ip " + ip, 1));
     }
 
     @Override
@@ -382,6 +358,7 @@ public class GeodataServiceImpl implements GeodataService
 
         loadCountries();
         loadHierarchy();
+        ipDao.load();
     }
 
     private void loadTimeZones()
@@ -432,7 +409,6 @@ public class GeodataServiceImpl implements GeodataService
         final List<Country> content = countries.values().stream().skip(pageable.getOffset()).limit(pageable.getPageSize()).collect(Collectors.toList());
         return new PageImpl<>(content, pageable, countries.size());
     }
-
 
     @Override
     public Country findCountryByCode(String countryCode)
@@ -498,24 +474,8 @@ public class GeodataServiceImpl implements GeodataService
     {
         final Map<Long, Long> childToParent = geonamesDao.buildHierarchyDataFromAdminCodes();
 
-        logger.info("Loading explicit hierarchy structure");
-        final String sql = "SELECT id, parent_id FROM geohierarchy";
-        new MysqlCursorUtil(dataSource).query(sql, Collections.emptyMap(), rs ->
-        {
-            try
-            {
-                while (rs.next())
-                {
-                    final long id = rs.getLong("id");
-                    final long parentId = rs.getLong("parent_id");
-                    childToParent.put(id, parentId);
-                }
-            }
-            catch (SQLException exc)
-            {
-                throw new RuntimeException(exc);
-            }
-        });
+        final int explicitCount = loadExplicitHierarchy(childToParent);
+        logger.info("Loaded {} explicit hierarchy definitions", explicitCount);
 
         // Build node hierarchy
         childToParent.forEach((child, parent) ->
@@ -527,6 +487,26 @@ public class GeodataServiceImpl implements GeodataService
         });
 
         logger.info("Loaded node hierarchy of {} locations", nodes.size());
+    }
+
+    private int loadExplicitHierarchy(final Map<Long, Long> childToParent) throws SQLException
+    {
+        logger.info("Loading explicit hierarchy structure");
+        final AtomicInteger explicitCount = new AtomicInteger();
+        final String sql = "SELECT id, parent_id FROM geohierarchy";
+        new MysqlCursorUtil(dataSource).query(sql, Collections.emptyMap(), rs ->
+        {
+            while (rs.next())
+            {
+                final long id = rs.getLong("id");
+                final long parentId = rs.getLong("parent_id");
+                if (childToParent.putIfAbsent(id, parentId) == null)
+                {
+                    explicitCount.incrementAndGet();
+                }
+            }
+        });
+        return explicitCount.get();
     }
 
     @Override

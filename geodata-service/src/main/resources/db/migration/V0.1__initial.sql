@@ -1,6 +1,7 @@
 create table metadata
 (
     alias         varchar(32) not null primary key,
+    entry_count int unsigned not null,
     last_modified datetime    not null
 );
 

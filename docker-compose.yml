@@ -13,3 +13,17 @@ services:
       - 3306
     ports:
       - "4000:3306"
+
+  server:
+    image: ethlo/geodata-server:1.0.0-SNAPSHOT
+    environment:
+      - 'SPRING_DATASOURCE_URL=jdbc:mysql://db/geodatatest?useUnicode=yes&characterEncoding=utf8'
+    expose:
+      - 6565
+    ports:
+      - "6566:6565"
+    deploy:
+      resources:
+        limits:
+          memory: 3g
+

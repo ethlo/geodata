@@ -25,7 +25,6 @@ package com.ethlo.geodata;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
-import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.Date;
 
@@ -64,7 +63,7 @@ public class NoDataAssertGeodataApplicationTests
     private GeoMetaService geoMetaService;
 
     @Before
-    public void contextLoads() throws IOException, SQLException
+    public void contextLoads() throws IOException
     {
         if (!initialized)
         {
@@ -75,7 +74,7 @@ public class NoDataAssertGeodataApplicationTests
 
     @Test
     @Transactional
-    public void metadataTest() throws IOException
+    public void metadataTest()
     {
         final Calendar cal = Calendar.getInstance();
         cal.set(Calendar.YEAR, 2010);
@@ -86,8 +85,9 @@ public class NoDataAssertGeodataApplicationTests
         cal.set(Calendar.SECOND, 45);
         cal.set(Calendar.MILLISECOND, 0);
         final Date expected = cal.getTime();
-        geoMetaService.setLastModified(DataType.HIERARCHY, expected);
-        assertThat(geoMetaService.getLastModified(DataType.IP)).isEqualTo(expected.getTime());
+        geoMetaService.setLastModified(DataType.HIERARCHY, expected, 2244);
+        assertThat(geoMetaService.getLastModified(DataType.IP).get().getTime()).isEqualTo(expected.getTime());
+        assertThat(geoMetaService.getSourceDataInfo().get(DataType.IP).getCount()).isEqualTo(2244);
     }
 
     @Test
@@ -157,7 +157,7 @@ public class NoDataAssertGeodataApplicationTests
     }
 
     @Test
-    public void testClipAtBoundaryPartiallyInside() throws IOException, ParseException
+    public void testClipAtBoundaryPartiallyInside() throws ParseException
     {
         final long id = 6255151; // Oceania
         final Geometry boundaries = new WKBReader().read(geodataService.findBoundaries(id));
@@ -171,7 +171,7 @@ public class NoDataAssertGeodataApplicationTests
     }
 
     @Test
-    public void testClipAtBoundaryTotallyInside() throws IOException, ParseException
+    public void testClipAtBoundaryTotallyInside() throws ParseException
     {
         final long id = 6255151; // Oceania
         final Geometry boundaries = new WKBReader().read(geodataService.findBoundaries(id));

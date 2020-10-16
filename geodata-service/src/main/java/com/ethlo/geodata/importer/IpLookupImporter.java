@@ -10,12 +10,12 @@ package com.ethlo.geodata.importer;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -26,7 +26,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import com.fasterxml.jackson.databind.MappingIterator;
@@ -36,26 +38,33 @@ import com.fasterxml.jackson.dataformat.csv.CsvSchema;
 public class IpLookupImporter implements DataImporter
 {
     private final File csvFile;
-    
+
     public IpLookupImporter(File csvFile)
     {
         this.csvFile = csvFile;
     }
-    
+
     @Override
-    public void processFile(Consumer<Map<String, String>> sink) throws IOException
+    public long processFile(Consumer<Map<String, String>> sink)
     {
+        final AtomicInteger count = new AtomicInteger();
         final CsvMapper csvMapper = new CsvMapper();
         final CsvSchema schema = CsvSchema.emptySchema().withHeader(); // use first row as header; otherwise defaults are fine
         try (final BufferedReader reader = new BufferedReader(new FileReader(csvFile)))
         {
-            final MappingIterator<Map<String,String>> it = csvMapper.readerFor(Map.class)
-               .with(schema)
-               .readValues(reader);
+            final MappingIterator<Map<String, String>> it = csvMapper.readerFor(Map.class)
+                    .with(schema)
+                    .readValues(reader);
             while (it.hasNext())
             {
                 sink.accept(it.next());
+                count.incrementAndGet();
             }
         }
+        catch (IOException e)
+        {
+            throw new UncheckedIOException(e);
+        }
+        return count.get();
     }
 }

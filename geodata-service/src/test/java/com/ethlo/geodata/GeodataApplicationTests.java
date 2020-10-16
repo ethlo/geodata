@@ -65,7 +65,7 @@ public class GeodataApplicationTests
     {
         if (!initialized)
         {
-            //geoMetaService.update();
+            geoMetaService.update();
             geodataService.load();
             initialized = true;
         }
@@ -84,8 +84,9 @@ public class GeodataApplicationTests
         cal.set(Calendar.SECOND, 45);
         cal.set(Calendar.MILLISECOND, 0);
         final Date expected = cal.getTime();
-        geoMetaService.setLastModified(DataType.IP, expected);
-        assertThat(geoMetaService.getLastModified(DataType.IP).get()).isEqualTo(expected);
+        geoMetaService.setLastModified(DataType.IP, expected, 4455);
+        assertThat(geoMetaService.getLastModified(DataType.IP).get().getTime()).isEqualTo(expected.getTime());
+        assertThat(geoMetaService.getSourceDataInfo().get(DataType.IP).getCount()).isEqualTo(4455);
     }
 
     @Test
@@ -169,10 +170,10 @@ public class GeodataApplicationTests
     }
 
     @Test
-    public void testListCountiesOfUsa()
+    public void testListStatesOfUsa()
     {
-        final Page<GeoLocation> counties = geodataService.findChildren(6252001, PageRequest.of(0, 100));
-        assertThat(counties).hasSize(51);
+        final Page<GeoLocation> states = geodataService.findChildren(6252001, PageRequest.of(0, 100));
+        assertThat(states).hasSize(52);
     }
 
     @Test

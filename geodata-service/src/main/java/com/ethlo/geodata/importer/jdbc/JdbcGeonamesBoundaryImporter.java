@@ -10,12 +10,12 @@ package com.ethlo.geodata.importer.jdbc;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -43,10 +43,10 @@ public class JdbcGeonamesBoundaryImporter implements PersistentImporter
 {
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
-    
+
     @Value("${geodata.geonames.source.boundaries}")
     private String geoNamesBoundaryUrl;
-    
+
     @Autowired
     public void setDataSource(DataSource dataSource)
     {
@@ -60,16 +60,13 @@ public class JdbcGeonamesBoundaryImporter implements PersistentImporter
     }
 
     @Override
-    public void importData() throws IOException
+    public long importData() throws IOException
     {
         final Entry<Date, File> boundaryFile = ResourceUtil.fetchResource("geonames_boundary", geoNamesBoundaryUrl);
         final GeonamesBoundaryImporter importer = new GeonamesBoundaryImporter(boundaryFile.getValue());
 
         final String sql = "INSERT INTO geoboundaries(id, raw_polygon, coord, area) VALUES(:id, ST_GeomFromText(:poly), ST_Centroid(ST_GeomFromText(:poly)), st_area(ST_GeomFromText(:poly)))";
-        importer.processFile(entry->
-        {
-            jdbcTemplate.update(sql, entry);
-        });
+        return importer.processFile(entry -> jdbcTemplate.update(sql, entry));
     }
 
     @Override

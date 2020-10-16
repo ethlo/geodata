@@ -23,7 +23,6 @@ package com.ethlo.geodata;
  */
 
 import java.io.IOException;
-import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
@@ -31,6 +30,7 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -89,12 +89,13 @@ public class GeoMetaService
         });
     }
 
-    public void setLastModified(DataType type, Date lastModified)
+    public void setLastModified(DataType type, Date lastModified, final long count)
     {
-        final String sql = "REPLACE INTO `metadata` (`alias`, `last_modified`) VALUES (:alias, :last_modified)";
+        final String sql = "REPLACE INTO `metadata` (`alias`, `last_modified`, `entry_count`) VALUES (:alias, :last_modified, :entry_count)";
         final Map<String, Object> params = new TreeMap<>();
         params.put("alias", type.name().toLowerCase());
         params.put("last_modified", lastModified);
+        params.put("entry_count", count);
         jdbcTemplate.update(sql, params);
     }
 
@@ -104,24 +105,19 @@ public class GeoMetaService
         ifExpired(DataType.COUNTRY, countryTimestamp, () ->
         {
             countryImporter.purge();
-            countryImporter.importData();
-            setLastModified(DataType.COUNTRY, countryTimestamp);
+            return countryImporter.importData();
         });
 
-        /*final Date geonamesHierarchyTimestamp = hierarchyImporter.lastRemoteModified();
-        if (geonamesHierarchyTimestamp.getTime() > getLastModified("geonames_hierarchy") + maxDataAgeMillis)
+        ifExpired(DataType.HIERARCHY, hierarchyImporter.lastRemoteModified(), () ->
         {
             hierarchyImporter.purge();
-            hierarchyImporter.importData();
-            setLastModified("geonames_hierarchy", geonamesHierarchyTimestamp);
-        }*/
+            return hierarchyImporter.importData();
+        });
 
-        final Date geonamesTimestamp = geonamesImporter.lastRemoteModified();
-        ifExpired(DataType.LOCATION, geonamesTimestamp, () ->
+        ifExpired(DataType.LOCATION, geonamesImporter.lastRemoteModified(), () ->
         {
             geonamesImporter.purge();
-            geonamesImporter.importData();
-            setLastModified(DataType.LOCATION, geonamesTimestamp);
+            return geonamesImporter.importData();
         });
         
         /*final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
@@ -133,22 +129,20 @@ public class GeoMetaService
         }
         */
 
-        final Date ipTimestamp = ipLookupImporter.lastRemoteModified();
-        ifExpired(DataType.IP, geonamesTimestamp, () ->
+        ifExpired(DataType.IP, ipLookupImporter.lastRemoteModified(), () ->
         {
             ipLookupImporter.purge();
-            ipLookupImporter.importData();
-            setLastModified(DataType.IP, ipTimestamp);
+            return ipLookupImporter.importData();
         });
     }
 
-    private void ifExpired(final DataType type, final Date sourceTimestamp, final Runnable updater)
+    private void ifExpired(final DataType type, final Date sourceTimestamp, final Supplier<Long> updater)
     {
         final Optional<Date> modified = getLastModified(type);
         if (modified.isEmpty() || sourceTimestamp.getTime() > +maxDataAgeMillis + modified.get().getTime())
         {
-            updater.run();
-            setLastModified(type, sourceTimestamp);
+            final long count = updater.get();
+            setLastModified(type, sourceTimestamp, count);
         }
     }
 

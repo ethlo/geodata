@@ -66,11 +66,11 @@ public class JdbcIpLookupImporter implements PersistentImporter
     private String url;
 
     @Override
-    public void importData()
+    public long importData()
     {
         try
         {
-            doUpdate();
+            return doUpdate();
         }
         catch (IOException exc)
         {
@@ -78,7 +78,7 @@ public class JdbcIpLookupImporter implements PersistentImporter
         }
     }
 
-    private void doUpdate() throws IOException
+    private long doUpdate() throws IOException
     {
         final Map.Entry<Date, File> ipDataFile = ResourceUtil.fetchResource("ipData", url);
 
@@ -95,6 +95,7 @@ public class JdbcIpLookupImporter implements PersistentImporter
             paramsOpt.ifPresent(params ->
             {
                 buffer.add(params);
+
                 if (buffer.size() == bufferSize)
                 {
                     flush(buffer);
@@ -105,11 +106,12 @@ public class JdbcIpLookupImporter implements PersistentImporter
                     logger.info("Processed {}", count.get());
                 }
 
-                count.getAndIncrement();
+                count.incrementAndGet();
             });
         });
 
         flush(buffer);
+        return count.get();
     }
 
     private Optional<Map<String, Object>> processLine(final Map<String, String> entry)

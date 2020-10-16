@@ -25,11 +25,14 @@ package com.ethlo.geodata.importer.jdbc;
 import java.io.File;
 import java.io.IOException;
 import java.io.LineNumberReader;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,10 +54,17 @@ public class JdbcGeonamesHierarchyImporter implements PersistentImporter
 
     @Override
     @Transactional
-    public void importData() throws IOException
+    public long importData()
     {
-        final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource("geonames_hierarchy", geoNamesHierarchyUrl);
-        doUpdate(hierarchyFile.getValue());
+        try
+        {
+            final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource("geonames_hierarchy", geoNamesHierarchyUrl);
+            return doUpdate(hierarchyFile.getValue());
+        }
+        catch (IOException exc)
+        {
+            throw new UncheckedIOException(exc);
+        }
     }
 
     @Override
@@ -63,32 +73,49 @@ public class JdbcGeonamesHierarchyImporter implements PersistentImporter
         jdbcTemplate.update("DELETE FROM geohierarchy", Collections.emptyMap());
     }
 
-    private void doUpdate(File hierarchyFile) throws IOException
+    private long doUpdate(File hierarchyFile) throws IOException
     {
+        final AtomicInteger count = new AtomicInteger();
         try (final LineNumberReader r = new LineNumberReader(Files.newBufferedReader(hierarchyFile.toPath())))
         {
+            final Map<Long, Long> buffer = new HashMap<>(100_000);
+
             String line;
             while ((line = r.readLine()) != null)
             {
-                final String[] parts = line.split("\\s+");
+                final String[] parts = line.split("\t");
                 final long id = Long.parseLong(parts[0]);
                 final long parentId = Long.parseLong(parts[1]);
-                final Map<String, Object> params = new TreeMap<>();
-                params.put("id", id);
-                params.put("parent_id", parentId);
 
                 // TODO: Understand how these hierarchies work as there are some duplicated ones
-
-                // TODO: Make this batch inserts
-                try
-                {
-                    jdbcTemplate.update("INSERT INTO geohierarchy (id, parent_id) VALUES(:id, :parent_id)", params);
-                }
-                catch (DuplicateKeyException ignored)
-                {
-
-                }
+                buffer.put(id, parentId);
+                count.incrementAndGet();
             }
+
+            flush(buffer);
+        }
+        return count.get();
+    }
+
+    private void flush(final Map<Long, Long> buffer)
+    {
+        final Map<String, ?>[] array = JdbcGeonamesImporter.newArray(buffer.size());
+        int index = 0;
+        for (Map.Entry<Long, Long> e : buffer.entrySet())
+        {
+            final Map<String, Object> params = new TreeMap<>();
+            params.put("id", e.getKey());
+            params.put("parent_id", e.getValue());
+            array[index++] = params;
+        }
+
+        try
+        {
+            jdbcTemplate.batchUpdate("INSERT INTO geohierarchy (id, parent_id) VALUES(:id, :parent_id)", array);
+        }
+        catch (DuplicateKeyException ignored)
+        {
+
         }
     }
 

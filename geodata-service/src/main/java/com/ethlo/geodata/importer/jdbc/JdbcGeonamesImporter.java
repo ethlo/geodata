@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,14 +83,14 @@ public class JdbcGeonamesImporter implements PersistentImporter
     }
 
     @Override
-    public void importData()
+    public long importData()
     {
         try
         {
             final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource("geonames_hierarchy", geoNamesHierarchyUrl);
             final Map.Entry<Date, File> alternateNamesFile = ResourceUtil.fetchResource("geonames_alternatenames", geoNamesAlternateNamesUrl);
             final Map.Entry<Date, File> allCountriesFile = ResourceUtil.fetchResource("geonames", geoNamesAllCountriesUrl);
-            doUpdate(allCountriesFile.getValue(), alternateNamesFile.getValue(), hierarchyFile.getValue());
+            return doUpdate(allCountriesFile.getValue(), alternateNamesFile.getValue(), hierarchyFile.getValue());
         }
         catch (IOException exc)
         {
@@ -103,7 +104,7 @@ public class JdbcGeonamesImporter implements PersistentImporter
         jdbcTemplate.update("DELETE FROM geonames", Collections.emptyMap());
     }
 
-    private void doUpdate(File allCountriesFile, File alternateNamesFile, File hierarchyFile) throws IOException
+    private long doUpdate(File allCountriesFile, File alternateNamesFile, File hierarchyFile) throws IOException
     {
         final GeonamesImporter geonamesImporter = new GeonamesImporter.Builder()
                 .allCountriesFile(allCountriesFile)
@@ -117,7 +118,7 @@ public class JdbcGeonamesImporter implements PersistentImporter
 
         final Map<String, Integer> timezones = new HashMap<>();
         final Map<String, Integer> featureCodes = new HashMap<>();
-
+        final AtomicInteger count = new AtomicInteger();
         geonamesImporter.processFile(entry ->
         {
             final String timezone = entry.get("timezone");
@@ -140,6 +141,7 @@ public class JdbcGeonamesImporter implements PersistentImporter
             entry.put("timezone_id", timezoneId != null ? Integer.toString(timezoneId) : null);
 
             buffer.add(entry);
+            count.incrementAndGet();
 
             if (buffer.size() == bufferSize)
             {
@@ -148,6 +150,7 @@ public class JdbcGeonamesImporter implements PersistentImporter
         });
 
         flush(buffer, timezones, featureCodes);
+        return count.get();
     }
 
     private Integer insertTimezone(final String ts)

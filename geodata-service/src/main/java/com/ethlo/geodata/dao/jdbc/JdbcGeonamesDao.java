@@ -1,4 +1,4 @@
-package com.ethlo.geodata.importer.jdbc;
+package com.ethlo.geodata.dao.jdbc;
 
 /*-
  * #%L
@@ -47,6 +47,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
 import com.ethlo.geodata.MapFeature;
+import com.ethlo.geodata.importer.jdbc.MysqlCursorUtil;
 
 @Repository
 public class JdbcGeonamesDao
@@ -82,80 +83,72 @@ public class JdbcGeonamesDao
         final Map<String, Long> cache = new HashMap<>();
         final List<Integer> administrativeLevelIds = getAdministrativeLevelIds(featureCodes);
 
-        final String sqlAdminCodes = "SELECT id, country_code, name, feature_code_id, admin_code1, admin_code2, admin_code3, admin_code4 FROM geonames WHERE feature_code_id in (?)";
+        final String sqlAdminCodes = "SELECT id, country_code, name, feature_code_id, admin_code1, admin_code2, admin_code3, admin_code4 FROM geonames WHERE feature_code_id in (" + StringUtils.collectionToCommaDelimitedString(administrativeLevelIds) + ")";
         final MysqlCursorUtil cursorUtil = new MysqlCursorUtil(dataSource);
-        cursorUtil.query(sqlAdminCodes, Collections.singletonMap(1, administrativeLevelIds), rs ->
+        cursorUtil.query(sqlAdminCodes, Collections.emptyMap(), rs ->
         {
-            try
+            while (rs.next())
             {
-                while (rs.next())
-                {
-                    final long id = rs.getLong("id");
-                    final String countryCode = rs.getString("country_code");
-                    final int featureCodeId = rs.getInt("feature_code_id");
-                    final String featureCode = featureCodeId != 0 ? featureCodes.get(featureCodeId).getFeatureCode() : null;
-                    final String adminCode = getConcatenatedAdminCodes(rs);
-                    addToCache(cache, featureCode, countryCode, adminCode, id);
-                }
-            }
-            catch (SQLException exc)
-            {
-                throw new RuntimeException(exc);
+                final long id = rs.getLong("id");
+                final String countryCode = rs.getString("country_code");
+                final int featureCodeId = rs.getInt("feature_code_id");
+                final String adminCode = getConcatenatedAdminCodes(rs);
+                addToCache(cache, featureCodeId, countryCode, adminCode, id);
             }
         });
 
-        logger.info("Loaded administrative levels");
+        final Map<String, Integer> reverseFeatureMap = new HashMap<>();
+        loadFeatureCodes().forEach((k, v) -> reverseFeatureMap.put(v.getFeatureClass() + "." + v.getFeatureCode(), k));
 
-        final String sqlAll = "SELECT id, country_code, name, feature_code_id, admin_code1, admin_code2, admin_code3, admin_code4 FROM geonames" +
+        logger.info("Loaded {} administrative levels", cache.size());
+
+        final String sqlBase = "SELECT $fields FROM geonames" +
                 " WHERE admin_code1 is not null" +
-                " OR admin_code1 is not null" +
                 " OR admin_code2 is not null" +
                 " OR admin_code3 is not null" +
                 " OR admin_code4 is not null";
-        final Map<Long, Long> childToParent = new HashMap<>(100_000);
+        final String sqlAllCount = sqlBase.replace("$fields", "count(id)");
+        final String sqlAll = sqlBase.replace("$fields", "id, country_code, name, feature_code_id, admin_code1, admin_code2, admin_code3, admin_code4");
+
+        final int adminLevelCount = jdbcTemplate.queryForObject(sqlAllCount, Collections.emptyMap(), Integer.class);
+        logger.info("Processing {} administrative level hierarchy nodes", adminLevelCount);
+        final Map<Long, Long> childToParent = new HashMap<>(adminLevelCount + 1_000_000);
         final AtomicInteger noMatch = new AtomicInteger();
         final AtomicInteger selfMatch = new AtomicInteger();
         cursorUtil.query(sqlAll, Collections.emptyMap(), rs ->
         {
-            try
+            while (rs.next())
             {
-                while (rs.next())
+                final long id = rs.getLong("id");
+                //final String name = rs.getString("name");
+                final int featureId = rs.getInt("feature_code_id");
+                final String featureCode = featureId != 0 ? getConcatenatedFeatureCode(featureCodes, featureId) : null;
+                final String countryCode = rs.getString("country_code");
+                final String[] adminCodeArray = getAdminCodeArray(rs);
+
+                //logger.info("Finding parent of {} {} {} {}", id, name, countryCode, featureCode);
+                Long parentId = getParentId(id, reverseFeatureMap, featureCode, countryToId, cache, countryCode, adminCodeArray).orElse(null);
+
+                if (parentId == null)
                 {
-                    final long id = rs.getLong("id");
-                    //final String name = rs.getString("name");
-                    final int featureId = rs.getInt("feature_code_id");
-                    final String featureCode = featureId != 0 ? getFeature(featureCodes, featureId) : null;
-                    final String countryCode = rs.getString("country_code");
-                    final String[] adminCodeArray = getAdminCodeArray(rs);
-
-                    //logger.info("Finding parent of {} {} {} {}", id, name, countryCode, featureCode);
-                    Long parentId = getParentId(id, featureCode, countryToId, cache, countryCode, adminCodeArray).orElse(null);
-
-                    if (parentId == null)
-                    {
-                        noMatch.incrementAndGet();
-                    }
-                    else if (id == parentId)
-                    {
-                        logger.debug("Self-reference: {}", id);
-                        selfMatch.incrementAndGet();
-                    }
-                    else
-                    {
-                        childToParent.put(id, parentId);
-                    }
-
-                    if (count.get() % 500_000 == 0 && count.get() > 0)
-                    {
-                        logger.info("Processed {} locations", count.get());
-                    }
-
-                    count.incrementAndGet();
+                    noMatch.incrementAndGet();
                 }
-            }
-            catch (SQLException exc)
-            {
-                throw new RuntimeException(exc);
+                else if (id == parentId)
+                {
+                    logger.debug("Self-reference: {}", id);
+                    selfMatch.incrementAndGet();
+                }
+                else
+                {
+                    childToParent.put(id, parentId);
+                }
+
+                if (count.get() % 200_000 == 0 && count.get() > 0)
+                {
+                    logger.info("Processed {} locations ({}%)", count.get(), (count.get() / (float) adminLevelCount) * 100);
+                }
+
+                count.incrementAndGet();
             }
         });
 
@@ -163,7 +156,7 @@ public class JdbcGeonamesDao
         return childToParent;
     }
 
-    private String getFeature(final Map<Integer, MapFeature> featureCodes, final int featureCodeId)
+    private String getConcatenatedFeatureCode(final Map<Integer, MapFeature> featureCodes, final int featureCodeId)
     {
         return Optional.ofNullable(featureCodes.get(featureCodeId)).map(f -> f.getFeatureClass() + "." + f.getFeatureCode()).orElseThrow(() -> new EmptyResultDataAccessException("No feature code with ID " + featureCodeId, 1));
     }
@@ -182,9 +175,9 @@ public class JdbcGeonamesDao
         return result;
     }
 
-    private void addToCache(Map<String, Long> cache, String featureCode, String countryCode, String adminCode, long id)
+    private void addToCache(Map<String, Long> cache, int featureCodeId, String countryCode, String adminCode, long id)
     {
-        final String key = countryCode + "|" + adminCode + "|" + featureCode;
+        final String key = countryCode + "|" + adminCode + "|" + featureCodeId;
         final Long old = cache.put(key, id);
         if (old != null)
         {
@@ -192,7 +185,7 @@ public class JdbcGeonamesDao
         }
     }
 
-    private Optional<Long> getParentId(final long id, final String featureCode, final Map<String, Long> countryToId, final Map<String, Long> cache, final String countryCode, final String[] adminCodeArray)
+    private Optional<Long> getParentId(final long id, final Map<String, Integer> reverseFeatureMap, final String featureCode, final Map<String, Long> countryToId, final Map<String, Long> cache, final String countryCode, final String[] adminCodeArray)
     {
         String adminLevelCode;
         String adminCodes;
@@ -218,7 +211,7 @@ public class JdbcGeonamesDao
             adminCodes = StringUtils.arrayToDelimitedString(adminCodeArray, "|");
         }
 
-        final String key = countryCode + "|" + adminCodes + "|" + adminLevelCode;
+        final String key = countryCode + "|" + adminCodes + "|" + reverseFeatureMap.get(adminLevelCode);
         final Long parentId = cache.get(key);
         if (parentId == null)
         {

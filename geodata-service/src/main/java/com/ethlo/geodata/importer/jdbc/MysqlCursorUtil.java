@@ -10,12 +10,12 @@ package com.ethlo.geodata.importer.jdbc;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -27,7 +27,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import javax.sql.DataSource;
 
@@ -40,7 +39,7 @@ public class MysqlCursorUtil
         this.dataSource = dataSource;
     }
 
-    public void query(String sql, Map<Integer, Object> params, Consumer<ResultSet> resultSetConsumer) throws SQLException
+    public void query(String sql, Map<Integer, Object> params, ResultSetConsumer resultSetConsumer) throws SQLException
     {
         ResultSet rs = null;
         try (final Connection conn = dataSource.getConnection(); final PreparedStatement pstmt = conn.prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY))
@@ -59,5 +58,11 @@ public class MysqlCursorUtil
                 rs.close();
             }
         }
+    }
+
+    @FunctionalInterface
+    public interface ResultSetConsumer
+    {
+        void accept(ResultSet rs) throws SQLException;
     }
 }
