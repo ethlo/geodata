@@ -41,6 +41,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
@@ -52,7 +53,7 @@ public class JdbcGeonamesDao
 {
     private static final Logger logger = LoggerFactory.getLogger(JdbcGeonamesDao.class);
 
-    private static final String[] adminCodeLevels = new String[]{"ADM1", "ADM2", "ADM3", "ADM4"};
+    private static final String[] adminCodeLevels = new String[]{"A.ADM1", "A.ADM2", "A.ADM3", "A.ADM4"};
 
     @Autowired
     private DataSource dataSource;
@@ -122,8 +123,8 @@ public class JdbcGeonamesDao
                 {
                     final long id = rs.getLong("id");
                     //final String name = rs.getString("name");
-                    final int featureCodeId = rs.getInt("feature_code_id");
-                    final String featureCode = featureCodes.get(featureCodeId).getFeatureCode();
+                    final int featureId = rs.getInt("feature_code_id");
+                    final String featureCode = featureId != 0 ? getFeature(featureCodes, featureId) : null;
                     final String countryCode = rs.getString("country_code");
                     final String[] adminCodeArray = getAdminCodeArray(rs);
 
@@ -160,6 +161,11 @@ public class JdbcGeonamesDao
 
         logger.info("Processed hierarchy for a total of {} rows, {} nodes. No parent match: {}. Self match: {}", count.get(), childToParent.size(), noMatch.get(), selfMatch.get());
         return childToParent;
+    }
+
+    private String getFeature(final Map<Integer, MapFeature> featureCodes, final int featureCodeId)
+    {
+        return Optional.ofNullable(featureCodes.get(featureCodeId)).map(f -> f.getFeatureClass() + "." + f.getFeatureCode()).orElseThrow(() -> new EmptyResultDataAccessException("No feature code with ID " + featureCodeId, 1));
     }
 
     private List<Integer> getAdministrativeLevelIds(final Map<Integer, MapFeature> featureCodes)
@@ -265,14 +271,12 @@ public class JdbcGeonamesDao
     public Map<Integer, MapFeature> loadFeatureCodes()
     {
         final Map<Integer, MapFeature> featureCodes = new HashMap<>();
-        jdbcTemplate.query("SELECT * FROM feature_codes", rs -> {
-            while (rs.next())
-            {
-                final int id = rs.getInt("id");
-                final String featureClass = rs.getString("feature_class");
-                final String featureCode = rs.getString("feature_code");
-                featureCodes.put(id, new MapFeature(featureClass, featureCode));
-            }
+        jdbcTemplate.query("SELECT * FROM feature_codes", rs ->
+        {
+            final int id = rs.getInt("id");
+            final String featureClass = rs.getString("feature_class");
+            final String featureCode = rs.getString("feature_code");
+            featureCodes.put(id, new MapFeature(featureClass, featureCode));
         });
         return featureCodes;
     }

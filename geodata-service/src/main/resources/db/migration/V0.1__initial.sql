@@ -44,7 +44,7 @@ create table feature_codes
 (
     id            smallint unsigned not null auto_increment primary key,
     feature_class char(1)           not null,
-    feature_code  varchar(80)       not null,
+    feature_code  varchar(80)       null,
     description   varchar(255)      null
 );
 
@@ -66,7 +66,8 @@ create table geonames
     coord            point        not null
 ) engine = InnoDB
   character set utf8;
-ALTER TABLE geonames ADD INDEX idx_filter (country_code, feature_code_id);
+ALTER TABLE geonames
+    ADD INDEX idx_filter (country_code, feature_code_id);
 -- ALTER TABLE geonames ADD UNIQUE INDEX uniq_properties (country_code, feature_code_id, admin_code1, admin_code2, admin_code3, admin_code4);
 CREATE SPATIAL INDEX geonames_coord ON geonames (coord);
 CREATE FULLTEXT INDEX ft_name_geonames on geonames (name);

@@ -98,7 +98,7 @@ public class GeoMetaService
         jdbcTemplate.update(sql, params);
     }
 
-    public void update() throws IOException, SQLException
+    public void update() throws IOException
     {
         final Date countryTimestamp = countryImporter.lastRemoteModified();
         ifExpired(DataType.COUNTRY, countryTimestamp, () ->

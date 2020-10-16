@@ -127,13 +127,13 @@ public class JdbcGeonamesImporter implements PersistentImporter
             final String featureCode = entry.get("feature_code");
 
             Integer featureCodeId = null;
-            if (featureClass != null && featureCode != null)
+            if (featureClass == null && featureCode == null)
             {
-                featureCodeId = featureCodes.computeIfAbsent(featureClass + "." + featureCode, combined -> insertFeatureCode(featureClass, featureCode, null));
+                logger.debug("No feature code for {}", entry.get("id"));
             }
             else
             {
-                logger.info("No feature code for {}", entry.get("id"));
+                featureCodeId = featureCodes.computeIfAbsent(featureClass + "." + featureCode, combined -> insertFeatureCode(featureClass, featureCode, null));
             }
 
             entry.put("feature_code_id", featureCodeId != null ? Integer.toString(featureCodeId) : null);

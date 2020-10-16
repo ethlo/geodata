@@ -35,6 +35,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
@@ -98,9 +100,9 @@ public class GeodataServiceImpl implements GeodataService
 
     private final Logger logger = LoggerFactory.getLogger(GeodataServiceImpl.class);
     private final Map<Long, Node> nodes = new HashMap<>();
-    private Map<Integer, MapFeature> featureCodes = new HashMap<>();
     private final Map<Integer, String> timezones = new HashMap<>();
     private final Map<String, Country> countries = new HashMap<>();
+    private Map<Integer, MapFeature> featureCodes = new HashMap<>();
     private final RowMapper<Country> COUNTRY_INFO_MAPPER = (rs, rowNum) ->
     {
         final GeoLocation location = new GeoLocation();
@@ -225,7 +227,7 @@ public class GeodataServiceImpl implements GeodataService
 
         final long id = rs.getLong("id");
         final Node node = nodes.get(id);
-        final Long parentId = node != null ? node.getParent().getId() : null;
+        final Long parentId = Optional.ofNullable(node).map(Node::getParent).map(Node::getId).orElse(null);
         final int featureCodeId = rs.getInt("feature_code_id");
         final String featureCode = featureCodeId != 0 ? featureCodes.get(featureCodeId).getFeatureCode() : null;
 
@@ -447,11 +449,21 @@ public class GeodataServiceImpl implements GeodataService
     {
         final Map<String, Object> params = new TreeMap<>();
         params.put("cc", countryCode);
+        params.put("feature_code_id", getFeatureCodeId("A", "ADM1"));
         params.put("offset", pageable.getOffset());
         params.put("max", pageable.getPageSize());
         final List<GeoLocation> content = jdbcTemplate.query(findCountryChildrenSql, params, GEONAMES_ROW_MAPPER);
         final long total = count(countCountryChildrenSql, params);
         return new PageImpl<>(content, pageable, total);
+    }
+
+    private int getFeatureCodeId(final String featureClass, final String featureCode)
+    {
+        return featureCodes.entrySet().stream()
+                .filter(e -> Objects.equals(featureClass, e.getValue().getFeatureClass()) && Objects.equals(featureCode, e.getValue().getFeatureCode()))
+                .map(Entry::getKey)
+                .findFirst()
+                .orElseThrow(() -> new EmptyResultDataAccessException("No feature with feature class " + featureClass + ", feature code " + featureCode, 1));
     }
 
     private long count(final String sql, final Map<String, Object> params)

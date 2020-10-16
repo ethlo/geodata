@@ -65,7 +65,7 @@ public class GeodataApplicationTests
     {
         if (!initialized)
         {
-            geoMetaService.update();
+            //geoMetaService.update();
             geodataService.load();
             initialized = true;
         }
@@ -85,7 +85,7 @@ public class GeodataApplicationTests
         cal.set(Calendar.MILLISECOND, 0);
         final Date expected = cal.getTime();
         geoMetaService.setLastModified(DataType.IP, expected);
-        assertThat(geoMetaService.getLastModified(DataType.IP)).isEqualTo(expected.getTime());
+        assertThat(geoMetaService.getLastModified(DataType.IP).get()).isEqualTo(expected);
     }
 
     @Test

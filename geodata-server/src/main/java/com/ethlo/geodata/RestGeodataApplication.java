@@ -23,6 +23,7 @@ package com.ethlo.geodata;
  */
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
@@ -55,9 +56,9 @@ public class RestGeodataApplication
             {
                 ctx.getBean(GeoMetaService.class).update();
             }
-            catch (IOException | SQLException exc)
+            catch (IOException exc)
             {
-                throw new DataAccessResourceFailureException(exc.getMessage(), exc);
+                throw new UncheckedIOException(exc);
             }
         }
 
