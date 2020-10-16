@@ -41,19 +41,19 @@ public interface GeodataService
 {
     GeoLocation findByIp(String ip);
 
-    GeoLocation findById(long geoNameId);
+    GeoLocation findById(int geoNameId);
 
     GeoLocation findWithin(@Valid Coordinates point, int maxDistanceInKilometers);
 
-    public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable);
+    Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable);
 
-    byte[] findBoundaries(long id);
+    byte[] findBoundaries(int id);
     
-    byte[] findBoundaries(long id, double maxTolerance);
+    byte[] findBoundaries(int id, double maxTolerance);
     
-    byte[] findBoundaries(long id, View view);
+    byte[] findBoundaries(int id, View view);
 
-    Page<GeoLocation> findChildren(long locationId, Pageable pageable);
+    Page<GeoLocation> findChildren(int locationId, Pageable pageable);
 
     Page<Continent> findContinents();
 
@@ -67,19 +67,19 @@ public interface GeodataService
 
     Country findByPhonenumber(String phoneNumber);
 
-    GeoLocation findParent(long id);
+    GeoLocation findParent(int id);
     
     GeoLocation findbyCoordinate(Coordinates point, int distance); 
 
-    boolean isInsideAny(List<Long> locations, long location);
+    boolean isInsideAny(List<Integer> locations, int location);
 
-    boolean isOutsideAll(List<Long> locations, long location);
+    boolean isOutsideAll(List<Integer> locations, int location);
 
-    boolean isLocationInside(long locationId, long suspectedParentId);
+    boolean isLocationInside(int locationId, int suspectedParentId);
 
     Continent findContinent(String continentCode);
 
-    List<GeoLocation> findByIds(Collection<Long> ids);
+    List<GeoLocation> findByIds(Collection<Integer> ids);
     
     Page<GeoLocation> findByName(String name, Pageable pageable);
 

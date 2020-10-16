@@ -88,21 +88,21 @@ import com.google.common.base.Stopwatch;
 public class GeodataServiceImpl implements GeodataService
 {
     public static final double RAD_TO_KM_RATIO = 111.195D;
-    private static final Map<String, Long> CONTINENT_IDS = new LinkedHashMap<>();
+    private static final Map<String, Integer> CONTINENT_IDS = new LinkedHashMap<>();
 
     static
     {
-        CONTINENT_IDS.put("AF", 6255146L);
-        CONTINENT_IDS.put("AS", 6255147L);
-        CONTINENT_IDS.put("EU", 6255148L);
-        CONTINENT_IDS.put("NA", 6255149L);
-        CONTINENT_IDS.put("OC", 6255151L);
-        CONTINENT_IDS.put("SA", 6255150L);
-        CONTINENT_IDS.put("AN", 6255152L);
+        CONTINENT_IDS.put("AF", 6255146);
+        CONTINENT_IDS.put("AS", 6255147);
+        CONTINENT_IDS.put("EU", 6255148);
+        CONTINENT_IDS.put("NA", 6255149);
+        CONTINENT_IDS.put("OC", 6255151);
+        CONTINENT_IDS.put("SA", 6255150);
+        CONTINENT_IDS.put("AN", 6255152);
     }
 
     private final Logger logger = LoggerFactory.getLogger(GeodataServiceImpl.class);
-    private final Map<Long, Node> nodes = new HashMap<>();
+    private final Map<Integer, Node> nodes = new HashMap<>();
     private final Map<Integer, String> timezones = new HashMap<>();
     private final Map<String, Country> countries = new HashMap<>();
     private Map<Integer, MapFeature> featureCodes = new HashMap<>();
@@ -134,7 +134,7 @@ public class GeodataServiceImpl implements GeodataService
     @Value("${geodata.sql.geonamesbyid}")
     private String geoNamesByIdSql;
 
-    private final LoadingCache<Long, GeoLocation> locationByIdCache = Caffeine.newBuilder()
+    private final LoadingCache<Integer, GeoLocation> locationByIdCache = Caffeine.newBuilder()
             .maximumSize(100_000)
             .build(this::doFindById);
 
@@ -189,12 +189,12 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public GeoLocation findById(long geoNameId)
+    public GeoLocation findById(int geoNameId)
     {
         return locationByIdCache.get(geoNameId);
     }
 
-    public GeoLocation doFindById(long id)
+    public GeoLocation doFindById(int id)
     {
         return jdbcTemplate.query(geoNamesByIdSql, Collections.singletonMap("id", id), rs ->
         {
@@ -215,9 +215,9 @@ public class GeodataServiceImpl implements GeodataService
         final Country country = findCountryByCode(countryCode);
         final CountrySummary countrySummary = country != null ? country.toSummary(countryCode) : null;
 
-        final long id = rs.getLong("id");
+        final int id = rs.getInt("id");
         final Node node = nodes.get(id);
-        final Long parentId = Optional.ofNullable(node).map(Node::getParent).orElse(null);
+        final Integer parentId = Optional.ofNullable(node).map(Node::getParent).orElse(null);
         final int featureCodeId = rs.getInt("feature_code_id");
         final MapFeature mapFeature = featureCodeId != 0 ? featureCodes.get(featureCodeId) : null;
 
@@ -226,6 +226,7 @@ public class GeodataServiceImpl implements GeodataService
                 .setName(rs.getString("name"))
                 .setFeatureClass(mapFeature.getFeatureClass())
                 .setFeatureCode(mapFeature.getFeatureCode())
+                .setTimeZone(timezones.get(rs.getInt("timezone_id")))
                 .setPopulation(rs.getLong("population"))
                 .setCoordinates(Coordinates.from(rs.getDouble("lat"), rs.getDouble("lng")))
                 .setParentLocationId(parentId)
@@ -295,7 +296,7 @@ public class GeodataServiceImpl implements GeodataService
     private GeoLocation doFindContaining(Coordinates point, int maxDistanceInKm)
     {
         final Map<String, Object> params = createParams(point, maxDistanceInKm, PageRequest.of(0, 1));
-        final List<GeoLocation> res = jdbcTemplate.query(findWithinBoundariesSql, params, (rs, rowNum) -> findById(rs.getLong("id")));
+        final List<GeoLocation> res = jdbcTemplate.query(findWithinBoundariesSql, params, (rs, rowNum) -> findById(rs.getInt("id")));
 
         return res.isEmpty() ? null : res.get(0);
     }
@@ -318,7 +319,7 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public List<GeoLocation> findByIds(Collection<Long> ids)
+    public List<GeoLocation> findByIds(Collection<Integer> ids)
     {
         if (ids.isEmpty())
         {
@@ -328,7 +329,7 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public byte[] findBoundaries(long id)
+    public byte[] findBoundaries(int id)
     {
         return jdbcTemplate.query(findBoundariesByIdSql, Collections.singletonMap("id", id), rse ->
         {
@@ -341,7 +342,7 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public Page<GeoLocation> findChildren(long locationId, Pageable pageable)
+    public Page<GeoLocation> findChildren(int locationId, Pageable pageable)
     {
         final Node node = nodes.get(locationId);
         if (node == null)
@@ -349,7 +350,7 @@ public class GeodataServiceImpl implements GeodataService
             throw new EmptyResultDataAccessException("No location with id " + locationId + " found", 1);
         }
         final long total = node.getChildren().length;
-        final List<Long> ids = Arrays.stream(node.getChildren())
+        final List<Integer> ids = Arrays.stream(node.getChildren())
                 .skip(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
@@ -392,9 +393,9 @@ public class GeodataServiceImpl implements GeodataService
         return new PageImpl<>(continents, PageRequest.of(0, 7), 7);
     }
 
-    private String getContinentCode(Long id)
+    private String getContinentCode(int id)
     {
-        for (Entry<String, Long> e : CONTINENT_IDS.entrySet())
+        for (Entry<String, Integer> e : CONTINENT_IDS.entrySet())
         {
             if (e.getValue().equals(id))
             {
@@ -485,10 +486,10 @@ public class GeodataServiceImpl implements GeodataService
 
     private void doLoadHierarchy() throws SQLException
     {
-        final Map<Long, Long> childToParent = geonamesDao.buildHierarchyDataFromAdminCodes();
+        final Map<Integer, Integer> childToParent = geonamesDao.buildHierarchyDataFromAdminCodes();
 
-        final int explicitCount = loadExplicitHierarchy(childToParent);
-        logger.info("Loaded {} explicit hierarchy definitions", explicitCount);
+        //final int explicitCount = loadExplicitHierarchy(childToParent);
+        //logger.info("Loaded {} explicit hierarchy definitions", explicitCount);
 
         // Build node hierarchy
         childToParent.forEach((child, parent) ->
@@ -502,7 +503,7 @@ public class GeodataServiceImpl implements GeodataService
         logger.info("Loaded node hierarchy of {} locations", nodes.size());
     }
 
-    private int loadExplicitHierarchy(final Map<Long, Long> childToParent) throws SQLException
+    private int loadExplicitHierarchy(final Map<Integer, Integer> childToParent) throws SQLException
     {
         logger.info("Loading explicit hierarchy structure");
         final AtomicInteger explicitCount = new AtomicInteger();
@@ -511,8 +512,8 @@ public class GeodataServiceImpl implements GeodataService
         {
             while (rs.next())
             {
-                final long id = rs.getLong("id");
-                final long parentId = rs.getLong("parent_id");
+                final int id = rs.getInt("id");
+                final int parentId = rs.getInt("parent_id");
                 if (childToParent.putIfAbsent(id, parentId) == null)
                 {
                     explicitCount.incrementAndGet();
@@ -535,7 +536,7 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public boolean isInsideAny(List<Long> locations, long location)
+    public boolean isInsideAny(List<Integer> locations, int location)
     {
         final GeoLocation loc = findById(location);
         if (loc == null)
@@ -543,9 +544,9 @@ public class GeodataServiceImpl implements GeodataService
             throw new EmptyResultDataAccessException("No such location found " + location, 1);
         }
 
-        for (Long l : locations)
+        for (int l : locations)
         {
-            if (l.equals(location) || isLocationInside(location, l))
+            if (l == location || isLocationInside(location, l))
             {
                 return true;
             }
@@ -554,7 +555,7 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public boolean isOutsideAll(List<Long> locations, long location)
+    public boolean isOutsideAll(List<Integer> locations, final int location)
     {
         final GeoLocation loc = findById(location);
         if (loc == null)
@@ -562,7 +563,7 @@ public class GeodataServiceImpl implements GeodataService
             throw new EmptyResultDataAccessException("No such location found " + location, 1);
         }
 
-        for (long l : locations)
+        for (int l : locations)
         {
             if (isLocationInside(l, loc.getId()))
             {
@@ -573,20 +574,20 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public boolean isLocationInside(long locationId, long suspectedParentId)
+    public boolean isLocationInside(final int locationId, final int suspectedParentId)
     {
-        final List<Long> path = getPath(locationId);
+        final List<Integer> path = getPath(locationId);
         return path.contains(suspectedParentId);
     }
 
-    private List<Long> getPath(long id)
+    private List<Integer> getPath(final int id)
     {
         Node node = this.nodes.get(id);
-        final List<Long> path = new LinkedList<>();
+        final List<Integer> path = new LinkedList<>();
         while (node != null)
         {
             path.add(node.getId());
-            final Long parent = node.getParent();
+            final Integer parent = node.getParent();
             node = parent != null ? nodes.get(parent) : null;
         }
         return path;
@@ -595,7 +596,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Continent findContinent(String continentCode)
     {
-        final Long id = CONTINENT_IDS.get(continentCode.toUpperCase());
+        final Integer id = CONTINENT_IDS.get(continentCode.toUpperCase());
         if (id != null)
         {
             return new Continent(continentCode.toUpperCase(), findById(id));
@@ -604,7 +605,7 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public GeoLocation findParent(long id)
+    public GeoLocation findParent(final int id)
     {
         final GeoLocation location = findById(id);
         return location.getParentLocationId() != null ? findById(location.getParentLocationId()) : null;
@@ -630,7 +631,7 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public byte[] findBoundaries(long id, @Valid View view)
+    public byte[] findBoundaries(final int id, @Valid View view)
     {
         final byte[] fullWkb = this.findBoundaries(id);
 
@@ -661,7 +662,7 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public byte[] findBoundaries(long id, double maxTolerance)
+    public byte[] findBoundaries(final int id, double maxTolerance)
     {
         final byte[] fullWkb = this.findBoundaries(id);
 

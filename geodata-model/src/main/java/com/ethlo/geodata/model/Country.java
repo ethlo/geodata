@@ -10,12 +10,12 @@ package com.ethlo.geodata.model;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -28,17 +28,12 @@ import java.util.List;
 public class Country extends GeoLocation implements Serializable
 {
     private static final long serialVersionUID = -4692269307453103789L;
-        
+
     private List<String> languages;
-    
+
     protected Country()
     {
-        
-    }
-    
-    public CountrySummary toSummary(String countryCode)
-    {
-        return new CountrySummary().setId(getId()).setName(getName()).setCode(countryCode);
+
     }
 
     public static Country from(GeoLocation location)
@@ -51,6 +46,11 @@ public class Country extends GeoLocation implements Serializable
         country.setFeatureCode(location.getFeatureCode());
         country.setPopulation(location.getPopulation());
         return country;
+    }
+
+    public CountrySummary toSummary(String countryCode)
+    {
+        return new CountrySummary().setId((long) getId()).setName(getName()).setCode(countryCode);
     }
 
     public List<String> getLanguages()

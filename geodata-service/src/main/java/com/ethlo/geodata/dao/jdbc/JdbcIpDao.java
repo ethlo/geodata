@@ -10,12 +10,12 @@ package com.ethlo.geodata.dao.jdbc;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -49,12 +49,12 @@ import com.google.common.primitives.UnsignedInteger;
 public class JdbcIpDao implements IpDao
 {
     private static final Logger logger = LoggerFactory.getLogger(JdbcIpDao.class);
-    private final RangeMap<Long, Long> ipRangeMap = TreeRangeMap.create();
+    private final RangeMap<Long, Integer> ipRangeMap = TreeRangeMap.create();
     @Autowired
     private DataSource dataSource;
 
     @Override
-    public Optional<Long> findByIp(final String ip)
+    public Optional<Integer> findByIp(final String ip)
     {
         final boolean isValid = InetAddresses.isInetAddress(ip);
         final InetAddress address = InetAddresses.forString(ip);
@@ -97,7 +97,7 @@ public class JdbcIpDao implements IpDao
             {
                 while (rs.next())
                 {
-                    ipRangeMap.put(Range.closed(rs.getLong("first"), rs.getLong("last")), rs.getLong("geoname_id"));
+                    ipRangeMap.put(Range.closed(rs.getLong("first"), rs.getLong("last")), rs.getInt("geoname_id"));
                     count.incrementAndGet();
 
                     if (count.get() % 100_000 == 0)

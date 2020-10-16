@@ -30,10 +30,9 @@ public class GeoLocation implements Serializable
 {
     private static final long serialVersionUID = -4591909310445372923L;
 
-    @NotNull
-    private Long id;
+    private int id;
 
-    private Long parentLocationId;
+    private Integer parentLocationId;
 
     @NotNull
     private String name;
@@ -51,6 +50,8 @@ public class GeoLocation implements Serializable
 
     private long population;
 
+    private String timeZone;
+
     public String getFeatureCode()
     {
         return featureCode;
@@ -62,12 +63,12 @@ public class GeoLocation implements Serializable
         return this;
     }
 
-    public Long getId()
+    public int getId()
     {
         return id;
     }
 
-    public GeoLocation setId(Long id)
+    public GeoLocation setId(int id)
     {
         this.id = id;
         return this;
@@ -95,12 +96,12 @@ public class GeoLocation implements Serializable
         return this;
     }
 
-    public Long getParentLocationId()
+    public Integer getParentLocationId()
     {
         return parentLocationId;
     }
 
-    public GeoLocation setParentLocationId(Long parentLocationId)
+    public GeoLocation setParentLocationId(Integer parentLocationId)
     {
         this.parentLocationId = parentLocationId;
         return this;
@@ -120,9 +121,17 @@ public class GeoLocation implements Serializable
     @Override
     public String toString()
     {
-        return "GeoLocation [" + (id != null ? "id=" + id + ", " : "") + (parentLocationId != null ? "parentLocationId=" + parentLocationId + ", " : "") + (name != null ? "name=" + name + ", " : "")
-                + (country != null ? "country=" + country + ", " : "")
-                + (coordinates != null ? "coordinates=" + coordinates : "") + "]";
+        return "GeoLocation{" +
+                "id=" + id +
+                ", parentLocationId=" + parentLocationId +
+                ", name='" + name + '\'' +
+                ", country=" + country +
+                ", coordinates=" + coordinates +
+                ", featureClass='" + featureClass + '\'' +
+                ", featureCode='" + featureCode + '\'' +
+                ", population=" + population +
+                ", timeZone='" + timeZone + '\'' +
+                '}';
     }
 
     public long getPopulation()
@@ -144,6 +153,17 @@ public class GeoLocation implements Serializable
     public GeoLocation setFeatureClass(final String featureClass)
     {
         this.featureClass = featureClass;
+        return this;
+    }
+
+    public String getTimeZone()
+    {
+        return timeZone;
+    }
+
+    public GeoLocation setTimeZone(final String timeZone)
+    {
+        this.timeZone = timeZone;
         return this;
     }
 }

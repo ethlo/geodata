@@ -27,23 +27,22 @@ import java.util.Objects;
 
 public class Node implements Comparable<Node>
 {
-    private static final long[] EMPTY = new long[0];
+    private static final int[] EMPTY = new int[0];
 
-    private final Long id;
-    private long[] children;
-    private Long parent;
+    private final int id;
+    private int[] children;
+    private Integer parent;
 
-    public Node(Long id)
+    public Node(int id)
     {
         this.id = id;
-        children = null;
     }
 
-    public void addChild(long child)
+    public void addChild(int child)
     {
         if (children == null)
         {
-            this.children = new long[]{child};
+            this.children = new int[]{child};
         }
         else
         {
@@ -52,22 +51,22 @@ public class Node implements Comparable<Node>
         }
     }
 
-    public Long getId()
+    public Integer getId()
     {
         return id;
     }
 
-    public long[] getChildren()
+    public int[] getChildren()
     {
         return children != null ? children : EMPTY;
     }
 
-    public Long getParent()
+    public Integer getParent()
     {
         return parent;
     }
 
-    public void setParent(Long parent)
+    public void setParent(Integer parent)
     {
         this.parent = parent;
     }
@@ -99,6 +98,6 @@ public class Node implements Comparable<Node>
     @Override
     public int compareTo(final Node node)
     {
-        return id.compareTo(node.id);
+        return Integer.compare(id, node.id);
     }
 }

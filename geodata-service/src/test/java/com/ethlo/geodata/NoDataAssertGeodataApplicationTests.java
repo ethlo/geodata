@@ -150,7 +150,7 @@ public class NoDataAssertGeodataApplicationTests
     @Test
     public void findPreviewBoundary()
     {
-        final long id = 6255151;
+        final int id = 6255151;
         final byte[] boundaries = geodataService.findBoundaries(id);
         final byte[] simplifiedBoundaries = geodataService.findBoundaries(id, new View(5, 10, 55, 75, 1920, 1080));
         assertThat(boundaries.length).isGreaterThan(simplifiedBoundaries.length);
@@ -159,7 +159,7 @@ public class NoDataAssertGeodataApplicationTests
     @Test
     public void testClipAtBoundaryPartiallyInside() throws ParseException
     {
-        final long id = 6255151; // Oceania
+        final int id = 6255151; // Oceania
         final Geometry boundaries = new WKBReader().read(geodataService.findBoundaries(id));
         final double minLng = 109.02832043750004;
         final double maxLng = 128.03466809375004;
@@ -173,7 +173,7 @@ public class NoDataAssertGeodataApplicationTests
     @Test
     public void testClipAtBoundaryTotallyInside() throws ParseException
     {
-        final long id = 6255151; // Oceania
+        final int id = 6255151; // Oceania
         final Geometry boundaries = new WKBReader().read(geodataService.findBoundaries(id));
         final double minLng = 124.71679700000004;
         final double maxLng = 143.72314465625004;

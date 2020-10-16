@@ -119,7 +119,7 @@ public class GeodataController implements GeodataService
      */
     @GetMapping("/v1/locations/{id}/boundaries.wkb")
     @Override
-    public byte[] findBoundaries(@PathVariable(name = "id") long locationId)
+    public byte[] findBoundaries(@PathVariable(name = "id") int locationId)
     {
         final byte[] boundaries = geodataService.findBoundaries(locationId);
         return notNull(boundaries, "No boundaries found for location " + locationId);
@@ -130,7 +130,7 @@ public class GeodataController implements GeodataService
      */
     @GetMapping("/v1/locations/{id}/simpleboundaries.wkb")
     @Override
-    public byte[] findBoundaries(@PathVariable(name = "id") long id, @RequestParam(name = "maxTolerance", required = true) double maxTolerance)
+    public byte[] findBoundaries(@PathVariable(name = "id") int id, @RequestParam(name = "maxTolerance", required = true) double maxTolerance)
     {
         final byte[] boundaries = geodataService.findBoundaries(id, maxTolerance);
         return notNull(boundaries, "No boundaries found for location " + id);
@@ -140,14 +140,14 @@ public class GeodataController implements GeodataService
      * Fetch dynamically simplified boundaries based on the max tolerance allowed (in meters)
      */
     @GetMapping("/v1/locations/{id}/simpleboundaries")
-    public void findBoundariesSimple(@PathVariable(name = "id") long locationId, double maxTolerance, HttpServletResponse resp) throws IOException
+    public void findBoundariesSimple(@PathVariable(name = "id") int locationId, double maxTolerance, HttpServletResponse resp) throws IOException
     {
         final byte[] boundaries = geodataService.findBoundaries(locationId, maxTolerance);
         outputGeoJson(boundaries, resp, locationId);
     }
 
     @GetMapping("/v1/locations/{id}/boundaries")
-    public void findBoundaries(@PathVariable(name = "id") long locationId, HttpServletResponse resp) throws IOException
+    public void findBoundaries(@PathVariable(name = "id") int locationId, HttpServletResponse resp) throws IOException
     {
         final byte[] wkb = geodataService.findBoundaries(locationId);
         outputGeoJson(wkb, resp, locationId);
@@ -180,7 +180,7 @@ public class GeodataController implements GeodataService
      */
     @GetMapping("/v1/locations/{id}")
     @Override
-    public GeoLocation findById(@PathVariable(name = "id") long locationId)
+    public GeoLocation findById(@PathVariable(name = "id") int locationId)
     {
         final GeoLocation location = geodataService.findById(locationId);
         return notNull(location, "No location found for ID " + locationId);
@@ -191,7 +191,7 @@ public class GeodataController implements GeodataService
      */
     @GetMapping("/v1/locations/{id}/parent")
     @Override
-    public GeoLocation findParent(@PathVariable(name = "id") long locationId)
+    public GeoLocation findParent(@PathVariable(name = "id") int locationId)
     {
         findById(locationId);
         return geodataService.findParent(locationId);
@@ -202,7 +202,7 @@ public class GeodataController implements GeodataService
      */
     @GetMapping(value = "/v1/locations/{id}/children")
     @Override
-    public Page<GeoLocation> findChildren(@PathVariable(name = "id") long locationId, Pageable pageable)
+    public Page<GeoLocation> findChildren(@PathVariable(name = "id") int locationId, Pageable pageable)
     {
         findById(locationId);
         return geodataService.findChildren(locationId, pageable);
@@ -277,7 +277,7 @@ public class GeodataController implements GeodataService
      */
     @GetMapping("/v1/locations/ids")
     @Override
-    public List<GeoLocation> findByIds(@RequestParam(name = "ids") Collection<Long> ids)
+    public List<GeoLocation> findByIds(@RequestParam(name = "ids") Collection<Integer> ids)
     {
         return geodataService.findByIds(ids);
     }
@@ -299,7 +299,7 @@ public class GeodataController implements GeodataService
      */
     @GetMapping("/v1/locations/{id}/insideany/{ids}")
     @Override
-    public boolean isInsideAny(@PathVariable("ids") List<Long> ids, @PathVariable("id") long id)
+    public boolean isInsideAny(@PathVariable("ids") List<Integer> ids, @PathVariable("id") int id)
     {
         ids.forEach(this::findById);
         findById(id);
@@ -311,7 +311,7 @@ public class GeodataController implements GeodataService
      */
     @GetMapping("/v1/locations/{id}/outsideall/{ids}")
     @Override
-    public boolean isOutsideAll(@PathVariable("ids") List<Long> ids, @PathVariable("id") long id)
+    public boolean isOutsideAll(@PathVariable("ids") List<Integer> ids, @PathVariable("id") int id)
     {
         ids.forEach(this::findById);
         findById(id);
@@ -344,7 +344,7 @@ public class GeodataController implements GeodataService
      */
     @GetMapping("/v1/locations/{id}/contains/{child}")
     @Override
-    public boolean isLocationInside(@PathVariable(name = "id", required = true) long id, @PathVariable(name = "child", required = true) long child)
+    public boolean isLocationInside(@PathVariable(name = "id", required = true) int id, @PathVariable(name = "child", required = true) int child)
     {
         findById(id);
         findById(child);
@@ -365,7 +365,7 @@ public class GeodataController implements GeodataService
      */
     @Override
     @GetMapping("/v1/locations/{id}/previewboundaries.wkb")
-    public byte[] findBoundaries(@PathVariable(name = "id") long locationId, View view)
+    public byte[] findBoundaries(@PathVariable(name = "id") int locationId, View view)
     {
         return geodataService.findBoundaries(locationId, view);
     }
@@ -374,18 +374,18 @@ public class GeodataController implements GeodataService
      * Fetch boundaries dynamically simplified to be useful for the specified view dimensions (for example Google Maps overlay)
      */
     @GetMapping("/v1/locations/{id}/previewboundaries")
-    public void findPreviewBoundaries(@PathVariable(name = "id") long locationId, @Validated View view, HttpServletResponse resp) throws IOException
+    public void findPreviewBoundaries(@PathVariable(name = "id") int locationId, @Validated View view, HttpServletResponse resp) throws IOException
     {
         final byte[] boundaries = geodataService.findBoundaries(locationId, view);
         outputGeoJson(boundaries, resp, locationId);
     }
-
-
+    
     /**
      * Get data source information
      */
-     @GetMapping("/v1/source") public SourceDataInfoSet sourceData()
-     {
+    @GetMapping("/v1/source")
+    public SourceDataInfoSet sourceData()
+    {
         return geoMetaService.getSourceDataInfo();
-     }
+    }
 }

@@ -26,5 +26,5 @@ import java.util.Optional;
 
 public interface IpDao
 {
-    Optional<Long> findByIp(String ip);
+    Optional<Integer> findByIp(String ip);
 }
