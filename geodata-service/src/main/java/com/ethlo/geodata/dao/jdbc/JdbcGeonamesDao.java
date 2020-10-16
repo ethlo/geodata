@@ -82,6 +82,10 @@ public class JdbcGeonamesDao
         final AtomicInteger count = new AtomicInteger();
         final Map<String, Long> cache = new HashMap<>();
         final List<Integer> administrativeLevelIds = getAdministrativeLevelIds(featureCodes);
+        if (administrativeLevelIds.isEmpty())
+        {
+            return Collections.emptyMap();
+        }
 
         final String sqlAdminCodes = "SELECT id, country_code, name, feature_code_id, admin_code1, admin_code2, admin_code3, admin_code4 FROM geonames WHERE feature_code_id in (" + StringUtils.collectionToCommaDelimitedString(administrativeLevelIds) + ")";
         final MysqlCursorUtil cursorUtil = new MysqlCursorUtil(dataSource);
@@ -156,7 +160,7 @@ public class JdbcGeonamesDao
         return childToParent;
     }
 
-    private String getConcatenatedFeatureCode(final Map<Integer, MapFeature> featureCodes, final int featureCodeId)
+    private static String getConcatenatedFeatureCode(final Map<Integer, MapFeature> featureCodes, final int featureCodeId)
     {
         return Optional.ofNullable(featureCodes.get(featureCodeId)).map(f -> f.getFeatureClass() + "." + f.getFeatureCode()).orElseThrow(() -> new EmptyResultDataAccessException("No feature code with ID " + featureCodeId, 1));
     }

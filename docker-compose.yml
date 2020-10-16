@@ -2,8 +2,10 @@ version: '3'
 services:
   db:
     image: mysql:5.7
+    restart: on-failure
     environment:
       - 'MYSQL_ROOT_PASSWORD=qwerty123'
+      - 'MYSQL_DATABASE=geodata'
     command:
       - --default-authentication-plugin=mysql_native_password
       - --innodb-buffer-pool-size=4G
@@ -16,8 +18,9 @@ services:
 
   server:
     image: ethlo/geodata-server:1.0.0-SNAPSHOT
+    restart: on-failure
     environment:
-      - 'SPRING_DATASOURCE_URL=jdbc:mysql://db/geodatatest?useUnicode=yes&characterEncoding=utf8'
+      - 'SPRING_DATASOURCE_URL=jdbc:mysql://db/geodata?useUnicode=yes&characterEncoding=utf8'
     expose:
       - 6565
     ports:

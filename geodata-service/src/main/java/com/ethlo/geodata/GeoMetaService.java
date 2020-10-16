@@ -24,18 +24,15 @@ package com.ethlo.geodata;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -146,25 +143,11 @@ public class GeoMetaService
         }
     }
 
-    public Map<String, Date> getLastModified()
-    {
-        final Map<String, Date> retVal = new TreeMap<>();
-        jdbcTemplate.query("SELECT alias, last_modified FROM metadata", Collections.emptyMap(), (RowMapper<Void>) (rs, rowNum) ->
-        {
-            retVal.put(rs.getString("alias"), rs.getTimestamp("last_modified"));
-            return null;
-        });
-        return retVal;
-    }
-
     public SourceDataInfoSet getSourceDataInfo()
     {
-        SourceDataInfoSet result = new SourceDataInfoSet();
-        result.addAll(Arrays.stream(DataType.values()).map(type ->
-        {
-            final Date lastModified = getLastModified(type).orElse(null);
-            return new SourceDataInfo(type, 0, lastModified);
-        }).collect(Collectors.toList()));
+        final SourceDataInfoSet result = new SourceDataInfoSet();
+        result.addAll(jdbcTemplate.query("SELECT alias, entry_count, last_modified FROM metadata", Collections.emptyMap(), (rs, rowNum) ->
+                new SourceDataInfo(DataType.valueOf(rs.getString("alias").toUpperCase()), rs.getInt("entry_count"), rs.getDate("last_modified"))));
         return result;
     }
 }

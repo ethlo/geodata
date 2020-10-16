@@ -127,7 +127,6 @@ public class GeonamesImporter implements DataImporter
                     if (isIncluded(featureCode))
                     {
                         sink.accept(paramMap);
-                        count++;
                     }
                 }
                 else

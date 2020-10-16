@@ -25,6 +25,8 @@ package com.ethlo.geodata;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -75,6 +77,8 @@ import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
 import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.util.GeometryUtil;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Stopwatch;
 
 @SuppressWarnings({"UnstableApiUsage"})
@@ -116,16 +120,12 @@ public class GeodataServiceImpl implements GeodataService
         mapLocation(location, rs);
         return location;
     };
-
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
-
     @Autowired
     private JdbcGeonamesDao geonamesDao;
-
     @Autowired
     private JdbcIpDao ipDao;
-
     @Autowired
     private DataSource dataSource;
     private List<Continent> continents = new LinkedList<>();
@@ -133,6 +133,10 @@ public class GeodataServiceImpl implements GeodataService
 
     @Value("${geodata.sql.geonamesbyid}")
     private String geoNamesByIdSql;
+
+    private final LoadingCache<Long, GeoLocation> locationByIdCache = Caffeine.newBuilder()
+            .maximumSize(100_000)
+            .build(this::doFindById);
 
     @Value("${geodata.sql.geonamescount}")
     private String geoNamesCountSql;
@@ -173,6 +177,11 @@ public class GeodataServiceImpl implements GeodataService
     @Value("${geodata.boundaries.quality}")
     private int qualityConstant;
 
+    public static String getConcatenatedFeatureCode(final Map<Integer, MapFeature> featureCodes, final int featureCodeId)
+    {
+        return Optional.ofNullable(featureCodes.get(featureCodeId)).map(f -> f.getFeatureClass() + "." + f.getFeatureCode()).orElseThrow(() -> new EmptyResultDataAccessException("No feature code with ID " + featureCodeId, 1));
+    }
+
     @Override
     public GeoLocation findByIp(String ip)
     {
@@ -182,7 +191,12 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public GeoLocation findById(long geoNameId)
     {
-        return jdbcTemplate.query(geoNamesByIdSql, Collections.singletonMap("id", geoNameId), rs ->
+        return locationByIdCache.get(geoNameId);
+    }
+
+    public GeoLocation doFindById(long id)
+    {
+        return jdbcTemplate.query(geoNamesByIdSql, Collections.singletonMap("id", id), rs ->
         {
             if (rs.next())
             {
@@ -203,14 +217,15 @@ public class GeodataServiceImpl implements GeodataService
 
         final long id = rs.getLong("id");
         final Node node = nodes.get(id);
-        final Long parentId = Optional.ofNullable(node).map(Node::getParent).map(Node::getId).orElse(null);
+        final Long parentId = Optional.ofNullable(node).map(Node::getParent).orElse(null);
         final int featureCodeId = rs.getInt("feature_code_id");
-        final String featureCode = featureCodeId != 0 ? featureCodes.get(featureCodeId).getFeatureCode() : null;
+        final MapFeature mapFeature = featureCodeId != 0 ? featureCodes.get(featureCodeId) : null;
 
         t
                 .setId(id)
                 .setName(rs.getString("name"))
-                .setFeatureCode(featureCode)
+                .setFeatureClass(mapFeature.getFeatureClass())
+                .setFeatureCode(mapFeature.getFeatureCode())
                 .setPopulation(rs.getLong("population"))
                 .setCoordinates(Coordinates.from(rs.getDouble("lat"), rs.getDouble("lng")))
                 .setParentLocationId(parentId)
@@ -333,13 +348,11 @@ public class GeodataServiceImpl implements GeodataService
         {
             throw new EmptyResultDataAccessException("No location with id " + locationId + " found", 1);
         }
-        final long total = node.getChildren().size();
-        final List<Long> ids = node.getChildren()
-                .stream()
+        final long total = node.getChildren().length;
+        final List<Long> ids = Arrays.stream(node.getChildren())
                 .skip(pageable.getOffset())
                 .limit(pageable.getPageSize())
-                .map(Node::getId)
-                .collect(Collectors.toList());
+                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
         final List<GeoLocation> locations = findByIds(ids);
         locations.sort(Comparator.comparing(GeoLocation::getName));
         return new PageImpl<>(locations, pageable, total);
@@ -482,8 +495,8 @@ public class GeodataServiceImpl implements GeodataService
         {
             final Node childNode = nodes.computeIfAbsent(child, Node::new);
             final Node parentNode = nodes.computeIfAbsent(parent, Node::new);
-            parentNode.addChild(childNode);
-            childNode.setParent(parentNode);
+            parentNode.addChild(child);
+            childNode.setParent(parent);
         });
 
         logger.info("Loaded node hierarchy of {} locations", nodes.size());
@@ -573,7 +586,8 @@ public class GeodataServiceImpl implements GeodataService
         while (node != null)
         {
             path.add(node.getId());
-            node = node.getParent();
+            final Long parent = node.getParent();
+            node = parent != null ? nodes.get(parent) : null;
         }
         return path;
     }

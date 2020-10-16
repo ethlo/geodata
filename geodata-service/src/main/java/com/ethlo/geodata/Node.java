@@ -22,26 +22,34 @@ package com.ethlo.geodata;
  * #L%
  */
 
-import java.util.SortedSet;
-import java.util.TreeSet;
-import java.util.stream.Collectors;
+import java.util.Arrays;
+import java.util.Objects;
 
 public class Node implements Comparable<Node>
 {
-    private final Long id;
-    private final SortedSet<Node> children;
+    private static final long[] EMPTY = new long[0];
 
-    private Node parent;
+    private final Long id;
+    private long[] children;
+    private Long parent;
 
     public Node(Long id)
     {
         this.id = id;
-        children = new TreeSet<>();
+        children = null;
     }
 
-    public void addChild(Node child)
+    public void addChild(long child)
     {
-        this.children.add(child);
+        if (children == null)
+        {
+            this.children = new long[]{child};
+        }
+        else
+        {
+            this.children = Arrays.copyOf(children, children.length + 1);
+            this.children[this.children.length - 1] = child;
+        }
     }
 
     public Long getId()
@@ -49,17 +57,17 @@ public class Node implements Comparable<Node>
         return id;
     }
 
-    public SortedSet<Node> getChildren()
+    public long[] getChildren()
     {
-        return children;
+        return children != null ? children : EMPTY;
     }
 
-    public Node getParent()
+    public Long getParent()
     {
         return parent;
     }
 
-    public void setParent(Node parent)
+    public void setParent(Long parent)
     {
         this.parent = parent;
     }
@@ -67,54 +75,25 @@ public class Node implements Comparable<Node>
     @Override
     public int hashCode()
     {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((children == null) ? 0 : children.hashCode());
-        result = prime * result + ((id == null) ? 0 : id.hashCode());
-        result = prime * result + ((parent == null) ? 0 : parent.id.hashCode());
-        return result;
+        return Objects.hash(id);
     }
 
     @Override
     public boolean equals(Object obj)
     {
-        if (this == obj)
-            return true;
-        if (obj == null)
-            return false;
-        if (getClass() != obj.getClass())
-            return false;
-        Node other = (Node) obj;
-        if (children == null)
+        if (obj instanceof Node)
         {
-            if (other.children != null)
-                return false;
+            return Objects.equals(id, ((Node) obj).getId());
         }
-        else if (!children.equals(other.children))
-            return false;
-        if (id == null)
-        {
-            if (other.id != null)
-                return false;
-        }
-        else if (!id.equals(other.id))
-            return false;
-        if (parent == null)
-        {
-            if (other.parent != null)
-                return false;
-        }
-        else if (!parent.equals(other.parent))
-            return false;
-        return true;
+        return false;
     }
 
     @Override
     public String toString()
     {
-        return "Node [" + (id != null ? "id=" + id + ", " : "") +
-                "children=" + children.stream().map(c -> c.getId().toString()).collect(Collectors.joining(",")) + ", " +
-                (parent != null ? "parent=" + parent.getId() : "") + "]";
+        return "Node [id=" + id + ", " +
+                "children=" + Arrays.toString(children) + ", " +
+                "parent=" + parent + "]";
     }
 
     @Override

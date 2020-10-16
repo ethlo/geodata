@@ -84,11 +84,9 @@ public class JdbcGeonamesHierarchyImporter implements PersistentImporter
             while ((line = r.readLine()) != null)
             {
                 final String[] parts = line.split("\t");
-                final long id = Long.parseLong(parts[0]);
-                final long parentId = Long.parseLong(parts[1]);
-
-                // TODO: Understand how these hierarchies work as there are some duplicated ones
-                buffer.put(id, parentId);
+                final long parentId = Long.parseLong(parts[0]);
+                final long childId = Long.parseLong(parts[1]);
+                buffer.put(childId, parentId);
                 count.incrementAndGet();
             }
 
