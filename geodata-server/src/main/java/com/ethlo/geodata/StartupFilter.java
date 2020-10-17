@@ -3,6 +3,7 @@ package com.ethlo.geodata;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import javax.annotation.Nonnull;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -14,6 +15,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.ethlo.geodata.progress.StatefulProgressListener;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 @Component
 public class StartupFilter extends OncePerRequestFilter
@@ -22,6 +24,12 @@ public class StartupFilter extends OncePerRequestFilter
 
     private StatefulProgressListener progress = new StatefulProgressListener();
     private boolean enabled = true;
+
+    public StartupFilter()
+    {
+        objectMapper.findAndRegisterModules();
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    }
 
     public void setProgress(final StatefulProgressListener progress)
     {
@@ -34,7 +42,7 @@ public class StartupFilter extends OncePerRequestFilter
     }
 
     @Override
-    protected void doFilterInternal(final HttpServletRequest request, final HttpServletResponse response, final FilterChain filterChain) throws ServletException, IOException
+    protected void doFilterInternal(@Nonnull final HttpServletRequest request, @Nonnull final HttpServletResponse response, @Nonnull final FilterChain filterChain) throws ServletException, IOException
     {
         if (enabled)
         {

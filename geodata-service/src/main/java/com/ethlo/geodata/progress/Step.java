@@ -1,10 +1,15 @@
 package com.ethlo.geodata.progress;
 
+import java.time.Duration;
+import java.time.OffsetDateTime;
+
 public class Step
 {
     private final String name;
-    private final Integer total;
+    private Integer total;
     private int progress;
+    private final OffsetDateTime started = OffsetDateTime.now();
+    private OffsetDateTime ended;
 
     public Step(final String name, final Integer total)
     {
@@ -36,11 +41,36 @@ public class Step
         {
             return null;
         }
-        return progress / (float) total;
+        return (progress / (float) total) * 100;
     }
 
     public Integer getTotal()
     {
         return total;
+    }
+
+    public void setTotal(int total)
+    {
+        this.total = total;
+    }
+
+    public OffsetDateTime getStart()
+    {
+        return started;
+    }
+
+    public OffsetDateTime getEnd()
+    {
+        return ended;
+    }
+
+    public Duration getElapsed()
+    {
+        return Duration.between(started, ended != null ? ended : OffsetDateTime.now());
+    }
+
+    public void end()
+    {
+        this.ended = OffsetDateTime.now();
     }
 }

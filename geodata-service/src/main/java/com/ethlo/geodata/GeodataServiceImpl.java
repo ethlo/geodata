@@ -396,11 +396,16 @@ public class GeodataServiceImpl implements GeodataService
         progressListener.begin("countries", featureCodes.size());
         loadCountries();
 
-        progressListener.begin("admin_hierarchies");
-        loadHierarchy(progressListener::progress);
+        final int adminLevelCount = metaService.getSourceDataInfo().get(DataType.LOCATION).getCount();
+
+        progressListener.begin("load_admin_levels");
+        final Map<Integer, Integer> childToParent = geonamesDao.buildHierarchyDataFromAdminCodes(adminLevelCount, progressListener::progress);
+
+        progressListener.begin("join_admin_levels");
+        joinHierarchyNodes(childToParent, progressListener::progress);
 
         progressListener.begin("ip2location", sourceDataInfo.get(DataType.IP).getCount());
-        ipDao.load();
+        ipDao.load(progressListener::progress);
     }
 
     private void loadTimeZones()
@@ -500,32 +505,17 @@ public class GeodataServiceImpl implements GeodataService
         return countryList.size();
     }
 
-    public void loadHierarchy(StepProgressListener listener)
+    private void joinHierarchyNodes(final Map<Integer, Integer> childToParent, StepProgressListener listener)
     {
-        try
-        {
-            doLoadHierarchy(listener);
-        }
-        catch (SQLException exc)
-        {
-            throw new RuntimeException(exc);
-        }
-    }
-
-    private void doLoadHierarchy(final StepProgressListener listener) throws SQLException
-    {
-        final Map<Integer, Integer> childToParent = geonamesDao.buildHierarchyDataFromAdminCodes(listener);
-
-        // Build node hierarchy
+        final AtomicInteger count = new AtomicInteger();
         childToParent.forEach((child, parent) ->
         {
             final Node childNode = nodes.computeIfAbsent(child, Node::new);
             final Node parentNode = nodes.computeIfAbsent(parent, Node::new);
             parentNode.addChild(child);
             childNode.setParent(parent);
+            listener.progress(count.incrementAndGet(), childToParent.size());
         });
-
-        logger.info("Loaded node hierarchy of {} locations", nodes.size());
     }
 
     private int loadExplicitHierarchy(final Map<Integer, Integer> childToParent) throws SQLException

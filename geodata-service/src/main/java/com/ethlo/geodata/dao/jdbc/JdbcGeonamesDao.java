@@ -78,32 +78,31 @@ public class JdbcGeonamesDao
         return Optional.ofNullable(featureCodes.get(featureCodeId)).map(f -> f.getFeatureClass() + "." + f.getFeatureCode()).orElseThrow(() -> new EmptyResultDataAccessException("No feature code with ID " + featureCodeId, 1));
     }
 
-    public Map<Integer, Integer> buildHierarchyDataFromAdminCodes(final StepProgressListener listener) throws SQLException
+    public Map<Integer, Integer> buildHierarchyDataFromAdminCodes(final int adminLevelCount, final StepProgressListener listener)
     {
-        logger.info("Loading administrative levels for hierarchy building");
         final Map<String, Integer> countryToId = loadCountryToId();
         final Map<Integer, MapFeature> featureCodes = loadFeatureCodes();
         final Map<String, Integer> adminLevels = loadAdminLevels(featureCodes, listener);
         final Map<String, Integer> reverseFeatureMap = new HashMap<>();
         loadFeatureCodes().forEach((k, v) -> reverseFeatureMap.put(v.getFeatureClass() + "." + v.getFeatureCode(), k));
-        logger.info("Loaded {} administrative levels", adminLevels.size());
 
-        final String sqlBase = "SELECT $fields FROM geonames" +
-                " WHERE admin_code1 is not null" +
-                " OR admin_code2 is not null" +
-                " OR admin_code3 is not null" +
-                " OR admin_code4 is not null";
-        final String sqlAllCount = sqlBase.replace("$fields", "count(id)");
-        final String sqlAll = sqlBase.replace("$fields", "id, country_code, name, feature_code_id, admin_code1, admin_code2, admin_code3, admin_code4");
+        return processChildToParent(listener, countryToId, featureCodes, adminLevels, reverseFeatureMap, adminLevelCount);
+    }
 
-        final int adminLevelCount = jdbcTemplate.queryForObject(sqlAllCount, Collections.emptyMap(), Integer.class);
-        logger.info("Processing {} administrative level hierarchy nodes", adminLevelCount);
+    private Map<Integer, Integer> processChildToParent(final StepProgressListener listener, final Map<String, Integer> countryToId, final Map<Integer, MapFeature> featureCodes, final Map<String, Integer> adminLevels, final Map<String, Integer> reverseFeatureMap, final int adminLevelCount)
+    {
         final Map<Integer, Integer> childToParent = new HashMap<>(adminLevelCount + 1_000_000);
         final AtomicInteger noMatch = new AtomicInteger();
         final AtomicInteger selfMatch = new AtomicInteger();
         final AtomicInteger count = new AtomicInteger();
 
         final MysqlCursorUtil cursorUtil = new MysqlCursorUtil(dataSource);
+        final String sqlAll = "SELECT id, country_code, name, feature_code_id, admin_code1, admin_code2, admin_code3, admin_code4 FROM geonames" +
+                " WHERE admin_code1 is not null" +
+                " OR admin_code2 is not null" +
+                " OR admin_code3 is not null" +
+                " OR admin_code4 is not null";
+
         cursorUtil.query(sqlAll, Collections.emptyMap(), rs ->
         {
             while (rs.next())
@@ -147,7 +146,7 @@ public class JdbcGeonamesDao
         return childToParent;
     }
 
-    private Map<String, Integer> loadAdminLevels(final Map<Integer, MapFeature> featureCodes, final StepProgressListener listener) throws SQLException
+    private Map<String, Integer> loadAdminLevels(final Map<Integer, MapFeature> featureCodes, final StepProgressListener listener)
     {
         final List<Integer> administrativeLevelIds = getAdministrativeLevelIds(featureCodes);
 

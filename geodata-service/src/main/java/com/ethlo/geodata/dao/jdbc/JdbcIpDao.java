@@ -23,21 +23,19 @@ package com.ethlo.geodata.dao.jdbc;
  */
 
 import java.net.InetAddress;
-import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.sql.DataSource;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import com.ethlo.geodata.InvalidIpException;
 import com.ethlo.geodata.dao.IpDao;
 import com.ethlo.geodata.importer.jdbc.MysqlCursorUtil;
+import com.ethlo.geodata.progress.StepProgressListener;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
@@ -48,8 +46,8 @@ import com.google.common.primitives.UnsignedInteger;
 @Repository
 public class JdbcIpDao implements IpDao
 {
-    private static final Logger logger = LoggerFactory.getLogger(JdbcIpDao.class);
     private final RangeMap<Long, Integer> ipRangeMap = TreeRangeMap.create();
+
     @Autowired
     private DataSource dataSource;
 
@@ -75,41 +73,23 @@ public class JdbcIpDao implements IpDao
         }
 
         return Optional.ofNullable(ipRangeMap.get(ipLong));
-
-        /*
-        return Optional.ofNullable(jdbcTemplate.query(ipLookupSql, Collections.singletonMap("ip", ipLong), rs ->
-        {
-            if (rs.next())
-            {
-                return rs.getLong("geoname_id") != 0 ? rs.getLong("geoname_id") : rs.getLong("geoname_country_id");
-            }
-            return null;
-        }));
-        */
     }
 
-    public void load()
+    public void load(StepProgressListener listener)
     {
         final AtomicInteger count = new AtomicInteger();
-        try
+        new MysqlCursorUtil(dataSource).query("SELECT geoname_id, geoname_country_id, first, last from geoip", Collections.emptyMap(), rs ->
         {
-            new MysqlCursorUtil(dataSource).query("SELECT geoname_id, geoname_country_id, first, last from geoip", Collections.emptyMap(), rs ->
+            while (rs.next())
             {
-                while (rs.next())
-                {
-                    ipRangeMap.put(Range.closed(rs.getLong("first"), rs.getLong("last")), rs.getInt("geoname_id"));
-                    count.incrementAndGet();
+                ipRangeMap.put(Range.closed(rs.getLong("first"), rs.getLong("last")), rs.getInt("geoname_id"));
+                count.incrementAndGet();
 
-                    if (count.get() % 100_000 == 0)
-                    {
-                        logger.info("Loaded IP ranges: {}", count.get());
-                    }
+                if (count.get() % 10_000 == 0)
+                {
+                    listener.progress(count.get(), null);
                 }
-            });
-        }
-        catch (SQLException exc)
-        {
-            throw new RuntimeException(exc);
-        }
+            }
+        });
     }
 }

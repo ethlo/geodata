@@ -39,7 +39,7 @@ public class MysqlCursorUtil
         this.dataSource = dataSource;
     }
 
-    public void query(String sql, Map<Integer, Object> params, ResultSetConsumer resultSetConsumer) throws SQLException
+    public void query(String sql, Map<Integer, Object> params, ResultSetConsumer resultSetConsumer)
     {
         ResultSet rs = null;
         try (final Connection conn = dataSource.getConnection(); final PreparedStatement pstmt = conn.prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY))
@@ -51,11 +51,22 @@ public class MysqlCursorUtil
             }
             rs = pstmt.executeQuery();
             resultSetConsumer.accept(rs);
+        }
+        catch (SQLException exc)
+        {
+            throw new RuntimeException(exc);
         } finally
         {
-            if (rs != null && !rs.isClosed())
+            try
             {
-                rs.close();
+                if (rs != null && !rs.isClosed())
+                {
+                    rs.close();
+                }
+            }
+            catch (SQLException ignored)
+            {
+
             }
         }
     }
