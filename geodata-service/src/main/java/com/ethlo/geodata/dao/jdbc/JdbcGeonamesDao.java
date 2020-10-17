@@ -48,6 +48,7 @@ import org.springframework.util.StringUtils;
 
 import com.ethlo.geodata.MapFeature;
 import com.ethlo.geodata.importer.jdbc.MysqlCursorUtil;
+import com.ethlo.geodata.progress.StepProgressListener;
 
 @Repository
 public class JdbcGeonamesDao
@@ -77,16 +78,80 @@ public class JdbcGeonamesDao
         return Optional.ofNullable(featureCodes.get(featureCodeId)).map(f -> f.getFeatureClass() + "." + f.getFeatureCode()).orElseThrow(() -> new EmptyResultDataAccessException("No feature code with ID " + featureCodeId, 1));
     }
 
-    public Map<Integer, Integer> buildHierarchyDataFromAdminCodes() throws SQLException
+    public Map<Integer, Integer> buildHierarchyDataFromAdminCodes(final StepProgressListener listener) throws SQLException
     {
-        final Map<Integer, MapFeature> featureCodes = loadFeatureCodes();
-
         logger.info("Loading administrative levels for hierarchy building");
         final Map<String, Integer> countryToId = loadCountryToId();
+        final Map<Integer, MapFeature> featureCodes = loadFeatureCodes();
+        final Map<String, Integer> adminLevels = loadAdminLevels(featureCodes, listener);
+        final Map<String, Integer> reverseFeatureMap = new HashMap<>();
+        loadFeatureCodes().forEach((k, v) -> reverseFeatureMap.put(v.getFeatureClass() + "." + v.getFeatureCode(), k));
+        logger.info("Loaded {} administrative levels", adminLevels.size());
 
+        final String sqlBase = "SELECT $fields FROM geonames" +
+                " WHERE admin_code1 is not null" +
+                " OR admin_code2 is not null" +
+                " OR admin_code3 is not null" +
+                " OR admin_code4 is not null";
+        final String sqlAllCount = sqlBase.replace("$fields", "count(id)");
+        final String sqlAll = sqlBase.replace("$fields", "id, country_code, name, feature_code_id, admin_code1, admin_code2, admin_code3, admin_code4");
+
+        final int adminLevelCount = jdbcTemplate.queryForObject(sqlAllCount, Collections.emptyMap(), Integer.class);
+        logger.info("Processing {} administrative level hierarchy nodes", adminLevelCount);
+        final Map<Integer, Integer> childToParent = new HashMap<>(adminLevelCount + 1_000_000);
+        final AtomicInteger noMatch = new AtomicInteger();
+        final AtomicInteger selfMatch = new AtomicInteger();
         final AtomicInteger count = new AtomicInteger();
-        final Map<String, Integer> cache = new HashMap<>();
+
+        final MysqlCursorUtil cursorUtil = new MysqlCursorUtil(dataSource);
+        cursorUtil.query(sqlAll, Collections.emptyMap(), rs ->
+        {
+            while (rs.next())
+            {
+                final int id = rs.getInt("id");
+                final int featureId = rs.getInt("feature_code_id");
+                final String featureCode = featureId != 0 ? getConcatenatedFeatureCode(featureCodes, featureId) : null;
+                final String countryCode = rs.getString("country_code");
+                final String[] adminCodeArray = getAdminCodeArray(rs);
+                Integer parentId = getParentId(id, reverseFeatureMap, featureCode, countryToId, adminLevels, countryCode, adminCodeArray).orElse(null);
+
+                if (parentId == null)
+                {
+                    noMatch.incrementAndGet();
+                }
+                else if (id == parentId)
+                {
+                    logger.debug("Self-reference: {}", id);
+                    selfMatch.incrementAndGet();
+                }
+                else
+                {
+                    childToParent.put(id, parentId);
+                }
+
+                if (count.get() % 200_000 == 0)
+                {
+                    logger.info("Processed {} locations ({}%)", count.get(), (count.get() / (float) adminLevelCount) * 100);
+                }
+
+                if (count.get() % 1_000 == 0)
+                {
+                    listener.progress(count.get(), adminLevelCount);
+                }
+
+                count.incrementAndGet();
+            }
+        });
+
+        logger.info("Processed hierarchy for a total of {} rows, {} nodes. No parent match: {}. Self match: {}", count.get(), childToParent.size(), noMatch.get(), selfMatch.get());
+        return childToParent;
+    }
+
+    private Map<String, Integer> loadAdminLevels(final Map<Integer, MapFeature> featureCodes, final StepProgressListener listener) throws SQLException
+    {
         final List<Integer> administrativeLevelIds = getAdministrativeLevelIds(featureCodes);
+
+        final Map<String, Integer> cache = new HashMap<>();
         if (administrativeLevelIds.isEmpty())
         {
             return Collections.emptyMap();
@@ -103,63 +168,10 @@ public class JdbcGeonamesDao
                 final int featureCodeId = rs.getInt("feature_code_id");
                 final String adminCode = getConcatenatedAdminCodes(rs);
                 addToCache(cache, featureCodeId, countryCode, adminCode, id);
+                listener.progress(cache.size(), null);
             }
         });
-
-        final Map<String, Integer> reverseFeatureMap = new HashMap<>();
-        loadFeatureCodes().forEach((k, v) -> reverseFeatureMap.put(v.getFeatureClass() + "." + v.getFeatureCode(), k));
-
-        logger.info("Loaded {} administrative levels", cache.size());
-
-        final String sqlBase = "SELECT $fields FROM geonames" +
-                " WHERE admin_code1 is not null" +
-                " OR admin_code2 is not null" +
-                " OR admin_code3 is not null" +
-                " OR admin_code4 is not null";
-        final String sqlAllCount = sqlBase.replace("$fields", "count(id)");
-        final String sqlAll = sqlBase.replace("$fields", "id, country_code, name, feature_code_id, admin_code1, admin_code2, admin_code3, admin_code4");
-
-        final int adminLevelCount = jdbcTemplate.queryForObject(sqlAllCount, Collections.emptyMap(), Integer.class);
-        logger.info("Processing {} administrative level hierarchy nodes", adminLevelCount);
-        final Map<Integer, Integer> childToParent = new HashMap<>(adminLevelCount + 1_000_000);
-        final AtomicInteger noMatch = new AtomicInteger();
-        final AtomicInteger selfMatch = new AtomicInteger();
-        cursorUtil.query(sqlAll, Collections.emptyMap(), rs ->
-        {
-            while (rs.next())
-            {
-                final int id = rs.getInt("id");
-                final int featureId = rs.getInt("feature_code_id");
-                final String featureCode = featureId != 0 ? getConcatenatedFeatureCode(featureCodes, featureId) : null;
-                final String countryCode = rs.getString("country_code");
-                final String[] adminCodeArray = getAdminCodeArray(rs);
-                Integer parentId = getParentId(id, reverseFeatureMap, featureCode, countryToId, cache, countryCode, adminCodeArray).orElse(null);
-
-                if (parentId == null)
-                {
-                    noMatch.incrementAndGet();
-                }
-                else if (id == parentId)
-                {
-                    logger.debug("Self-reference: {}", id);
-                    selfMatch.incrementAndGet();
-                }
-                else
-                {
-                    childToParent.put(id, parentId);
-                }
-
-                if (count.get() % 200_000 == 0 && count.get() > 0)
-                {
-                    logger.info("Processed {} locations ({}%)", count.get(), (count.get() / (float) adminLevelCount) * 100);
-                }
-
-                count.incrementAndGet();
-            }
-        });
-
-        logger.info("Processed hierarchy for a total of {} rows, {} nodes. No parent match: {}. Self match: {}", count.get(), childToParent.size(), noMatch.get(), selfMatch.get());
-        return childToParent;
+        return cache;
     }
 
     private List<Integer> getAdministrativeLevelIds(final Map<Integer, MapFeature> featureCodes)

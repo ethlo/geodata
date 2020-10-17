@@ -145,11 +145,11 @@ public class JdbcGeonamesImporter implements PersistentImporter
 
             if (buffer.size() == bufferSize)
             {
-                flush(buffer, timezones, featureCodes);
+                flush(buffer);
             }
         });
 
-        flush(buffer, timezones, featureCodes);
+        flush(buffer);
         return count.get();
     }
 
@@ -173,7 +173,7 @@ public class JdbcGeonamesImporter implements PersistentImporter
         return jdbcTemplate.queryForObject("select last_insert_id()", Collections.emptyMap(), Integer.class);
     }
 
-    private void flush(final List<Map<String, ?>> buffer, final Map<String, Integer> timezones, final Map<String, Integer> featureCodes)
+    private void flush(final List<Map<String, ?>> buffer)
     {
         Map<String, ?>[] params = buffer.toArray(JdbcGeonamesImporter::newArray);
 
@@ -184,7 +184,7 @@ public class JdbcGeonamesImporter implements PersistentImporter
                             "last_modified, admin_code1, admin_code2, admin_code3, admin_code4, coord) " +
                             "VALUES (:id, :name, :feature_code_id, :country_code, " +
                             ":population, :elevation_meters, :timezone_id, :last_modified, :admin_code1, :admin_code2, :admin_code3, :admin_code4, " +
-                            "ST_GeomFromText(:poly))",
+                            ":poly)",
                     params
             );
             buffer.clear();

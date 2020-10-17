@@ -45,11 +45,13 @@ import java.util.stream.Collectors;
 import javax.sql.DataSource;
 import javax.validation.Valid;
 
+import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.io.WKBWriter;
+import org.locationtech.jts.io.WKTReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,6 +70,7 @@ import org.springframework.stereotype.Service;
 
 import com.ethlo.geodata.dao.jdbc.JdbcGeonamesDao;
 import com.ethlo.geodata.dao.jdbc.JdbcIpDao;
+import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.importer.jdbc.MysqlCursorUtil;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
@@ -76,6 +79,7 @@ import com.ethlo.geodata.model.CountrySummary;
 import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
 import com.ethlo.geodata.model.View;
+import com.ethlo.geodata.progress.StepProgressListener;
 import com.ethlo.geodata.util.GeometryUtil;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
@@ -89,6 +93,7 @@ public class GeodataServiceImpl implements GeodataService
 {
     public static final double RAD_TO_KM_RATIO = 111.195D;
     private static final Map<String, Integer> CONTINENT_IDS = new LinkedHashMap<>();
+    private static final WKTReader wktReader = new WKTReader();
 
     static
     {
@@ -105,6 +110,10 @@ public class GeodataServiceImpl implements GeodataService
     private final Map<Integer, Node> nodes = new HashMap<>();
     private final Map<Integer, String> timezones = new HashMap<>();
     private final Map<String, Country> countries = new HashMap<>();
+
+    // TODO: Make this configurable?
+    private final long maximumLocationCacheSize = 0;
+
     private Map<Integer, MapFeature> featureCodes = new HashMap<>();
     private final RowMapper<Country> COUNTRY_INFO_MAPPER = (rs, rowNum) ->
     {
@@ -121,6 +130,8 @@ public class GeodataServiceImpl implements GeodataService
         return location;
     };
     @Autowired
+    private GeoMetaService metaService;
+    @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
     @Autowired
     private JdbcGeonamesDao geonamesDao;
@@ -130,50 +141,35 @@ public class GeodataServiceImpl implements GeodataService
     private DataSource dataSource;
     private List<Continent> continents = new LinkedList<>();
     private Long locationCount;
-
     @Value("${geodata.sql.geonamesbyid}")
     private String geoNamesByIdSql;
-
     private final LoadingCache<Integer, GeoLocation> locationByIdCache = Caffeine.newBuilder()
-            .maximumSize(100_000)
+            .maximumSize(maximumLocationCacheSize)
             .build(this::doFindById);
-
     @Value("${geodata.sql.geonamescount}")
     private String geoNamesCountSql;
-
     @Value("${geodata.sql.findcountrybyphone}")
     private String findCountryByPhoneNumberSql;
-
     @Value("${geodata.sql.findwithinboundaries}")
     private String findWithinBoundariesSql;
-
     @Value("${geodata.sql.findnearest}")
     private String nearestSql;
-
     @Value("${geodata.sql.findbyids}")
     private String findByIdsSql;
-
     @Value("${geodata.sql.findboundariesbyid}")
     private String findBoundariesByIdSql;
-
     @Value("${geodata.sql.findcountriesoncontinent}")
     private String findCountriesOnContinentSql;
-
     @Value("${geodata.sql.countcountriesoncontinent}")
     private String countCountriesOnContinentSql;
-
     @Value("${geodata.sql.countcountrychildren}")
     private String countCountryChildrenSql;
-
     @Value("${geodata.sql.findcountrychildren}")
     private String findCountryChildrenSql;
-
     @Value("${geodata.sql.findbyname}")
     private String findByNameSql;
-
     @Value("${geodata.sql.countbyname}")
     private String countByNameSql;
-
     @Value("${geodata.boundaries.quality}")
     private int qualityConstant;
 
@@ -220,17 +216,38 @@ public class GeodataServiceImpl implements GeodataService
         final Integer parentId = Optional.ofNullable(node).map(Node::getParent).orElse(null);
         final int featureCodeId = rs.getInt("feature_code_id");
         final MapFeature mapFeature = featureCodeId != 0 ? featureCodes.get(featureCodeId) : null;
+        final String wkt = rs.getString("coord");
 
-        t
-                .setId(id)
-                .setName(rs.getString("name"))
-                .setFeatureClass(mapFeature.getFeatureClass())
-                .setFeatureCode(mapFeature.getFeatureCode())
-                .setTimeZone(timezones.get(rs.getInt("timezone_id")))
-                .setPopulation(rs.getLong("population"))
-                .setCoordinates(Coordinates.from(rs.getDouble("lat"), rs.getDouble("lng")))
-                .setParentLocationId(parentId)
-                .setCountry(countrySummary);
+        final Coordinates coordinates = getCoordinatesFromPoint(wkt);
+
+        t.setId(id);
+        t.setName(rs.getString("name"));
+        t.setFeatureClass(mapFeature.getFeatureClass());
+        t.setFeatureCode(mapFeature.getFeatureCode());
+        t.setTimeZone(timezones.get(rs.getInt("timezone_id")));
+        t.setPopulation(rs.getLong("population"));
+        t.setCoordinates(coordinates);
+        t.setParentLocationId(parentId);
+        t.setCountry(countrySummary);
+    }
+
+    private Coordinates getCoordinatesFromPoint(final String wkt)
+    {
+        if (wkt == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            final Geometry geom = wktReader.read(wkt);
+            final Coordinate c = geom.getCoordinate();
+            return Coordinates.from(c.y, c.x);
+        }
+        catch (ParseException e)
+        {
+            throw new IllegalArgumentException("Invalid WKT: " + wkt, e);
+        }
     }
 
     @Override
@@ -360,18 +377,29 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public void load()
+    public void load(LoadProgressListener progressListener)
     {
+        final SourceDataInfoSet sourceDataInfo = metaService.getSourceDataInfo();
+
+        progressListener.begin("feature_codes", 1);
         this.featureCodes = geonamesDao.loadFeatureCodes();
+
+        progressListener.begin("time_zones", 1);
         loadTimeZones();
 
+        progressListener.begin("continents", 1);
         continents = findByIds(CONTINENT_IDS.values())
                 .stream()
                 .map(l -> new Continent(getContinentCode(l.getId()), l))
                 .collect(Collectors.toList());
 
+        progressListener.begin("countries", featureCodes.size());
         loadCountries();
-        loadHierarchy();
+
+        progressListener.begin("admin_hierarchies");
+        loadHierarchy(progressListener::progress);
+
+        progressListener.begin("ip2location", sourceDataInfo.get(DataType.IP).getCount());
         ipDao.load();
     }
 
@@ -465,18 +493,18 @@ public class GeodataServiceImpl implements GeodataService
     private int loadCountries()
     {
         final Collection<Country> countryList = jdbcTemplate.query(
-                "SELECT *, st_x(coord) as lat, st_y(coord) as lng FROM geocountry c, geonames n "
+                "SELECT * FROM geocountry c, geonames n "
                         + "WHERE c.geoname_id = n.id "
                         + "ORDER BY iso ASC", COUNTRY_INFO_MAPPER);
         countryList.forEach(c -> countries.put(c.getCountry().getCode(), c));
         return countryList.size();
     }
 
-    public void loadHierarchy()
+    public void loadHierarchy(StepProgressListener listener)
     {
         try
         {
-            doLoadHierarchy();
+            doLoadHierarchy(listener);
         }
         catch (SQLException exc)
         {
@@ -484,12 +512,9 @@ public class GeodataServiceImpl implements GeodataService
         }
     }
 
-    private void doLoadHierarchy() throws SQLException
+    private void doLoadHierarchy(final StepProgressListener listener) throws SQLException
     {
-        final Map<Integer, Integer> childToParent = geonamesDao.buildHierarchyDataFromAdminCodes();
-
-        //final int explicitCount = loadExplicitHierarchy(childToParent);
-        //logger.info("Loaded {} explicit hierarchy definitions", explicitCount);
+        final Map<Integer, Integer> childToParent = geonamesDao.buildHierarchyDataFromAdminCodes(listener);
 
         // Build node hierarchy
         childToParent.forEach((child, parent) ->

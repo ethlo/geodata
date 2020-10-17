@@ -46,6 +46,7 @@ import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
+import com.ethlo.geodata.progress.StatefulProgressListener;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -66,7 +67,7 @@ public class GeodataApplicationTests
         if (!initialized)
         {
             geoMetaService.update();
-            geodataService.load();
+            geodataService.load(new StatefulProgressListener());
             initialized = true;
         }
     }

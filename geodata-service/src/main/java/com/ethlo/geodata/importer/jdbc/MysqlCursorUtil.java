@@ -44,7 +44,7 @@ public class MysqlCursorUtil
         ResultSet rs = null;
         try (final Connection conn = dataSource.getConnection(); final PreparedStatement pstmt = conn.prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY))
         {
-            pstmt.setFetchSize(Integer.MIN_VALUE);
+            pstmt.setFetchSize(1);
             for (Map.Entry<Integer, Object> e : params.entrySet())
             {
                 pstmt.setObject(e.getKey(), e.getValue());

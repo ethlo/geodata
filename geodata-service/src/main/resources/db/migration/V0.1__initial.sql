@@ -1,8 +1,14 @@
+-- CREATE ALIAS IF NOT EXISTS H2GIS_SPATIAL FOR "org.h2gis.functions.factory.H2GISFunctions.load";
+-- CALL H2GIS_SPATIAL();
+
+-- CREATE ALIAS IF NOT EXISTS FT_INIT FOR "org.h2.fulltext.FullText.init";
+-- CALL FT_INIT();
+
 create table metadata
 (
-    alias         varchar(32) not null primary key,
-    entry_count int unsigned not null,
-    last_modified datetime    not null
+    alias         varchar(32)  not null primary key,
+    entry_count   int unsigned not null,
+    last_modified datetime     not null
 );
 
 create table geocountry
@@ -64,14 +70,18 @@ create table geonames
     admin_code2      varchar(80),
     admin_code3      varchar(20),
     admin_code4      varchar(20),
-    coord            point        not null
-) engine = InnoDB
-  character set utf8;
-ALTER TABLE geonames
-    ADD INDEX idx_filter (country_code, feature_code_id);
+    coord            geometry(point)        not null
+);
+
+CREATE INDEX idx_filter on geonames (country_code, feature_code_id);
 -- ALTER TABLE geonames ADD UNIQUE INDEX uniq_properties (country_code, feature_code_id, admin_code1, admin_code2, admin_code3, admin_code4);
 CREATE SPATIAL INDEX geonames_coord ON geonames (coord);
-CREATE FULLTEXT INDEX ft_name_geonames on geonames (name);
+
+-- MySQL
+-- CREATE FULLTEXT INDEX ft_name_geonames on geonames (name);
+
+-- H2
+-- CALL FT_CREATE_INDEX(
 
 create table geoip
 (
@@ -94,6 +104,7 @@ CREATE TABLE geoboundaries
     raw_polygon geometry NOT NULL,
     coord       geometry NOT NULL,
     area        double   NOT NULL
-) engine = innodb;
+);
+
 CREATE SPATIAL INDEX polygon_idx ON geoboundaries (raw_polygon);
 CREATE SPATIAL INDEX point_idx ON geoboundaries (coord);

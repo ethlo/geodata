@@ -289,9 +289,9 @@ public class GeodataController implements GeodataService
     }
 
     @Override
-    public void load()
+    public void load(LoadProgressListener loadProgressListener)
     {
-        geodataService.load();
+        geodataService.load(loadProgressListener);
     }
 
     /**
@@ -379,7 +379,7 @@ public class GeodataController implements GeodataService
         final byte[] boundaries = geodataService.findBoundaries(locationId, view);
         outputGeoJson(boundaries, resp, locationId);
     }
-    
+
     /**
      * Get data source information
      */

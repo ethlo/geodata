@@ -10,12 +10,12 @@ package com.ethlo.geodata.util;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -66,7 +66,7 @@ public class ResourceUtil
     private static Resource openConnection(String urlStr) throws MalformedURLException, IOException
     {
         final String[] urlParts = StringUtils.split(urlStr, "|");
-        
+
         if (urlStr.startsWith("file:"))
         {
             String path = urlParts[0].substring(7);
@@ -85,7 +85,7 @@ public class ResourceUtil
         {
             return new ClassPathResource(urlParts[0].substring(10));
         }
-            
+
         return new UrlResource(urlParts[0]);
     }
 
@@ -101,8 +101,8 @@ public class ResourceUtil
             return fetch(alias, urlStr);
         }
     }
-    
-    private static Map.Entry<Date,File> fetchZip(String alias, String url, String zipEntry) throws MalformedURLException, IOException
+
+    private static Map.Entry<Date, File> fetchZip(String alias, String url, String zipEntry) throws MalformedURLException, IOException
     {
         final Resource resource = openConnection(url);
         return downloadIfNewer(alias, resource, f ->

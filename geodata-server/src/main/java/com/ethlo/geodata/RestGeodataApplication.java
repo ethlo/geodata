@@ -27,23 +27,21 @@ import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
-import java.sql.SQLException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
-import org.springframework.dao.DataAccessResourceFailureException;
 
-//import com.nurkiewicz.progress.ProgressBeanPostProcessor;
+import com.ethlo.geodata.progress.StatefulProgressListener;
 
 @SpringBootApplication
 public class RestGeodataApplication
 {
     private static final Logger logger = LoggerFactory.getLogger(RestGeodataApplication.class);
 
-    public static void main(String[] args) throws SQLException
+    public static void main(String[] args)
     {
         final ApplicationContext ctx = SpringApplication.run(RestGeodataApplication.class, args);
 
@@ -62,9 +60,18 @@ public class RestGeodataApplication
             }
         }
 
-        dumpMemUsage("Before load");
+        final StatefulProgressListener listener = new StatefulProgressListener();
+        listener.begin("init", 1);
+        final StartupFilter filter = ctx.getBean(StartupFilter.class);
+        filter.setProgress(listener);
+        try
+        {
+            ctx.getBean(GeodataServiceImpl.class).load(listener);
+        } finally
+        {
+            filter.setEnabled(false);
+        }
 
-        ctx.getBean(GeodataServiceImpl.class).load();
 
         dumpMemUsage("Completed");
     }
@@ -97,11 +104,4 @@ public class RestGeodataApplication
         String pre = (si ? "kMGTPE" : "KMGTPE").charAt(exp - 1) + (si ? "" : "i");
         return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
     }
-
-    /*@Bean
-    public ProgressBeanPostProcessor progressBeanPostProcessor()
-    {
-        return new ProgressBeanPostProcessor();
-    }
-    */
 }

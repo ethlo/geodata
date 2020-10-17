@@ -10,12 +10,12 @@ package com.ethlo.geodata;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -48,9 +48,9 @@ public interface GeodataService
     Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable);
 
     byte[] findBoundaries(int id);
-    
+
     byte[] findBoundaries(int id, double maxTolerance);
-    
+
     byte[] findBoundaries(int id, View view);
 
     Page<GeoLocation> findChildren(int locationId, Pageable pageable);
@@ -58,7 +58,7 @@ public interface GeodataService
     Page<Continent> findContinents();
 
     Page<Country> findCountriesOnContinent(String continentCode, Pageable pageable);
-    
+
     Page<Country> findCountries(Pageable pageable);
 
     Country findCountryByCode(String countryCode);
@@ -68,8 +68,8 @@ public interface GeodataService
     Country findByPhonenumber(String phoneNumber);
 
     GeoLocation findParent(int id);
-    
-    GeoLocation findbyCoordinate(Coordinates point, int distance); 
+
+    GeoLocation findbyCoordinate(Coordinates point, int distance);
 
     boolean isInsideAny(List<Integer> locations, int location);
 
@@ -80,8 +80,8 @@ public interface GeodataService
     Continent findContinent(String continentCode);
 
     List<GeoLocation> findByIds(Collection<Integer> ids);
-    
+
     Page<GeoLocation> findByName(String name, Pageable pageable);
 
-    void load();
+    void load(LoadProgressListener loadProgressListener);
 }

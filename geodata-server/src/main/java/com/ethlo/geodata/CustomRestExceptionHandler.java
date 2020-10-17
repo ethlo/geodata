@@ -10,12 +10,12 @@ package com.ethlo.geodata;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -51,18 +51,18 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @ControllerAdvice
 public class CustomRestExceptionHandler extends ResponseEntityExceptionHandler
 {
-    @ExceptionHandler(value=EmptyResultDataAccessException.class)
+    @ExceptionHandler(value = EmptyResultDataAccessException.class)
     protected ResponseEntity<Object> handleEntityNotFound(EmptyResultDataAccessException ex)
     {
         final ApiError apiError = new ApiError(HttpStatus.NOT_FOUND, ex.getMessage());
         return buildResponseEntity(apiError);
     }
-    
+
     private ResponseEntity<Object> buildResponseEntity(ApiError apiError)
     {
         return new ResponseEntity<>(apiError, HttpStatus.valueOf(apiError.getCode()));
     }
-    
+
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(final MethodArgumentNotValidException ex, final HttpHeaders headers, final HttpStatus status, final WebRequest request)
     {
