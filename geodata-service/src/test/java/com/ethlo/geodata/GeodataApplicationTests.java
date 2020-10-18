@@ -174,7 +174,7 @@ public class GeodataApplicationTests
     public void testListStatesOfUsa()
     {
         final Page<GeoLocation> states = geodataService.findChildren(6252001, PageRequest.of(0, 100));
-        assertThat(states).hasSize(52);
+        assertThat(states).hasSize(51);
     }
 
     @Test

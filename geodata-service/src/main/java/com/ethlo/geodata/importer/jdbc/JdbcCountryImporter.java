@@ -39,6 +39,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import com.ethlo.geodata.importer.CountryImporter;
+import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.util.ResourceUtil;
 
 @Component
@@ -56,7 +57,7 @@ public class JdbcCountryImporter implements PersistentImporter
         final AtomicInteger count = new AtomicInteger();
         try
         {
-            final Map.Entry<Date, File> countryFile = ResourceUtil.fetchResource("geocountry", url);
+            final Map.Entry<Date, File> countryFile = ResourceUtil.fetchResource(DataType.COUNTRY, url);
             final CountryImporter importer = new CountryImporter(countryFile.getValue());
             importer.processFile(entry ->
             {

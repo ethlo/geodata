@@ -26,8 +26,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -47,6 +47,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.util.Assert;
 
+import com.ethlo.geodata.importer.DataType;
+
 public class ResourceUtil
 {
     private static final Logger logger = LoggerFactory.getLogger(ResourceUtil.class);
@@ -63,7 +65,7 @@ public class ResourceUtil
         return new Date(lastModified);
     }
 
-    private static Resource openConnection(String urlStr) throws MalformedURLException, IOException
+    private static Resource openConnection(String urlStr) throws IOException
     {
         final String[] urlParts = StringUtils.split(urlStr, "|");
 
@@ -89,7 +91,7 @@ public class ResourceUtil
         return new UrlResource(urlParts[0]);
     }
 
-    public static Map.Entry<Date, File> fetchResource(String alias, String urlStr) throws IOException
+    public static Map.Entry<Date, File> fetchResource(DataType alias, String urlStr) throws IOException
     {
         final String[] urlParts = StringUtils.split(urlStr, "|");
         if (urlParts[0].endsWith("zip"))
@@ -102,13 +104,13 @@ public class ResourceUtil
         }
     }
 
-    private static Map.Entry<Date, File> fetchZip(String alias, String url, String zipEntry) throws MalformedURLException, IOException
+    private static Map.Entry<Date, File> fetchZip(DataType alias, String url, String zipEntry) throws IOException
     {
         final Resource resource = openConnection(url);
         return downloadIfNewer(alias, resource, f ->
         {
             final ZipInputStream zipIn = new ZipInputStream(resource.getInputStream());
-            ZipEntry entry = null;
+            ZipEntry entry;
             do
             {
                 entry = zipIn.getNextEntry();
@@ -119,9 +121,10 @@ public class ResourceUtil
         });
     }
 
-    private static Entry<Date, File> downloadIfNewer(String alias, Resource resource, CheckedFunction<InputStream, InputStream> fun) throws IOException
+    private static Entry<Date, File> downloadIfNewer(DataType dataType, Resource resource, CheckedFunction<InputStream, InputStream> fun) throws IOException
     {
-        final File file = new File(tmpDir, alias + resource.getURL().hashCode() + ".txt");
+        final String alias = dataType.name().toLowerCase();
+        final File file = new File(tmpDir, alias + "_" + resource.getURL().hashCode() + ".txt");
         final Date remoteLastModified = new Date(resource.lastModified());
         final long localLastModified = file.exists() ? file.lastModified() : -2;
         logger.info("Local file for " + "alias {}" + "\nPath: {}" + "\nExists: {}" + "\nLast-Modified: {}", alias, file.getAbsolutePath(), file.exists(), formatDate(localLastModified));
@@ -132,7 +135,9 @@ public class ResourceUtil
             logger.info("Downloading new file from {}", resource.getURL());
             try (final InputStream in = fun.apply(resource.getInputStream()))
             {
-                Files.copy(in, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                final Path tmpFile = Files.createTempFile(file.getName() + "-", ".tmp");
+                Files.copy(in, tmpFile, StandardCopyOption.REPLACE_EXISTING);
+                Files.move(tmpFile, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
                 file.setLastModified(remoteLastModified.getTime());
             }
         }
@@ -145,7 +150,7 @@ public class ResourceUtil
         return LocalDateTime.ofEpochSecond(timestamp / 1_000, 0, ZoneOffset.UTC);
     }
 
-    private static Entry<Date, File> fetch(String alias, String url) throws IOException
+    private static Entry<Date, File> fetch(DataType alias, String url) throws IOException
     {
         final Resource resource = openConnection(url);
         return downloadIfNewer(alias, resource, in -> in);

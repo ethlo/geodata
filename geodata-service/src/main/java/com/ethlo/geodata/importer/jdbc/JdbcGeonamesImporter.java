@@ -43,6 +43,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
+import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.importer.GeonamesImporter;
 import com.ethlo.geodata.util.ResourceUtil;
 
@@ -87,9 +88,9 @@ public class JdbcGeonamesImporter implements PersistentImporter
     {
         try
         {
-            final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource("geonames_hierarchy", geoNamesHierarchyUrl);
-            final Map.Entry<Date, File> alternateNamesFile = ResourceUtil.fetchResource("geonames_alternatenames", geoNamesAlternateNamesUrl);
-            final Map.Entry<Date, File> allCountriesFile = ResourceUtil.fetchResource("geonames", geoNamesAllCountriesUrl);
+            final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource(DataType.HIERARCHY, geoNamesHierarchyUrl);
+            final Map.Entry<Date, File> alternateNamesFile = ResourceUtil.fetchResource(DataType.LOCATION_ALTERNATE_NAMES, geoNamesAlternateNamesUrl);
+            final Map.Entry<Date, File> allCountriesFile = ResourceUtil.fetchResource(DataType.LOCATION, geoNamesAllCountriesUrl);
             return doUpdate(allCountriesFile.getValue(), alternateNamesFile.getValue(), hierarchyFile.getValue());
         }
         catch (IOException exc)

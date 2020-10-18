@@ -246,6 +246,7 @@ public class GeodataServiceImpl implements GeodataService
 
         progressListener.begin("ip2location", sourceDataInfo.get(DataType.IP).getCount());
         ipDao.load(progressListener::progress);
+        progressListener.end();
     }
 
     @Override

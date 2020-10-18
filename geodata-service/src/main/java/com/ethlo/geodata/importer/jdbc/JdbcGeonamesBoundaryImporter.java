@@ -35,6 +35,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
+import com.ethlo.geodata.importer.DataType;
 import com.ethlo.geodata.importer.GeonamesBoundaryImporter;
 import com.ethlo.geodata.util.ResourceUtil;
 
@@ -62,7 +63,7 @@ public class JdbcGeonamesBoundaryImporter implements PersistentImporter
     @Override
     public long importData() throws IOException
     {
-        final Entry<Date, File> boundaryFile = ResourceUtil.fetchResource("geonames_boundary", geoNamesBoundaryUrl);
+        final Entry<Date, File> boundaryFile = ResourceUtil.fetchResource(DataType.BOUNDARY, geoNamesBoundaryUrl);
         final GeonamesBoundaryImporter importer = new GeonamesBoundaryImporter(boundaryFile.getValue());
 
         final String sql = "INSERT INTO geoboundaries(id, raw_polygon, coord, area) VALUES(:id, ST_GeomFromText(:poly), ST_Centroid(ST_GeomFromText(:poly)), st_area(ST_GeomFromText(:poly)))";

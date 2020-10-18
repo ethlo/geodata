@@ -314,7 +314,7 @@ public class JdbcLocationDao extends JdbcBaseDao implements LocationDao
     public Page<RawLocation> findChildren(String countryCode, int adm1FeatureCodeId, Pageable pageable)
     {
         final Map<String, Object> params = new TreeMap<>();
-        params.put("cc", countryCode);
+        params.put("cc", countryCode.toUpperCase());
         params.put("feature_code_id", adm1FeatureCodeId);
         params.put("offset", pageable.getOffset());
         params.put("max", pageable.getPageSize());
