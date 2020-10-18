@@ -60,9 +60,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.ethlo.geodata.dao.FeatureCodeDao;
-import com.ethlo.geodata.dao.jdbc.JdbcBoundaryDao;
 import com.ethlo.geodata.dao.ReverseGeocodingDao;
 import com.ethlo.geodata.dao.TimeZoneDao;
+import com.ethlo.geodata.dao.jdbc.JdbcBoundaryDao;
 import com.ethlo.geodata.dao.jdbc.JdbcIpDao;
 import com.ethlo.geodata.dao.jdbc.JdbcLocationDao;
 import com.ethlo.geodata.importer.DataType;
@@ -105,7 +105,6 @@ public class GeodataServiceImpl implements GeodataService
     private final long maximumLocationCacheSize = 0;
     private Map<Integer, String> timezones;
     private Map<String, Country> countries;
-    private Map<Integer, Country> countriesById;
     @Autowired
     private GeoMetaService metaService;
     @Autowired
@@ -235,8 +234,6 @@ public class GeodataServiceImpl implements GeodataService
         progressListener.begin("countries", featureCodes.size());
         final List<RawLocation> countryLocations = locationDao.findCountries();
         this.countries = new HashMap<>();
-        this.countriesById = new HashMap<>();
-        countryLocations.forEach(l -> countries.put(l.getCountryCode(), Country.from(populate(l))));
         countryLocations.forEach(l -> countries.put(l.getCountryCode(), Country.from(populate(l))));
 
         progressListener.begin("load_admin_levels");
