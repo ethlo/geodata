@@ -22,9 +22,6 @@ package com.ethlo.geodata;
  * #L%
  */
 
-import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -38,20 +35,16 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import javax.sql.DataSource;
 import javax.validation.Valid;
 
-import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.io.WKBWriter;
-import org.locationtech.jts.io.WKTReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,20 +57,22 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import com.ethlo.geodata.dao.jdbc.JdbcGeonamesDao;
+import com.ethlo.geodata.dao.FeatureCodeDao;
+import com.ethlo.geodata.dao.jdbc.JdbcBoundaryDao;
+import com.ethlo.geodata.dao.ReverseGeocodingDao;
+import com.ethlo.geodata.dao.TimeZoneDao;
 import com.ethlo.geodata.dao.jdbc.JdbcIpDao;
+import com.ethlo.geodata.dao.jdbc.JdbcLocationDao;
 import com.ethlo.geodata.importer.DataType;
-import com.ethlo.geodata.importer.jdbc.MysqlCursorUtil;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.CountrySummary;
 import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
+import com.ethlo.geodata.model.RawLocation;
 import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.progress.StepProgressListener;
 import com.ethlo.geodata.util.GeometryUtil;
@@ -91,9 +86,7 @@ import com.google.common.base.Stopwatch;
 @PropertySource("classpath:queries.sql.properties")
 public class GeodataServiceImpl implements GeodataService
 {
-    public static final double RAD_TO_KM_RATIO = 111.195D;
     private static final Map<String, Integer> CONTINENT_IDS = new LinkedHashMap<>();
-    private static final WKTReader wktReader = new WKTReader();
 
     static
     {
@@ -108,70 +101,36 @@ public class GeodataServiceImpl implements GeodataService
 
     private final Logger logger = LoggerFactory.getLogger(GeodataServiceImpl.class);
     private final Map<Integer, Node> nodes = new HashMap<>();
-    private final Map<Integer, String> timezones = new HashMap<>();
-    private final Map<String, Country> countries = new HashMap<>();
-
     // TODO: Make this configurable?
     private final long maximumLocationCacheSize = 0;
-
-    private Map<Integer, MapFeature> featureCodes = new HashMap<>();
-    private final RowMapper<Country> COUNTRY_INFO_MAPPER = (rs, rowNum) ->
-    {
-        final GeoLocation location = new GeoLocation();
-        mapLocation(location, rs);
-        final Country c = Country.from(location);
-        c.setCountry(c.toSummary(rs.getString("iso")));
-        return c;
-    };
-    private final RowMapper<GeoLocation> GEONAMES_ROW_MAPPER = (rs, rowNum) ->
-    {
-        final GeoLocation location = new GeoLocation();
-        mapLocation(location, rs);
-        return location;
-    };
+    private Map<Integer, String> timezones;
+    private Map<String, Country> countries;
+    private Map<Integer, Country> countriesById;
     @Autowired
     private GeoMetaService metaService;
     @Autowired
-    private NamedParameterJdbcTemplate jdbcTemplate;
-    @Autowired
-    private JdbcGeonamesDao geonamesDao;
+    private JdbcLocationDao locationDao;
     @Autowired
     private JdbcIpDao ipDao;
     @Autowired
-    private DataSource dataSource;
+    private ReverseGeocodingDao reverseGeocodingDao;
+    @Autowired
+    private JdbcBoundaryDao boundaryDao;
+    @Autowired
+    private FeatureCodeDao featureCodeDao;
+    @Autowired
+    private TimeZoneDao timeZoneDao;
     private List<Continent> continents = new LinkedList<>();
-    private Long locationCount;
-    @Value("${geodata.sql.geonamesbyid}")
-    private String geoNamesByIdSql;
+    private Map<Integer, MapFeature> featureCodes = new HashMap<>();
     private final LoadingCache<Integer, GeoLocation> locationByIdCache = Caffeine.newBuilder()
             .maximumSize(maximumLocationCacheSize)
             .build(this::doFindById);
-    @Value("${geodata.sql.geonamescount}")
-    private String geoNamesCountSql;
-    @Value("${geodata.sql.findcountrybyphone}")
-    private String findCountryByPhoneNumberSql;
-    @Value("${geodata.sql.findwithinboundaries}")
-    private String findWithinBoundariesSql;
-    @Value("${geodata.sql.findnearest}")
-    private String nearestSql;
-    @Value("${geodata.sql.findbyids}")
-    private String findByIdsSql;
-    @Value("${geodata.sql.findboundariesbyid}")
-    private String findBoundariesByIdSql;
-    @Value("${geodata.sql.findcountriesoncontinent}")
-    private String findCountriesOnContinentSql;
-    @Value("${geodata.sql.countcountriesoncontinent}")
-    private String countCountriesOnContinentSql;
-    @Value("${geodata.sql.countcountrychildren}")
-    private String countCountryChildrenSql;
-    @Value("${geodata.sql.findcountrychildren}")
-    private String findCountryChildrenSql;
-    @Value("${geodata.sql.findbyname}")
-    private String findByNameSql;
-    @Value("${geodata.sql.countbyname}")
-    private String countByNameSql;
+    private Map<String, Integer> reverseFeatureMap = new HashMap<>();
+
+
     @Value("${geodata.boundaries.quality}")
     private int qualityConstant;
+
 
     public static String getConcatenatedFeatureCode(final Map<Integer, MapFeature> featureCodes, final int featureCodeId)
     {
@@ -192,77 +151,22 @@ public class GeodataServiceImpl implements GeodataService
 
     public GeoLocation doFindById(int id)
     {
-        return jdbcTemplate.query(geoNamesByIdSql, Collections.singletonMap("id", id), rs ->
-        {
-            if (rs.next())
-            {
-                final GeoLocation location = new GeoLocation();
-                mapLocation(location, rs);
-                return location;
-            }
-            return null;
-        });
-    }
-
-    private <T extends GeoLocation> void mapLocation(T t, ResultSet rs) throws SQLException
-    {
-        final String countryCode = rs.getString("country_code");
-
-        final Country country = findCountryByCode(countryCode);
-        final CountrySummary countrySummary = country != null ? country.toSummary(countryCode) : null;
-
-        final int id = rs.getInt("id");
-        final Node node = nodes.get(id);
-        final Integer parentId = Optional.ofNullable(node).map(Node::getParent).orElse(null);
-        final int featureCodeId = rs.getInt("feature_code_id");
-        final MapFeature mapFeature = featureCodeId != 0 ? featureCodes.get(featureCodeId) : null;
-        final String wkt = rs.getString("coord");
-
-        final Coordinates coordinates = getCoordinatesFromPoint(wkt);
-
-        t.setId(id);
-        t.setName(rs.getString("name"));
-        t.setFeatureClass(mapFeature.getFeatureClass());
-        t.setFeatureCode(mapFeature.getFeatureCode());
-        t.setTimeZone(timezones.get(rs.getInt("timezone_id")));
-        t.setPopulation(rs.getLong("population"));
-        t.setCoordinates(coordinates);
-        t.setParentLocationId(parentId);
-        t.setCountry(countrySummary);
-    }
-
-    private Coordinates getCoordinatesFromPoint(final String wkt)
-    {
-        if (wkt == null)
-        {
-            return null;
-        }
-
-        try
-        {
-            final Geometry geom = wktReader.read(wkt);
-            final Coordinate c = geom.getCoordinate();
-            return Coordinates.from(c.y, c.x);
-        }
-        catch (ParseException e)
-        {
-            throw new IllegalArgumentException("Invalid WKT: " + wkt, e);
-        }
+        return locationDao.findById(id).map(this::populate).orElseThrow(() -> new EmptyResultDataAccessException("No location with id " + id, 1));
     }
 
     @Override
     public GeoLocation findWithin(Coordinates point, int maxDistanceInKilometers)
     {
         int range = 25;
-        GeoLocation location = null;
+        RawLocation location = null;
         while (range <= maxDistanceInKilometers && location == null)
         {
-            location = doFindContaining(point, range);
+            location = reverseGeocodingDao.findContaining(point, range);
             range *= 2;
         }
         if (location != null)
         {
-            return location;
+            return populate(location);
         }
         throw new EmptyResultDataAccessException("Cannot find location for " + point, 1);
     }
@@ -270,69 +174,9 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable)
     {
-        final List<GeoLocationDistance> locations = doFindNearest(point, maxDistanceInKilometers, pageable);
-        return new PageImpl<>(locations, pageable, getLocationCount());
-    }
-
-    private long getLocationCount()
-    {
-        if (this.locationCount == null)
-        {
-            final Long result = jdbcTemplate.queryForObject(geoNamesCountSql, Collections.emptyMap(), Long.class);
-            locationCount = result != null ? result : 0;
-        }
-        return locationCount;
-    }
-
-    private Map<String, Object> createParams(Coordinates point, int maxDistanceInKm, Pageable pageable)
-    {
-        final double lat = point.getLat();
-        final double lon = point.getLng();
-        final double R = 6371;  // earth radius in km
-        final double v = Math.toDegrees(maxDistanceInKm / R / Math.cos(Math.toRadians(lat)));
-        double x1 = lon - v;
-        double x2 = lon + v;
-        double y1 = lat - Math.toDegrees(maxDistanceInKm / R);
-        double y2 = lat + Math.toDegrees(maxDistanceInKm / R);
-
-        final Map<String, Object> params = new TreeMap<>();
-        params.put("point", "POINT(" + point.getLng() + " " + point.getLat() + ")");
-        params.put("minPoint", "POINT(" + x1 + " " + y1 + ")");
-        params.put("maxPoint", "POINT(" + x2 + " " + y2 + ")");
-        params.put("x", point.getLng());
-        params.put("y", point.getLat());
-        params.put("minX", x1);
-        params.put("minY", y1);
-        params.put("maxX", x2);
-        params.put("maxY", y2);
-        params.put("offset", pageable.getOffset());
-        params.put("limit", pageable.getPageSize());
-        return params;
-    }
-
-    private GeoLocation doFindContaining(Coordinates point, int maxDistanceInKm)
-    {
-        final Map<String, Object> params = createParams(point, maxDistanceInKm, PageRequest.of(0, 1));
-        final List<GeoLocation> res = jdbcTemplate.query(findWithinBoundariesSql, params, (rs, rowNum) -> findById(rs.getInt("id")));
-
-        return res.isEmpty() ? null : res.get(0);
-    }
-
-    private List<GeoLocationDistance> doFindNearest(Coordinates point, int distance, Pageable pageable)
-    {
-        // Switch Lat/long
-        final Coordinates coordinates = new Coordinates().setLat(point.getLng()).setLng(point.getLat());
-
-        final Map<String, Object> params = createParams(coordinates, distance, pageable);
-        return jdbcTemplate.query(nearestSql, params, (rs, rowNum) ->
-        {
-            final GeoLocation location = new GeoLocation();
-            mapLocation(location, rs);
-
-            final double distance1 = BigDecimal.valueOf(rs.getDouble("distance") * RAD_TO_KM_RATIO).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue();
-
-            return new GeoLocationDistance().setLocation(location).setDistance(distance1);
-        });
+        final Map<Integer, Double> locations = reverseGeocodingDao.findNearest(point, maxDistanceInKilometers, pageable);
+        final List<GeoLocationDistance> content = locations.entrySet().stream().map(e -> new GeoLocationDistance().setLocation(findById(e.getKey())).setDistance(e.getValue())).collect(Collectors.toList());
+        return new PageImpl<>(content, pageable, metaService.getSourceDataInfo().get(DataType.LOCATION).getCount());
     }
 
     @Override
@@ -342,20 +186,13 @@ public class GeodataServiceImpl implements GeodataService
         {
             return Collections.emptyList();
         }
-        return jdbcTemplate.query(findByIdsSql, Collections.singletonMap("ids", ids), GEONAMES_ROW_MAPPER);
+        return locationDao.findByIds(ids).stream().map(this::populate).collect(Collectors.toList());
     }
 
     @Override
     public byte[] findBoundaries(int id)
     {
-        return jdbcTemplate.query(findBoundariesByIdSql, Collections.singletonMap("id", id), rse ->
-        {
-            if (rse.next())
-            {
-                return rse.getBytes("wkb");
-            }
-            return null;
-        });
+        return boundaryDao.findById(id).orElseThrow(() -> new EmptyResultDataAccessException("No boundaries found for location " + id, 1));
     }
 
     @Override
@@ -382,10 +219,12 @@ public class GeodataServiceImpl implements GeodataService
         final SourceDataInfoSet sourceDataInfo = metaService.getSourceDataInfo();
 
         progressListener.begin("feature_codes", 1);
-        this.featureCodes = geonamesDao.loadFeatureCodes();
+        this.featureCodes = featureCodeDao.findFeatureCodes();
+        this.reverseFeatureMap = new LinkedHashMap<>();
+        featureCodes.forEach((k, v) -> reverseFeatureMap.put(v.getFeatureClass() + "." + v.getFeatureCode(), k));
 
         progressListener.begin("time_zones", 1);
-        loadTimeZones();
+        this.timezones = timeZoneDao.findTimeZones();
 
         progressListener.begin("continents", 1);
         continents = findByIds(CONTINENT_IDS.values())
@@ -394,30 +233,22 @@ public class GeodataServiceImpl implements GeodataService
                 .collect(Collectors.toList());
 
         progressListener.begin("countries", featureCodes.size());
-        loadCountries();
-
-        final int adminLevelCount = metaService.getSourceDataInfo().get(DataType.LOCATION).getCount();
+        final List<RawLocation> countryLocations = locationDao.findCountries();
+        this.countries = new HashMap<>();
+        this.countriesById = new HashMap<>();
+        countryLocations.forEach(l -> countries.put(l.getCountryCode(), Country.from(populate(l))));
+        countryLocations.forEach(l -> countries.put(l.getCountryCode(), Country.from(populate(l))));
 
         progressListener.begin("load_admin_levels");
-        final Map<Integer, Integer> childToParent = geonamesDao.buildHierarchyDataFromAdminCodes(adminLevelCount, progressListener::progress);
+        final int adminLevelCount = metaService.getSourceDataInfo().get(DataType.LOCATION).getCount();
+        final Map<String, Integer> adminLevels = locationDao.loadAdminLevels(featureCodes, progressListener::progress);
+        final Map<Integer, Integer> childToParent = locationDao.processChildToParent(progressListener::progress, countries, featureCodes, adminLevels, reverseFeatureMap, adminLevelCount);
 
         progressListener.begin("join_admin_levels");
         joinHierarchyNodes(childToParent, progressListener::progress);
 
         progressListener.begin("ip2location", sourceDataInfo.get(DataType.IP).getCount());
         ipDao.load(progressListener::progress);
-    }
-
-    private void loadTimeZones()
-    {
-        jdbcTemplate.query("SELECT * FROM timezone", rs -> {
-            while (rs.next())
-            {
-                final int id = rs.getInt("id");
-                final String timezone = rs.getString("value");
-                timezones.put(id, timezone);
-            }
-        });
     }
 
     @Override
@@ -441,13 +272,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<Country> findCountriesOnContinent(String continentCode, Pageable pageable)
     {
-        final Map<String, Object> params = new TreeMap<>();
-        params.put("continentCode", continentCode);
-        params.put("offset", pageable.getOffset());
-        params.put("max", pageable.getPageSize());
-        final List<Country> locations = jdbcTemplate.query(findCountriesOnContinentSql, params, COUNTRY_INFO_MAPPER);
-        final long count = count(countCountriesOnContinentSql, params);
-        return new PageImpl<>(locations, pageable, count);
+        return locationDao.findCountriesOnContinent(continentCode, pageable).map(e -> Country.from(populate(e)));
     }
 
     @Override
@@ -470,14 +295,12 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<GeoLocation> findChildren(String countryCode, Pageable pageable)
     {
-        final Map<String, Object> params = new TreeMap<>();
-        params.put("cc", countryCode);
-        params.put("feature_code_id", getFeatureCodeId("A", "ADM1"));
-        params.put("offset", pageable.getOffset());
-        params.put("max", pageable.getPageSize());
-        final List<GeoLocation> content = jdbcTemplate.query(findCountryChildrenSql, params, GEONAMES_ROW_MAPPER);
-        final long total = count(countCountryChildrenSql, params);
-        return new PageImpl<>(content, pageable, total);
+        final int adm1Id = reverseFeatureMap.get("A.ADM1");
+        return locationDao.findChildren(countryCode, adm1Id, pageable).map(raw ->
+        {
+            final GeoLocation l = populate(raw);
+            return Country.from(l);
+        });
     }
 
     private int getFeatureCodeId(final String featureClass, final String featureCode)
@@ -487,22 +310,6 @@ public class GeodataServiceImpl implements GeodataService
                 .map(Entry::getKey)
                 .findFirst()
                 .orElseThrow(() -> new EmptyResultDataAccessException("No feature with feature class " + featureClass + ", feature code " + featureCode, 1));
-    }
-
-    private long count(final String sql, final Map<String, Object> params)
-    {
-        final Long result = jdbcTemplate.queryForObject(sql, params, Long.class);
-        return result != null ? result : 0;
-    }
-
-    private int loadCountries()
-    {
-        final Collection<Country> countryList = jdbcTemplate.query(
-                "SELECT * FROM geocountry c, geonames n "
-                        + "WHERE c.geoname_id = n.id "
-                        + "ORDER BY iso ASC", COUNTRY_INFO_MAPPER);
-        countryList.forEach(c -> countries.put(c.getCountry().getCode(), c));
-        return countryList.size();
     }
 
     private void joinHierarchyNodes(final Map<Integer, Integer> childToParent, StepProgressListener listener)
@@ -518,36 +325,19 @@ public class GeodataServiceImpl implements GeodataService
         });
     }
 
-    private int loadExplicitHierarchy(final Map<Integer, Integer> childToParent) throws SQLException
-    {
-        logger.info("Loading explicit hierarchy structure");
-        final AtomicInteger explicitCount = new AtomicInteger();
-        final String sql = "SELECT id, parent_id FROM geohierarchy";
-        new MysqlCursorUtil(dataSource).query(sql, Collections.emptyMap(), rs ->
-        {
-            while (rs.next())
-            {
-                final int id = rs.getInt("id");
-                final int parentId = rs.getInt("parent_id");
-                if (childToParent.putIfAbsent(id, parentId) == null)
-                {
-                    explicitCount.incrementAndGet();
-                }
-            }
-        });
-        return explicitCount.get();
-    }
-
     @Override
     public Country findByPhonenumber(String phoneNumber)
     {
         String stripped = phoneNumber.replaceAll("[^\\d.]", "");
         stripped = stripped.replaceFirst("^0+(?!$)", "");
 
-        final List<Country> countries = jdbcTemplate.query(findCountryByPhoneNumberSql,
+        // TODO:
+        /*final List<Country> countries = jdbcTemplate.query(findCountryByPhoneNumberSql,
                 Collections.singletonMap("phone", stripped), COUNTRY_INFO_MAPPER
         );
         return countries.isEmpty() ? null : countries.get(0);
+        */
+        return null;
     }
 
     @Override
@@ -704,12 +494,36 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<GeoLocation> findByName(String name, Pageable pageable)
     {
-        final Map<String, Object> params = new TreeMap<>();
-        params.put("name", name);
-        params.put("offset", pageable.getOffset());
-        params.put("limit", pageable.getPageSize());
-        final List<GeoLocation> content = jdbcTemplate.query(findByNameSql, params, GEONAMES_ROW_MAPPER);
-        final long total = jdbcTemplate.queryForObject(countByNameSql, params, Long.class);
-        return new PageImpl<>(content, pageable, total);
+        return locationDao.findByName(name, pageable).map(this::populate);
+    }
+
+    private GeoLocation populate(RawLocation l)
+    {
+        final Country country = findCountryByCode(l.getCountryCode());
+        final CountrySummary countrySummary = country != null ? country.toSummary(l.getCountryCode()) : null;
+
+        final int id = l.getId();
+        final Node node = nodes.get(id);
+        final Integer parentId = Optional.ofNullable(node).map(Node::getParent).orElse(null);
+
+        final int featureCodeId = l.getMapFeatureId();
+        final MapFeature mapFeature = featureCodeId != 0 ? featureCodes.get(featureCodeId) : null;
+
+        final String timezone = timezones.get(l.getTimeZoneId());
+
+        final GeoLocation result = new GeoLocation();
+        result.setId(id);
+        result.setName(l.getName());
+        result.setCoordinates(l.getCoordinates());
+        result.setCountry(countrySummary);
+        result.setTimeZone(timezone);
+        result.setParentLocationId(parentId);
+        if (mapFeature != null)
+        {
+            result.setFeatureClass(mapFeature.getFeatureClass());
+            result.setFeatureCode(mapFeature.getFeatureCode());
+        }
+
+        return result;
     }
 }
