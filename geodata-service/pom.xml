@@ -34,7 +34,7 @@
         <dependency>
             <groupId>org.geotools</groupId>
             <artifactId>gt-geometry</artifactId>
-            <version>24.0</version>
+            <version>${geotools.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.geotools</groupId>
@@ -51,6 +51,28 @@
             <artifactId>simplify</artifactId>
             <version>1.0.0</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-main</artifactId>
+            <version>${geotools.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools.xsd</groupId>
+            <artifactId>gt-xsd-core</artifactId>
+            <version>${geotools.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools.xsd</groupId>
+            <artifactId>gt-xsd-kml</artifactId>
+            <version>${geotools.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-geojson</artifactId>
+            <version>${geotools.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>com.ethlo.time</groupId>
             <artifactId>itu</artifactId>

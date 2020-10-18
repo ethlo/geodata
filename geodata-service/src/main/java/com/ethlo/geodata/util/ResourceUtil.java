@@ -93,6 +93,11 @@ public class ResourceUtil
 
     public static Map.Entry<Date, File> fetchResource(GeonamesSource alias, String urlStr) throws IOException
     {
+        return fetchResource(alias.name().toLowerCase(), urlStr);
+    }
+
+    public static Map.Entry<Date, File> fetchResource(String alias, String urlStr) throws IOException
+    {
         final String[] urlParts = StringUtils.split(urlStr, "|");
         if (urlParts[0].endsWith("zip"))
         {
@@ -104,7 +109,7 @@ public class ResourceUtil
         }
     }
 
-    private static Map.Entry<Date, File> fetchZip(GeonamesSource alias, String url, String zipEntry) throws IOException
+    private static Map.Entry<Date, File> fetchZip(String alias, String url, String zipEntry) throws IOException
     {
         final Resource resource = openConnection(url);
         return downloadIfNewer(alias, resource, f ->
@@ -121,10 +126,9 @@ public class ResourceUtil
         });
     }
 
-    private static Entry<Date, File> downloadIfNewer(GeonamesSource geonamesSource, Resource resource, CheckedFunction<InputStream, InputStream> fun) throws IOException
+    private static Entry<Date, File> downloadIfNewer(String alias, Resource resource, CheckedFunction<InputStream, InputStream> fun) throws IOException
     {
-        final String alias = geonamesSource.name().toLowerCase();
-        final File file = new File(tmpDir, alias + "_" + resource.getURL().hashCode() + ".txt");
+        final File file = new File(tmpDir, alias + "_" + resource.getURL().hashCode());
         final Date remoteLastModified = new Date(resource.lastModified());
         final long localLastModified = file.exists() ? file.lastModified() : -2;
         logger.info("Local file for " + "alias {}" + "\nPath: {}" + "\nExists: {}" + "\nLast-Modified: {}", alias, file.getAbsolutePath(), file.exists(), formatDate(localLastModified));
@@ -150,7 +154,7 @@ public class ResourceUtil
         return LocalDateTime.ofEpochSecond(timestamp / 1_000, 0, ZoneOffset.UTC);
     }
 
-    private static Entry<Date, File> fetch(GeonamesSource alias, String url) throws IOException
+    private static Entry<Date, File> fetch(String alias, String url) throws IOException
     {
         final Resource resource = openConnection(url);
         return downloadIfNewer(alias, resource, in -> in);

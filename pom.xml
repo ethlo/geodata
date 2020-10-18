@@ -37,6 +37,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>11</java.version>
         <jts.version>1.17.1</jts.version>
+        <geotools.version>24.0</geotools.version>
         <gpg.skip>true</gpg.skip>
     </properties>
     <distributionManagement>
