@@ -47,7 +47,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.util.Assert;
 
-import com.ethlo.geodata.importer.DataType;
+import com.ethlo.geodata.importer.GeonamesSource;
 
 public class ResourceUtil
 {
@@ -91,7 +91,7 @@ public class ResourceUtil
         return new UrlResource(urlParts[0]);
     }
 
-    public static Map.Entry<Date, File> fetchResource(DataType alias, String urlStr) throws IOException
+    public static Map.Entry<Date, File> fetchResource(GeonamesSource alias, String urlStr) throws IOException
     {
         final String[] urlParts = StringUtils.split(urlStr, "|");
         if (urlParts[0].endsWith("zip"))
@@ -104,7 +104,7 @@ public class ResourceUtil
         }
     }
 
-    private static Map.Entry<Date, File> fetchZip(DataType alias, String url, String zipEntry) throws IOException
+    private static Map.Entry<Date, File> fetchZip(GeonamesSource alias, String url, String zipEntry) throws IOException
     {
         final Resource resource = openConnection(url);
         return downloadIfNewer(alias, resource, f ->
@@ -121,9 +121,9 @@ public class ResourceUtil
         });
     }
 
-    private static Entry<Date, File> downloadIfNewer(DataType dataType, Resource resource, CheckedFunction<InputStream, InputStream> fun) throws IOException
+    private static Entry<Date, File> downloadIfNewer(GeonamesSource geonamesSource, Resource resource, CheckedFunction<InputStream, InputStream> fun) throws IOException
     {
-        final String alias = dataType.name().toLowerCase();
+        final String alias = geonamesSource.name().toLowerCase();
         final File file = new File(tmpDir, alias + "_" + resource.getURL().hashCode() + ".txt");
         final Date remoteLastModified = new Date(resource.lastModified());
         final long localLastModified = file.exists() ? file.lastModified() : -2;
@@ -150,7 +150,7 @@ public class ResourceUtil
         return LocalDateTime.ofEpochSecond(timestamp / 1_000, 0, ZoneOffset.UTC);
     }
 
-    private static Entry<Date, File> fetch(DataType alias, String url) throws IOException
+    private static Entry<Date, File> fetch(GeonamesSource alias, String url) throws IOException
     {
         final Resource resource = openConnection(url);
         return downloadIfNewer(alias, resource, in -> in);

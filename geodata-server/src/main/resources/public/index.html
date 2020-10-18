@@ -118,7 +118,7 @@ th, td {
 			if (xhr.status === 200) {
 				var array = JSON.parse(xhr.responseText);
 				array.forEach(function(o) {
-					var name = o.dataType.toLowerCase();
+					var name = o.geonamesSource.toLowerCase();
 					console.log(name);
 
 					var ele = document.querySelector('td[data-count="' + name + '"]');

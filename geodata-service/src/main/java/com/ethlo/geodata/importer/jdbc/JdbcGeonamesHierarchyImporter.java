@@ -41,7 +41,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.ethlo.geodata.importer.DataType;
+import com.ethlo.geodata.importer.GeonamesSource;
 import com.ethlo.geodata.util.ResourceUtil;
 
 @Component
@@ -59,7 +59,7 @@ public class JdbcGeonamesHierarchyImporter implements PersistentImporter
     {
         try
         {
-            final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource(DataType.HIERARCHY, geoNamesHierarchyUrl);
+            final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource(GeonamesSource.HIERARCHY, geoNamesHierarchyUrl);
             return doUpdate(hierarchyFile.getValue());
         }
         catch (IOException exc)

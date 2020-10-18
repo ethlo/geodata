@@ -22,7 +22,7 @@ package com.ethlo.geodata.importer;
  * #L%
  */
 
-public enum DataType
+public enum GeonamesSource
 {
-    LOCATION_ALTERNATE_NAMES, LOCATION, IP, BOUNDARY, COUNTRY, HIERARCHY, ALL;
+    LOCATION_ALTERNATE_NAMES, LOCATION, IP, BOUNDARY, COUNTRY, HIERARCHY;
 }

@@ -65,7 +65,7 @@ import com.ethlo.geodata.dao.TimeZoneDao;
 import com.ethlo.geodata.dao.jdbc.JdbcBoundaryDao;
 import com.ethlo.geodata.dao.jdbc.JdbcIpDao;
 import com.ethlo.geodata.dao.jdbc.JdbcLocationDao;
-import com.ethlo.geodata.importer.DataType;
+import com.ethlo.geodata.importer.GeonamesSource;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
@@ -175,7 +175,7 @@ public class GeodataServiceImpl implements GeodataService
     {
         final Map<Integer, Double> locations = reverseGeocodingDao.findNearest(point, maxDistanceInKilometers, pageable);
         final List<GeoLocationDistance> content = locations.entrySet().stream().map(e -> new GeoLocationDistance().setLocation(findById(e.getKey())).setDistance(e.getValue())).collect(Collectors.toList());
-        return new PageImpl<>(content, pageable, metaService.getSourceDataInfo().get(DataType.LOCATION).getCount());
+        return new PageImpl<>(content, pageable, metaService.getSourceDataInfo().get(GeonamesSource.LOCATION).getCount());
     }
 
     @Override
@@ -237,14 +237,14 @@ public class GeodataServiceImpl implements GeodataService
         countryLocations.forEach(l -> countries.put(l.getCountryCode(), Country.from(populate(l))));
 
         progressListener.begin("load_admin_levels");
-        final int adminLevelCount = metaService.getSourceDataInfo().get(DataType.LOCATION).getCount();
+        final int adminLevelCount = metaService.getSourceDataInfo().get(GeonamesSource.LOCATION).getCount();
         final Map<String, Integer> adminLevels = locationDao.loadAdminLevels(featureCodes, progressListener::progress);
         final Map<Integer, Integer> childToParent = locationDao.processChildToParent(progressListener::progress, countries, featureCodes, adminLevels, reverseFeatureMap, adminLevelCount);
 
         progressListener.begin("join_admin_levels");
         joinHierarchyNodes(childToParent, progressListener::progress);
 
-        progressListener.begin("ip2location", sourceDataInfo.get(DataType.IP).getCount());
+        progressListener.begin("ip2location", sourceDataInfo.get(GeonamesSource.IP).getCount());
         ipDao.load(progressListener::progress);
         progressListener.end();
     }

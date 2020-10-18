@@ -45,7 +45,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
-import com.ethlo.geodata.importer.DataType;
+import com.ethlo.geodata.importer.GeonamesSource;
 import com.ethlo.geodata.importer.IpLookupImporter;
 import com.ethlo.geodata.util.ResourceUtil;
 import com.google.common.net.InetAddresses;
@@ -81,7 +81,7 @@ public class JdbcIpLookupImporter implements PersistentImporter
 
     private long doUpdate() throws IOException
     {
-        final Map.Entry<Date, File> ipDataFile = ResourceUtil.fetchResource(DataType.IP, url);
+        final Map.Entry<Date, File> ipDataFile = ResourceUtil.fetchResource(GeonamesSource.IP, url);
 
         final AtomicInteger count = new AtomicInteger(0);
 

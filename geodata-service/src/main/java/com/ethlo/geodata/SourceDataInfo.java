@@ -24,27 +24,27 @@ package com.ethlo.geodata;
 
 import java.util.Date;
 
-import com.ethlo.geodata.importer.DataType;
+import com.ethlo.geodata.importer.GeonamesSource;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class SourceDataInfo
 {
-    private final DataType dataType;
+    private final GeonamesSource geonamesSource;
     private final int count;
     private final Date lastModified;
 
     @JsonCreator
-    public SourceDataInfo(@JsonProperty("alias") DataType dataType, @JsonProperty("count") int count, @JsonProperty("lastModified") Date lastModified)
+    public SourceDataInfo(@JsonProperty("alias") GeonamesSource geonamesSource, @JsonProperty("count") int count, @JsonProperty("lastModified") Date lastModified)
     {
-        this.dataType = dataType;
+        this.geonamesSource = geonamesSource;
         this.count = count;
         this.lastModified = lastModified;
     }
 
-    public DataType getDataType()
+    public GeonamesSource getDataType()
     {
-        return dataType;
+        return geonamesSource;
     }
 
     public int getCount()
@@ -62,7 +62,7 @@ public class SourceDataInfo
     {
         final int prime = 31;
         int result = 1;
-        result = prime * result + ((dataType == null) ? 0 : dataType.hashCode());
+        result = prime * result + ((geonamesSource == null) ? 0 : geonamesSource.hashCode());
         return result;
     }
 
@@ -76,12 +76,12 @@ public class SourceDataInfo
         if (getClass() != obj.getClass())
             return false;
         SourceDataInfo other = (SourceDataInfo) obj;
-        if (dataType == null)
+        if (geonamesSource == null)
         {
-            if (other.dataType != null)
+            if (other.geonamesSource != null)
                 return false;
         }
-        else if (!dataType.equals(other.dataType))
+        else if (!geonamesSource.equals(other.geonamesSource))
             return false;
         return true;
     }
@@ -89,6 +89,6 @@ public class SourceDataInfo
     @Override
     public String toString()
     {
-        return "SourceDataInfo [dataType=" + dataType + ", count=" + count + ", lastModified=" + lastModified + "]";
+        return "SourceDataInfo [dataType=" + geonamesSource + ", count=" + count + ", lastModified=" + lastModified + "]";
     }
 }

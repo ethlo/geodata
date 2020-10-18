@@ -40,7 +40,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.ethlo.geodata.importer.DataType;
+import com.ethlo.geodata.importer.GeonamesSource;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
@@ -85,9 +85,9 @@ public class GeodataApplicationTests
         cal.set(Calendar.SECOND, 45);
         cal.set(Calendar.MILLISECOND, 0);
         final Date expected = cal.getTime();
-        geoMetaService.setLastModified(DataType.IP, expected, 4455);
-        assertThat(geoMetaService.getLastModified(DataType.IP).get().getTime()).isEqualTo(expected.getTime());
-        assertThat(geoMetaService.getSourceDataInfo().get(DataType.IP).getCount()).isEqualTo(4455);
+        geoMetaService.setLastModified(GeonamesSource.IP, expected, 4455);
+        assertThat(geoMetaService.getLastModified(GeonamesSource.IP).get().getTime()).isEqualTo(expected.getTime());
+        assertThat(geoMetaService.getSourceDataInfo().get(GeonamesSource.IP).getCount()).isEqualTo(4455);
     }
 
     @Test
