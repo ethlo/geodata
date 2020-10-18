@@ -45,6 +45,12 @@ public class Country extends GeoLocation implements Serializable
         country.setParentLocationId(location.getParentLocationId());
         country.setFeatureCode(location.getFeatureCode());
         country.setPopulation(location.getPopulation());
+
+        if (location.getCountry() != null)
+        {
+            country.setCountry(new CountrySummary().setCode(location.getCountry().getCode()));
+        }
+
         return country;
     }
 

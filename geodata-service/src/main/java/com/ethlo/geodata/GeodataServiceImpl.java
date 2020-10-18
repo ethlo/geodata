@@ -328,13 +328,14 @@ public class GeodataServiceImpl implements GeodataService
         String stripped = phoneNumber.replaceAll("[^\\d.]", "");
         stripped = stripped.replaceFirst("^0+(?!$)", "");
 
-        // TODO:
-        /*final List<Country> countries = jdbcTemplate.query(findCountryByPhoneNumberSql,
-                Collections.singletonMap("phone", stripped), COUNTRY_INFO_MAPPER
-        );
-        return countries.isEmpty() ? null : countries.get(0);
-        */
-        return null;
+        final List<Integer> countryIds = locationDao.findByPhoneNumber(stripped);
+
+        return !countryIds.isEmpty() ? populateCountry(findById(countryIds.get(0))) : null;
+    }
+
+    private Country populateCountry(final GeoLocation location)
+    {
+        return Country.from(location);
     }
 
     @Override
@@ -510,6 +511,10 @@ public class GeodataServiceImpl implements GeodataService
 
         final GeoLocation result = new GeoLocation();
         result.setId(id);
+        if (l.getPopulation() != 0)
+        {
+            result.setPopulation(l.getPopulation());
+        }
         result.setName(l.getName());
         result.setCoordinates(l.getCoordinates());
         result.setCountry(countrySummary);

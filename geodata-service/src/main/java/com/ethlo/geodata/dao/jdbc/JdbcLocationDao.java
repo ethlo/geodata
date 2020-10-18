@@ -367,4 +367,11 @@ public class JdbcLocationDao extends JdbcBaseDao implements LocationDao
                         + "WHERE c.geoname_id = n.id "
                         + "ORDER BY iso", LOCATION_MAPPER);
     }
+
+    @Override
+    public List<Integer> findByPhoneNumber(final String phoneNumber)
+    {
+        final String sql = "SELECT id FROM geocountry WHERE :phone like CONCAT(phone, '%') ORDER BY population DESC";
+        return jdbcTemplate.query(sql, Collections.singletonMap("phone", phoneNumber), (rs, num) -> rs.getInt("id"));
+    }
 }

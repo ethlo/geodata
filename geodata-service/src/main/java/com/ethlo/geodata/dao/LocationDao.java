@@ -25,4 +25,6 @@ public interface LocationDao
     Page<RawLocation> findCountriesOnContinent(String continentCode, Pageable pageable);
 
     List<RawLocation> findCountries();
+
+    List<Integer> findByPhoneNumber(String phoneNumber);
 }
