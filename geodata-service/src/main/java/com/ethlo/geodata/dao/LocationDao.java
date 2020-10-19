@@ -49,4 +49,6 @@ public interface LocationDao
     List<RawLocation> findCountries();
 
     List<Integer> findByPhoneNumber(String phoneNumber);
+
+    List<RawLocation> getCountries();
 }

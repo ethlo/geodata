@@ -71,9 +71,15 @@ public class StatefulProgressListener implements LoadProgressListener
     public void end()
     {
         final Step step = steps.get(last);
-        step.setProgress(step.getTotal());
+        if (step != null)
+        {
+            if (step.getTotal() != null)
+            {
+                step.setProgress(step.getTotal());
+            }
+            step.end();
+        }
         last = null;
-        step.end();
     }
 
     public Map<String, Step> getSteps()

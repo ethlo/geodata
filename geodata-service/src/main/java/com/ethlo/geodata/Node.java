@@ -68,6 +68,10 @@ public class Node implements Comparable<Node>
 
     public void setParent(Integer parent)
     {
+        if (parent != null && parent == id)
+        {
+            throw new IllegalArgumentException("Parent cannot be self for id " + id);
+        }
         this.parent = parent;
     }
 

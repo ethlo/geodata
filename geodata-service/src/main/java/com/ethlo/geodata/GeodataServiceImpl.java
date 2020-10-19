@@ -33,9 +33,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import javax.validation.Valid;
@@ -49,8 +47,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Primary;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
@@ -80,25 +76,9 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Stopwatch;
 
-@SuppressWarnings({"UnstableApiUsage"})
-@Primary
 @Service
-@PropertySource("classpath:queries.sql.properties")
 public class GeodataServiceImpl implements GeodataService
 {
-    private static final Map<String, Integer> CONTINENT_IDS = new LinkedHashMap<>();
-
-    static
-    {
-        CONTINENT_IDS.put("AF", 6255146);
-        CONTINENT_IDS.put("AS", 6255147);
-        CONTINENT_IDS.put("EU", 6255148);
-        CONTINENT_IDS.put("NA", 6255149);
-        CONTINENT_IDS.put("OC", 6255151);
-        CONTINENT_IDS.put("SA", 6255150);
-        CONTINENT_IDS.put("AN", 6255152);
-    }
-
     private final Logger logger = LoggerFactory.getLogger(GeodataServiceImpl.class);
     private final Map<Integer, Node> nodes = new HashMap<>();
     // TODO: Make this configurable?
@@ -126,15 +106,8 @@ public class GeodataServiceImpl implements GeodataService
             .build(this::doFindById);
     private Map<String, Integer> reverseFeatureMap = new HashMap<>();
 
-
     @Value("${geodata.boundaries.quality}")
     private int qualityConstant;
-
-
-    public static String getConcatenatedFeatureCode(final Map<Integer, MapFeature> featureCodes, final int featureCodeId)
-    {
-        return Optional.ofNullable(featureCodes.get(featureCodeId)).map(f -> f.getFeatureClass() + "." + f.getFeatureCode()).orElseThrow(() -> new EmptyResultDataAccessException("No feature code with ID " + featureCodeId, 1));
-    }
 
     @Override
     public GeoLocation findByIp(String ip)
@@ -226,15 +199,14 @@ public class GeodataServiceImpl implements GeodataService
         this.timezones = timeZoneDao.findTimeZones();
 
         progressListener.begin("continents", 1);
-        continents = findByIds(CONTINENT_IDS.values())
+        continents = findByIds(GeoConstants.CONTINENTS.values())
                 .stream()
                 .map(l -> new Continent(getContinentCode(l.getId()), l))
                 .collect(Collectors.toList());
 
-        progressListener.begin("countries", featureCodes.size());
-        final List<RawLocation> countryLocations = locationDao.findCountries();
+        progressListener.begin("countries", null);
         this.countries = new HashMap<>();
-        countryLocations.forEach(l -> countries.put(l.getCountryCode(), Country.from(populate(l))));
+        locationDao.getCountries().forEach(l -> countries.put(l.getCountryCode(), Country.from(populate(l))));
 
         progressListener.begin("load_admin_levels");
         final int adminLevelCount = metaService.getSourceDataInfo().get(GeonamesSource.LOCATION).getCount();
@@ -243,10 +215,49 @@ public class GeodataServiceImpl implements GeodataService
 
         progressListener.begin("join_admin_levels");
         joinHierarchyNodes(childToParent, progressListener::progress);
+        reportNoParent(nodes);
 
-        progressListener.begin("ip2location", sourceDataInfo.get(GeonamesSource.IP).getCount());
-        ipDao.load(progressListener::progress);
-        progressListener.end();
+        final SourceDataInfo ipMeta = sourceDataInfo.get(GeonamesSource.IP);
+        if (ipMeta != null)
+        {
+            progressListener.begin("ip2location", ipMeta.getCount());
+            ipDao.load(progressListener::progress);
+            progressListener.end();
+        }
+    }
+
+    private void reportNoParent(final Map<Integer, Node> nodes)
+    {
+        final Map<String, Integer> featureStatsNoParent = new HashMap<>();
+        nodes.forEach((id, node) ->
+        {
+            if (node.getParent() == null)
+            {
+                logger.info("{} has no parent", id);
+                final GeoLocation location = findById(node.getId());
+                featureStatsNoParent.compute(location.getFeatureClass() + "." + location.getFeatureCode(), (key, existing) -> existing == null ? 1 : existing + 1);
+            }
+        });
+
+        logger.info("No parent by feature type: {}", featureStatsNoParent);
+    }
+
+    @Override
+    public Optional<Continent> findContinentOfLocation(final int id)
+    {
+        Node node = this.nodes.get(id);
+        while (node != null)
+        {
+            final GeoLocation location = findById(node.getId());
+            if ("CONT".equalsIgnoreCase(location.getFeatureCode()))
+            {
+                final Entry<String, Integer> continentCode = GeoConstants.CONTINENTS.entrySet().stream().filter(e -> e.getValue() == location.getId()).findFirst().orElseThrow();
+                return Optional.of(new Continent(continentCode.getKey(), location));
+            }
+            final Integer parentId = node.getParent();
+            node = parentId != null ? nodes.get(parentId) : null;
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -257,7 +268,7 @@ public class GeodataServiceImpl implements GeodataService
 
     private String getContinentCode(int id)
     {
-        for (Entry<String, Integer> e : CONTINENT_IDS.entrySet())
+        for (Entry<String, Integer> e : GeoConstants.CONTINENTS.entrySet())
         {
             if (e.getValue().equals(id))
             {
@@ -301,30 +312,20 @@ public class GeodataServiceImpl implements GeodataService
         });
     }
 
-    private int getFeatureCodeId(final String featureClass, final String featureCode)
-    {
-        return featureCodes.entrySet().stream()
-                .filter(e -> Objects.equals(featureClass, e.getValue().getFeatureClass()) && Objects.equals(featureCode, e.getValue().getFeatureCode()))
-                .map(Entry::getKey)
-                .findFirst()
-                .orElseThrow(() -> new EmptyResultDataAccessException("No feature with feature class " + featureClass + ", feature code " + featureCode, 1));
-    }
-
     private void joinHierarchyNodes(final Map<Integer, Integer> childToParent, StepProgressListener listener)
     {
-        final AtomicInteger count = new AtomicInteger();
         childToParent.forEach((child, parent) ->
         {
             final Node childNode = nodes.computeIfAbsent(child, Node::new);
             final Node parentNode = nodes.computeIfAbsent(parent, Node::new);
             parentNode.addChild(child);
             childNode.setParent(parent);
-            listener.progress(count.incrementAndGet(), childToParent.size());
+            listener.progress(nodes.size(), childToParent.size());
         });
     }
 
     @Override
-    public Country findByPhonenumber(String phoneNumber)
+    public Country findByPhoneNumber(String phoneNumber)
     {
         String stripped = phoneNumber.replaceAll("[^\\d.]", "");
         stripped = stripped.replaceFirst("^0+(?!$)", "");
@@ -400,7 +401,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Continent findContinent(String continentCode)
     {
-        final Integer id = CONTINENT_IDS.get(continentCode.toUpperCase());
+        final Integer id = GeoConstants.CONTINENTS.get(continentCode.toUpperCase());
         if (id != null)
         {
             return new Continent(continentCode.toUpperCase(), findById(id));

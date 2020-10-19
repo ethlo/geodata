@@ -36,6 +36,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import com.ethlo.geodata.importer.GeoFabrikBoundaryLoader;
 import com.ethlo.geodata.importer.GeonamesSource;
 import com.ethlo.geodata.importer.jdbc.JdbcCountryImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcGeonamesBoundaryImporter;
@@ -46,17 +47,16 @@ import com.ethlo.geodata.importer.jdbc.JdbcIpLookupImporter;
 @Service
 public class GeoMetaService
 {
+    private final GeoFabrikBoundaryLoader geoFabrikBoundaryLoader = new GeoFabrikBoundaryLoader();
+
     @Autowired
     private JdbcCountryImporter countryImporter;
-
     @Autowired
     private JdbcIpLookupImporter ipLookupImporter;
-
     @Autowired
     private JdbcGeonamesImporter geonamesImporter;
-
     @Autowired
-    private JdbcGeonamesBoundaryImporter boundaryImporter;
+    private JdbcGeonamesBoundaryImporter geonamesBoundaryImporter;
 
     @Autowired
     private JdbcGeonamesHierarchyImporter hierarchyImporter;
@@ -64,14 +64,8 @@ public class GeoMetaService
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
 
-    private long maxDataAgeMillis;
-
     @Value("${geodata.max-data-age}")
-    public void setMaxDataAge(String age)
-    {
-        final Duration d = Duration.parse("P" + age);
-        maxDataAgeMillis = d.toMillis();
-    }
+    private Duration maxDataAge;
 
     public Optional<Date> getLastModified(GeonamesSource alias)
     {
@@ -124,8 +118,7 @@ public class GeoMetaService
             boundaryImporter.importData();
             setLastModified("geoboundaries", boundariesTimestamp);
         }
-        */
-
+*/
         ifExpired(GeonamesSource.IP, ipLookupImporter.lastRemoteModified(), () ->
         {
             ipLookupImporter.purge();
@@ -135,8 +128,8 @@ public class GeoMetaService
 
     private void ifExpired(final GeonamesSource type, final Date sourceTimestamp, final Supplier<Long> updater)
     {
-        final Optional<Date> modified = getLastModified(type);
-        if (modified.isEmpty() || sourceTimestamp.getTime() > +maxDataAgeMillis + modified.get().getTime())
+        final Optional<Date> localDataModifiedAt = getLastModified(type);
+        if (localDataModifiedAt.isEmpty() || sourceTimestamp.getTime() > localDataModifiedAt.get().getTime() + maxDataAge.toMillis())
         {
             final long count = updater.get();
             setLastModified(type, sourceTimestamp, count);

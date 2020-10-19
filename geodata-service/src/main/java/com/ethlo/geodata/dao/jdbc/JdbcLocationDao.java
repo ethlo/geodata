@@ -32,12 +32,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.commons.lang3.ArrayUtils;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
@@ -52,6 +52,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
+import com.ethlo.geodata.GeoConstants;
 import com.ethlo.geodata.MapFeature;
 import com.ethlo.geodata.dao.LocationDao;
 import com.ethlo.geodata.importer.jdbc.MysqlCursorUtil;
@@ -65,7 +66,7 @@ public class JdbcLocationDao extends JdbcBaseDao implements LocationDao
 {
     private static final Logger logger = LoggerFactory.getLogger(JdbcLocationDao.class);
 
-    private static final String[] adminCodeLevels = new String[]{"A.ADM1", "A.ADM2", "A.ADM3", "A.ADM4"};
+    private static final List<String> ADMINISTRATIVE_LEVEL_NAMES = Arrays.asList("A.ADM1", "A.ADM2", "A.ADM3", "A.ADM4");
 
     private static final WKTReader wktReader = new WKTReader();
     private final RowMapper<RawLocation> LOCATION_MAPPER = (rs, rowNum) ->
@@ -88,44 +89,62 @@ public class JdbcLocationDao extends JdbcBaseDao implements LocationDao
         return StringUtils.arrayToDelimitedString(copy, "|");
     }
 
-    private static String getConcatenatedFeatureCode(final Map<Integer, MapFeature> featureCodes, final int featureCodeId)
+    private static MapFeature getMapFeature(final Map<Integer, MapFeature> featureCodes, final int featureCodeId)
     {
-        return Optional.ofNullable(featureCodes.get(featureCodeId)).map(f -> f.getFeatureClass() + "." + f.getFeatureCode()).orElseThrow(() -> new EmptyResultDataAccessException("No feature code with ID " + featureCodeId, 1));
+        return Optional.ofNullable(featureCodes.get(featureCodeId)).orElseThrow(() -> new EmptyResultDataAccessException("No feature code with ID " + featureCodeId, 1));
     }
 
     private Optional<Integer> getParentId(final long id, final Map<String, Integer> reverseFeatureMap, final String featureCode, final Map<String, Country> countryToId, final Map<String, Integer> cache, final String countryCode, final String[] adminCodeArray)
     {
-        String adminLevelCode;
-        String adminCodes;
+        final int index = ADMINISTRATIVE_LEVEL_NAMES.indexOf(featureCode);
 
-        if (ArrayUtils.contains(adminCodeLevels, featureCode))
+        if (index == 0)
         {
-            // We are processing an ADMx level
-            final int index = Arrays.binarySearch(adminCodeLevels, featureCode);
-            if (index == 0)
-            {
-                // Country level
-                return Optional.of(countryToId.get(countryCode).getId());
-            }
+            // Country level
+            return Optional.of(getCountryId(countryToId, countryCode));
+        }
 
-            adminLevelCode = adminCodeLevels[index - 1];
-            adminCodes = nullAfterOffset(adminCodeArray, index - 1);
+        final boolean isAdminLevelLocation = index > -1;
+
+        if (isAdminLevelLocation)
+        {
+            final String key = getKey(reverseFeatureMap, countryCode, adminCodeArray, index - 1);
+            return Optional.ofNullable(cache.get(key));
         }
         else
         {
-            // We are processing a non-ADMx location
             final int lastNonNullIndex = lastOfNonNull(adminCodeArray);
-            adminLevelCode = adminCodeLevels[lastNonNullIndex];
-            adminCodes = StringUtils.arrayToDelimitedString(adminCodeArray, "|");
+            for (int i = lastNonNullIndex; i >= 0; i--)
+            {
+                final String key = getKey(reverseFeatureMap, countryCode, adminCodeArray, i);
+                final Integer parentId = cache.get(key);
+                if (parentId != null)
+                {
+                    return Optional.of(parentId);
+                }
+            }
         }
 
-        final String key = countryCode + "|" + adminCodes + "|" + reverseFeatureMap.get(adminLevelCode);
-        final Integer parentId = cache.get(key);
-        if (parentId == null)
+        logger.debug("Inconsistent data! No match for parent of {} - {} - {}", id, featureCode, countryCode);
+        return Optional.empty();
+    }
+
+    private int getCountryId(final Map<String, Country> countryToId, final String countryCode)
+    {
+        final Country country = countryToId.get(countryCode);
+        if (country != null)
         {
-            logger.debug("No match for parent for {} - {} - {}: {}", id, featureCode, countryCode, key);
+            return country.getId();
         }
-        return Optional.ofNullable(parentId);
+        throw new EmptyResultDataAccessException("Unknown country code: " + countryCode, 1);
+    }
+
+    private String getKey(final Map<String, Integer> reverseFeatureMap, final String countryCode, final String[] adminCodeArray, final int index)
+    {
+        final String adminLevelCode = ADMINISTRATIVE_LEVEL_NAMES.get(index);
+        final String adminCodes = nullAfterOffset(adminCodeArray, index);
+        //final String adminCodes = StringUtils.arrayToDelimitedString(strippedDown, "|");
+        return countryCode + "|" + adminCodes + "|" + reverseFeatureMap.get(adminLevelCode);
     }
 
     private int lastOfNonNull(final String[] codes)
@@ -211,9 +230,20 @@ public class JdbcLocationDao extends JdbcBaseDao implements LocationDao
     @Override
     public Map<Integer, Integer> processChildToParent(final StepProgressListener listener, final Map<String, Country> countries, final Map<Integer, MapFeature> featureCodes, final Map<String, Integer> adminLevels, final Map<String, Integer> reverseFeatureMap, final int adminLevelCount)
     {
-        final Map<Integer, Integer> childToParent = new HashMap<>(adminLevelCount + 1_000_000);
-        final AtomicInteger noMatch = new AtomicInteger();
-        final AtomicInteger selfMatch = new AtomicInteger();
+        final Set<String> countryLevelFeatures = new HashSet<>(Arrays.asList("A.PCLI", "A.PCLIX", "A.PCLS", "A.PCLF", "A.PCLD"));
+
+        final Map<Integer, Integer> childToParent = new HashMap<>(adminLevelCount + 1_000_000)
+        {
+            @Override
+            public Integer put(final Integer key, final Integer value)
+            {
+                if (Objects.equals(key, value))
+                {
+                    throw new IllegalArgumentException("Key and value are the same: " + key);
+                }
+                return super.put(key, value);
+            }
+        };
         final AtomicInteger count = new AtomicInteger();
 
         final MysqlCursorUtil cursorUtil = new MysqlCursorUtil(dataSource);
@@ -229,28 +259,48 @@ public class JdbcLocationDao extends JdbcBaseDao implements LocationDao
             {
                 final int id = rs.getInt("id");
                 final int featureId = rs.getInt("feature_code_id");
-                final String featureCode = featureId != 0 ? getConcatenatedFeatureCode(featureCodes, featureId) : null;
+                final MapFeature mapFeature = featureId != 0 ? getMapFeature(featureCodes, featureId) : null;
+                final String featureCode = mapFeature != null ? mapFeature.getFeatureClass() + "." + mapFeature.getFeatureCode() : null;
+
+                if (id == 6255148)
+                {
+                    System.out.println(featureCode);
+                }
+
                 final String countryCode = rs.getString("country_code");
                 final String[] adminCodeArray = getAdminCodeArray(rs);
-                Integer parentId = getParentId(id, reverseFeatureMap, featureCode, countries, adminLevels, countryCode, adminCodeArray).orElse(null);
+                final Integer parentId = getParentId(id, reverseFeatureMap, featureCode, countries, adminLevels, countryCode, adminCodeArray).orElse(null);
 
-                if (parentId == null)
+                if (parentId != null)
                 {
-                    noMatch.incrementAndGet();
+                    childToParent.put(id, parentId);
                 }
-                else if (id == parentId)
+                else if (countryLevelFeatures.contains(featureCode))
                 {
-                    logger.debug("Self-reference: {}", id);
-                    selfMatch.incrementAndGet();
+                    final int continentId = getContinentId(countryCode);
+                    childToParent.put(id, continentId);
+                }
+                else if (countryCode != null)
+                {
+                    final int countryId = getCountryId(countryCode);
+                    if (countryId != id)
+                    {
+                        childToParent.put(id, countryId);
+                    }
+                    else
+                    {
+                        final int continentId = getContinentId(countryCode);
+                        childToParent.put(id, continentId);
+                    }
                 }
                 else
                 {
-                    childToParent.put(id, parentId);
+                    logger.info("No parent: {}", id);
                 }
 
                 if (count.get() % 200_000 == 0)
                 {
-                    logger.info("Processed {} locations ({}%)", count.get(), (count.get() / (float) adminLevelCount) * 100);
+                    logger.info("Loaded {} locations ({}%)", count.get(), (count.get() / (float) adminLevelCount) * 100);
                 }
 
                 if (count.get() % 1_000 == 0)
@@ -262,8 +312,34 @@ public class JdbcLocationDao extends JdbcBaseDao implements LocationDao
             }
         });
 
-        logger.info("Processed hierarchy for a total of {} rows, {} nodes. No parent match: {}. Self match: {}", count.get(), childToParent.size(), noMatch.get(), selfMatch.get());
+        // Link continents to earth
+        GeoConstants.CONTINENTS.values().forEach(c -> childToParent.put(c, GeoConstants.EARTH_ID));
+
+        logger.info("Processed hierarchy for a total of {} nodes", childToParent.size());
         return childToParent;
+    }
+
+    private Integer getCountryId(final String countryCode)
+    {
+        return jdbcTemplate.query("SELECT geoname_id AS id from geocountry where iso = :country_code", Collections.singletonMap("country_code", countryCode), rs -> {
+            if (rs.next())
+            {
+                final int id = rs.getInt("id");
+                return id != 0 ? id : null;
+            }
+            return null;
+        });
+    }
+
+    private Integer getContinentId(final String countryCode)
+    {
+        return jdbcTemplate.query("SELECT continent from geocountry where iso = :country_code", Collections.singletonMap("country_code", countryCode), rs -> {
+            if (rs.next())
+            {
+                return GeoConstants.CONTINENTS.get(rs.getString("continent"));
+            }
+            return null;
+        });
     }
 
     private RawLocation mapLocation(ResultSet rs) throws SQLException
@@ -373,5 +449,16 @@ public class JdbcLocationDao extends JdbcBaseDao implements LocationDao
     {
         final String sql = "SELECT id FROM geocountry WHERE :phone like CONCAT(phone, '%') ORDER BY population DESC";
         return jdbcTemplate.query(sql, Collections.singletonMap("phone", phoneNumber), (rs, num) -> rs.getInt("id"));
+    }
+
+    @Override
+    public List<RawLocation> getCountries()
+    {
+        return jdbcTemplate.query(
+                "SELECT * FROM geocountry c, geonames n "
+                        + "WHERE c.geoname_id = n.id "
+                        + "ORDER BY iso",
+                LOCATION_MAPPER
+        );
     }
 }

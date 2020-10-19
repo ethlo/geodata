@@ -43,7 +43,7 @@ public class GeonamesImporter implements DataImporter
 {
     private static final Logger logger = LoggerFactory.getLogger(GeonamesImporter.class);
 
-    private final Set<String> exclusions;
+    private final Set<String> inclusions;
 
     private final File allCountriesFile;
 
@@ -53,7 +53,7 @@ public class GeonamesImporter implements DataImporter
 
     private GeonamesImporter(Builder builder)
     {
-        this.exclusions = builder.exclusions;
+        this.inclusions = builder.inclusions;
         this.allCountriesFile = builder.allCountriesFile;
         this.hierarchyFile = builder.hierarchyFile;
         this.alternateNamesFile = builder.alternateNamesFile;
@@ -90,6 +90,7 @@ public class GeonamesImporter implements DataImporter
 
                     final String lat = stripToNull(entry[4]);
                     final String lng = stripToNull(entry[5]);
+                    final String featureClass = stripToNull(entry[6]);
                     final String featureCode = stripToNull(entry[7]);
 
                     final long id = Long.parseLong(stripToNull(entry[0]));
@@ -102,7 +103,7 @@ public class GeonamesImporter implements DataImporter
                     paramMap.put("lat", lat);
                     paramMap.put("lng", lng);
                     paramMap.put("poly", "POINT(" + lat + " " + lng + ")");
-                    paramMap.put("feature_class", stripToNull(entry[6]));
+                    paramMap.put("feature_class", featureClass);
                     paramMap.put("feature_code", featureCode);
 
                     paramMap.put("country_code", stripToNull(entry[8]));
@@ -124,7 +125,7 @@ public class GeonamesImporter implements DataImporter
                     final String modifiedStr = stripToNull(entry[18]);
                     paramMap.put("last_modified", modifiedStr);
 
-                    if (isIncluded(featureCode))
+                    if (isIncluded(featureClass + "." + featureCode))
                     {
                         sink.accept(paramMap);
                     }
@@ -168,7 +169,7 @@ public class GeonamesImporter implements DataImporter
                     }
                 }
 
-                if (count % 100_000 == 0 && count > 0)
+                if (count % 1_000_000 == 0 && count > 0)
                 {
                     logger.info("Loading preferred names: {}", count);
                 }
@@ -201,21 +202,21 @@ public class GeonamesImporter implements DataImporter
         return preferredNames;
     }
 
-    protected boolean isIncluded(String featureCode)
+    protected boolean isIncluded(String featureClassAndfeatureCode)
     {
-        return exclusions == null || !exclusions.contains(featureCode);
+        return inclusions == null || inclusions.contains(featureClassAndfeatureCode);
     }
 
     public static class Builder
     {
         public File alternateNamesFile;
-        private Set<String> exclusions;
+        private Set<String> inclusions;
         private File allCountriesFile;
         private File hierarchyFile;
 
-        public Builder exclusions(Set<String> exclusions)
+        public Builder inclusions(Set<String> inclusions)
         {
-            this.exclusions = exclusions;
+            this.inclusions = inclusions;
             return this;
         }
 

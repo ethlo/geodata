@@ -24,6 +24,7 @@ package com.ethlo.geodata;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 import javax.validation.Valid;
 
@@ -65,7 +66,7 @@ public interface GeodataService
 
     Page<GeoLocation> findChildren(String countryCode, Pageable pageable);
 
-    Country findByPhonenumber(String phoneNumber);
+    Country findByPhoneNumber(String phoneNumber);
 
     GeoLocation findParent(int id);
 
@@ -84,4 +85,6 @@ public interface GeodataService
     Page<GeoLocation> findByName(String name, Pageable pageable);
 
     void load(LoadProgressListener loadProgressListener);
+
+    Optional<Continent> findContinentOfLocation(int id);
 }

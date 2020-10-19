@@ -24,6 +24,7 @@ package com.ethlo.geodata.importer.jdbc;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.StringReader;
 import java.io.UncheckedIOException;
 import java.util.Collections;
 import java.util.Date;
@@ -32,21 +33,36 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import javax.xml.stream.XMLStreamException;
+
 import org.flywaydb.core.internal.util.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
+import com.ethlo.geodata.dao.BoundaryDao;
 import com.ethlo.geodata.importer.CountryImporter;
+import com.ethlo.geodata.importer.GeoFabrikBoundaryLoader;
 import com.ethlo.geodata.importer.GeonamesSource;
+import com.ethlo.geodata.util.Kml2GeoJson;
 import com.ethlo.geodata.util.ResourceUtil;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 @Component
 public class JdbcCountryImporter implements PersistentImporter
 {
+    private static final Logger logger = LoggerFactory.getLogger(JdbcCountryImporter.class);
+
+    private final GeoFabrikBoundaryLoader geoFabrikBoundaryLoader = new GeoFabrikBoundaryLoader();
+
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private BoundaryDao boundaryDao;
 
     @Value("${geodata.geonames.source.country}")
     private String url;
@@ -62,6 +78,9 @@ public class JdbcCountryImporter implements PersistentImporter
             importer.processFile(entry ->
             {
                 jdbcTemplate.update(makeSql("geocountry", entry), entry);
+
+                //downloadCountryBoundary(entry);
+
                 count.incrementAndGet();
             });
         }
@@ -71,6 +90,22 @@ public class JdbcCountryImporter implements PersistentImporter
         }
 
         return count.get();
+    }
+
+    private void downloadCountryBoundary(final Map<String, String> entry)
+    {
+        final String continentCode = entry.get("continent").toLowerCase();
+        final String countryCode = entry.get("iso").toUpperCase();
+        final String country = entry.get("country").toLowerCase().replaceAll("\\s+", "-");
+        try
+        {
+            final ObjectNode geoJon = Kml2GeoJson.parse(new StringReader(geoFabrikBoundaryLoader.getKml(continentCode, country)));
+            boundaryDao.saveCountry(countryCode, geoJon.toString());
+        }
+        catch (IOException | XMLStreamException e)
+        {
+            logger.info("Failed to download boundaries for " + countryCode);
+        }
     }
 
     private String makeSql(String tablename, Map<String, String> entry)

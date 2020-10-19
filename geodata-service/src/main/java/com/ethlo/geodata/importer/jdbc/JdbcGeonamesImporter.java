@@ -43,8 +43,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
-import com.ethlo.geodata.importer.GeonamesSource;
 import com.ethlo.geodata.importer.GeonamesImporter;
+import com.ethlo.geodata.importer.GeonamesSource;
 import com.ethlo.geodata.util.ResourceUtil;
 
 @Component
@@ -63,7 +63,7 @@ public class JdbcGeonamesImporter implements PersistentImporter
 
     @Value("${geodata.geonames.source.hierarchy}")
     private String geoNamesHierarchyUrl;
-    private Set<String> exclusions;
+    private Set<String> inclusions;
 
     public JdbcGeonamesImporter(final TransactionTemplate txnTemplate, final NamedParameterJdbcTemplate jdbcTemplate)
     {
@@ -77,10 +77,10 @@ public class JdbcGeonamesImporter implements PersistentImporter
         return new Map[n];
     }
 
-    @Value("${geodata.geonames.features.excluded}")
-    public void setExclusions(String csv)
+    @Value("${geodata.geonames.features.included}")
+    public void setInclusions(String csv)
     {
-        exclusions = StringUtils.commaDelimitedListToSet(csv);
+        inclusions = StringUtils.commaDelimitedListToSet(csv);
     }
 
     @Override
@@ -110,7 +110,7 @@ public class JdbcGeonamesImporter implements PersistentImporter
         final GeonamesImporter geonamesImporter = new GeonamesImporter.Builder()
                 .allCountriesFile(allCountriesFile)
                 .alternateNamesFile(alternateNamesFile)
-                .exclusions(exclusions)
+                .inclusions(inclusions)
                 .hierarchyFile(hierarchyFile)
                 .build();
 
@@ -120,7 +120,7 @@ public class JdbcGeonamesImporter implements PersistentImporter
         final Map<String, Integer> timezones = new HashMap<>();
         final Map<String, Integer> featureCodes = new HashMap<>();
         final AtomicInteger count = new AtomicInteger();
-        geonamesImporter.processFile(entry ->
+        final long totalLines = geonamesImporter.processFile(entry ->
         {
             final String timezone = entry.get("timezone");
             final Integer timezoneId = timezones.computeIfAbsent(timezone, this::insertTimezone);
@@ -151,6 +151,8 @@ public class JdbcGeonamesImporter implements PersistentImporter
         });
 
         flush(buffer);
+
+        logger.info("Imported {} locations out of a total of {} entries", count.get(), totalLines);
         return count.get();
     }
 

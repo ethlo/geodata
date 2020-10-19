@@ -46,4 +46,16 @@ public class JdbcBoundaryDao extends JdbcBaseDao implements BoundaryDao
             return Optional.empty();
         });
     }
+
+    @Override
+    public void deleteAll()
+    {
+
+    }
+
+    @Override
+    public void saveCountry(final String countryCode, final String geoJson)
+    {
+
+    }
 }
