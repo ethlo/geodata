@@ -26,6 +26,7 @@ package com.ethlo.geodata;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -51,7 +52,9 @@ import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
+import com.ethlo.geodata.model.GeoLocationWithPath;
 import com.ethlo.geodata.model.View;
+import com.google.common.collect.Lists;
 
 @RestController
 @Validated
@@ -84,10 +87,10 @@ public class GeodataController
      * @param ipAddress The IP-address to look up location for
      */
     @GetMapping("/v1/locations/ip/{ip:.+}")
-    public GeoLocation findByIp(@PathVariable("ip") String ipAddress)
+    public GeoLocationWithPath findByIp(@PathVariable("ip") String ipAddress)
     {
         final GeoLocation location = geodataService.findByIp(ipAddress);
-        return notNull(location, "No location found for IP address " + ipAddress);
+        return withPath(notNull(location, "No location found for IP address " + ipAddress));
     }
 
     /**
@@ -104,10 +107,16 @@ public class GeodataController
      * Find the smallest location boundary that contains the specified coordinates
      */
     @GetMapping("/v1/locations/contains")
-    public GeoLocation findWithin(Coordinates coordinates, @RequestParam(name = "maxDistance", required = true) int maxDistance)
+    public GeoLocationWithPath findWithin(Coordinates coordinates, @RequestParam(name = "maxDistance", required = true) int maxDistance)
     {
         final GeoLocation location = geodataService.findWithin(coordinates, maxDistance);
-        return notNull(location, "No location found containing " + coordinates);
+        return withPath(notNull(location, "No location found containing " + coordinates));
+    }
+
+    private GeoLocationWithPath withPath(final GeoLocation location)
+    {
+        final List<GeoLocation> path = Lists.reverse(geodataService.findPath(location.getId()));
+        return new GeoLocationWithPath(location, path);
     }
 
     /**
@@ -173,20 +182,20 @@ public class GeodataController
      * Find location by its geonames.org ID
      */
     @GetMapping("/v1/locations/{id}")
-    public GeoLocation findById(@PathVariable(name = "id") int locationId)
+    public GeoLocationWithPath findById(@PathVariable(name = "id") int locationId)
     {
         final GeoLocation location = geodataService.findById(locationId);
-        return notNull(location, "No location found for ID " + locationId);
+        return withPath(notNull(location, "No location found for ID " + locationId));
     }
 
     /**
      * Find the location that is the specified locations parent
      */
     @GetMapping("/v1/locations/{id}/parent")
-    public GeoLocation findParent(@PathVariable(name = "id") int locationId)
+    public GeoLocationWithPath findParent(@PathVariable(name = "id") int locationId)
     {
         findById(locationId);
-        return geodataService.findParent(locationId);
+        return withPath(geodataService.findParent(locationId));
     }
 
     /**
@@ -261,12 +270,12 @@ public class GeodataController
      * Multifetch useful for fetching multiple locations by ID in a single request
      */
     @GetMapping("/v1/locations/ids")
-    public List<GeoLocation> findByIds(@RequestParam(name = "ids") Collection<Integer> ids)
+    public List<GeoLocationWithPath> findByIds(@RequestParam(name = "ids") Collection<Integer> ids)
     {
-        return geodataService.findByIds(ids);
+        return geodataService.findByIds(ids).stream().map(this::withPath).collect(Collectors.toList());
     }
 
-    public Page<GeoLocation> findByName(final String name, final Pageable pageable)
+    public Page<GeoLocationWithPath> findByName(final String name, final Pageable pageable)
     {
         throw new UnsupportedOperationException();
     }
@@ -311,10 +320,10 @@ public class GeodataController
      * Find the nearest location of the specified coordinates
      */
     @GetMapping("/v1/locations/coordinates")
-    public GeoLocation findbyCoordinate(Coordinates coordinates, @RequestParam(name = "maxDistance") int maxDistance)
+    public GeoLocationWithPath findbyCoordinate(Coordinates coordinates, @RequestParam(name = "maxDistance") int maxDistance)
     {
         final GeoLocation location = geodataService.findbyCoordinate(coordinates, maxDistance);
-        return notNull(location, "Could not find a location for coordinates " + coordinates);
+        return withPath(notNull(location, "Could not find a location for coordinates " + coordinates));
     }
 
     /**

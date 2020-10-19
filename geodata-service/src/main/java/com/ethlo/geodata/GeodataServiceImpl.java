@@ -33,6 +33,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -226,12 +227,18 @@ public class GeodataServiceImpl implements GeodataService
         }
     }
 
+    @Override
+    public List<GeoLocation> findPath(final int id)
+    {
+        return getPath(id).stream().skip(1).map(this::findById).collect(Collectors.toList());
+    }
+
     private void reportNoParent(final Map<Integer, Node> nodes)
     {
         final Map<String, Integer> featureStatsNoParent = new HashMap<>();
         nodes.forEach((id, node) ->
         {
-            if (node.getParent() == null)
+            if (node.getParent() == null && !Objects.equals(id, GeoConstants.EARTH_ID))
             {
                 logger.info("{} has no parent", id);
                 final GeoLocation location = findById(node.getId());
@@ -240,24 +247,6 @@ public class GeodataServiceImpl implements GeodataService
         });
 
         logger.info("No parent by feature type: {}", featureStatsNoParent);
-    }
-
-    @Override
-    public Optional<Continent> findContinentOfLocation(final int id)
-    {
-        Node node = this.nodes.get(id);
-        while (node != null)
-        {
-            final GeoLocation location = findById(node.getId());
-            if ("CONT".equalsIgnoreCase(location.getFeatureCode()))
-            {
-                final Entry<String, Integer> continentCode = GeoConstants.CONTINENTS.entrySet().stream().filter(e -> e.getValue() == location.getId()).findFirst().orElseThrow();
-                return Optional.of(new Continent(continentCode.getKey(), location));
-            }
-            final Integer parentId = node.getParent();
-            node = parentId != null ? nodes.get(parentId) : null;
-        }
-        return Optional.empty();
     }
 
     @Override

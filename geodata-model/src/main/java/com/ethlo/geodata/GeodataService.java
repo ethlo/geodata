@@ -24,7 +24,6 @@ package com.ethlo.geodata;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 import javax.validation.Valid;
 
@@ -86,5 +85,5 @@ public interface GeodataService
 
     void load(LoadProgressListener loadProgressListener);
 
-    Optional<Continent> findContinentOfLocation(int id);
+    List<GeoLocation> findPath(int id);
 }
