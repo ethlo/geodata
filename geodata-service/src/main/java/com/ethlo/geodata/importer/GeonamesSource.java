@@ -24,5 +24,5 @@ package com.ethlo.geodata.importer;
 
 public enum GeonamesSource
 {
-    LOCATION_ALTERNATE_NAMES, LOCATION, IP, BOUNDARY, COUNTRY, HIERARCHY;
+    LOCATION_ALTERNATE_NAMES, LOCATION, IP, BOUNDARY, COUNTRY;
 }

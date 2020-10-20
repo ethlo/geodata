@@ -40,7 +40,6 @@ import com.ethlo.geodata.importer.GeoFabrikBoundaryLoader;
 import com.ethlo.geodata.importer.GeonamesSource;
 import com.ethlo.geodata.importer.jdbc.JdbcCountryImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcGeonamesBoundaryImporter;
-import com.ethlo.geodata.importer.jdbc.JdbcGeonamesHierarchyImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcGeonamesImporter;
 import com.ethlo.geodata.importer.jdbc.JdbcIpLookupImporter;
 
@@ -57,10 +56,6 @@ public class GeoMetaService
     private JdbcGeonamesImporter geonamesImporter;
     @Autowired
     private JdbcGeonamesBoundaryImporter geonamesBoundaryImporter;
-
-    @Autowired
-    private JdbcGeonamesHierarchyImporter hierarchyImporter;
-
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
 
@@ -80,7 +75,7 @@ public class GeoMetaService
         });
     }
 
-    public void setLastModified(GeonamesSource type, Date lastModified, final long count)
+    public void setStatus(GeonamesSource type, Date lastModified, final long count)
     {
         final String sql = "REPLACE INTO `metadata` (`alias`, `last_modified`, `entry_count`) VALUES (:alias, :last_modified, :entry_count)";
         final Map<String, Object> params = new TreeMap<>();
@@ -99,18 +94,18 @@ public class GeoMetaService
             return countryImporter.importData();
         });
 
-        ifExpired(GeonamesSource.HIERARCHY, hierarchyImporter.lastRemoteModified(), () ->
-        {
-            hierarchyImporter.purge();
-            return hierarchyImporter.importData();
-        });
-
         ifExpired(GeonamesSource.LOCATION, geonamesImporter.lastRemoteModified(), () ->
         {
             geonamesImporter.purge();
             return geonamesImporter.importData();
         });
-        
+
+        ifExpired(GeonamesSource.IP, ipLookupImporter.lastRemoteModified(), () ->
+        {
+            ipLookupImporter.purge();
+            return ipLookupImporter.importData();
+        });
+
         /*final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
         if (boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)
         {
@@ -118,12 +113,7 @@ public class GeoMetaService
             boundaryImporter.importData();
             setLastModified("geoboundaries", boundariesTimestamp);
         }
-*/
-        ifExpired(GeonamesSource.IP, ipLookupImporter.lastRemoteModified(), () ->
-        {
-            ipLookupImporter.purge();
-            return ipLookupImporter.importData();
-        });
+        */
     }
 
     private void ifExpired(final GeonamesSource type, final Date sourceTimestamp, final Supplier<Long> updater)
@@ -132,7 +122,7 @@ public class GeoMetaService
         if (localDataModifiedAt.isEmpty() || sourceTimestamp.getTime() > localDataModifiedAt.get().getTime() + maxDataAge.toMillis())
         {
             final long count = updater.get();
-            setLastModified(type, sourceTimestamp, count);
+            setStatus(type, sourceTimestamp, count);
         }
     }
 

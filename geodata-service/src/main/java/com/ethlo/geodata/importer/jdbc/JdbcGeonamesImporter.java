@@ -88,10 +88,9 @@ public class JdbcGeonamesImporter implements PersistentImporter
     {
         try
         {
-            final Map.Entry<Date, File> hierarchyFile = ResourceUtil.fetchResource(GeonamesSource.HIERARCHY, geoNamesHierarchyUrl);
             final Map.Entry<Date, File> alternateNamesFile = ResourceUtil.fetchResource(GeonamesSource.LOCATION_ALTERNATE_NAMES, geoNamesAlternateNamesUrl);
             final Map.Entry<Date, File> allCountriesFile = ResourceUtil.fetchResource(GeonamesSource.LOCATION, geoNamesAllCountriesUrl);
-            return doUpdate(allCountriesFile.getValue(), alternateNamesFile.getValue(), hierarchyFile.getValue());
+            return doUpdate(allCountriesFile.getValue(), alternateNamesFile.getValue());
         }
         catch (IOException exc)
         {
@@ -105,13 +104,12 @@ public class JdbcGeonamesImporter implements PersistentImporter
         jdbcTemplate.update("DELETE FROM geonames", Collections.emptyMap());
     }
 
-    private long doUpdate(File allCountriesFile, File alternateNamesFile, File hierarchyFile) throws IOException
+    private long doUpdate(File allCountriesFile, File alternateNamesFile)
     {
         final GeonamesImporter geonamesImporter = new GeonamesImporter.Builder()
                 .allCountriesFile(allCountriesFile)
                 .alternateNamesFile(alternateNamesFile)
                 .inclusions(inclusions)
-                .hierarchyFile(hierarchyFile)
                 .build();
 
         final int bufferSize = 20_000;

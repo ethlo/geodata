@@ -25,9 +25,11 @@ package com.ethlo.geodata.dao;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.util.CloseableIterator;
 
 import com.ethlo.geodata.MapFeature;
 import com.ethlo.geodata.model.Country;
@@ -49,4 +51,6 @@ public interface LocationDao
     List<RawLocation> getCountries();
 
     Map<Integer, Integer> loadHierarchy(Map<String, Country> countries, Map<Integer, MapFeature> featureCodes, StepProgressListener progressListener);
+
+    void iterate(Consumer<RawLocation> consumer);
 }

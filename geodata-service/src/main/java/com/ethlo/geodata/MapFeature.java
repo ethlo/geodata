@@ -26,11 +26,13 @@ public class MapFeature
 {
     private final String featureClass;
     private final String featureCode;
+    private final String key;
 
     public MapFeature(final String featureClass, final String featureCode)
     {
         this.featureClass = featureClass;
         this.featureCode = featureCode;
+        this.key = featureClass + "." + featureCode;
     }
 
     public String getFeatureClass()
@@ -41,5 +43,10 @@ public class MapFeature
     public String getFeatureCode()
     {
         return featureCode;
+    }
+
+    public String getKey()
+    {
+        return key;
     }
 }

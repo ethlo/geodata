@@ -22,12 +22,15 @@ package com.ethlo.geodata.model;
  * #L%
  */
 
-public class RawLocation
+import java.io.Serializable;
+
+public class RawLocation implements Serializable
 {
     private final int id;
     private final String name;
     private final String countryCode;
-    private final Coordinates coordinates;
+    private final double lat;
+    private final double lng;
     private final int mapFeatureId;
     private final long population;
     private final int timeZoneId;
@@ -37,7 +40,8 @@ public class RawLocation
         this.id = id;
         this.name = name;
         this.countryCode = countryCode;
-        this.coordinates = coordinates;
+        this.lat = coordinates.getLat();
+        this.lng = coordinates.getLng();
         this.mapFeatureId = mapFeatureId;
         this.population = population;
         this.timeZoneId = timeZoneId;
@@ -60,7 +64,7 @@ public class RawLocation
 
     public Coordinates getCoordinates()
     {
-        return coordinates;
+        return Coordinates.from(lat, lng);
     }
 
     public int getMapFeatureId()

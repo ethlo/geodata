@@ -85,7 +85,7 @@ public class GeodataApplicationTests
         cal.set(Calendar.SECOND, 45);
         cal.set(Calendar.MILLISECOND, 0);
         final Date expected = cal.getTime();
-        geoMetaService.setLastModified(GeonamesSource.IP, expected, 4455);
+        geoMetaService.setStatus(GeonamesSource.IP, expected, 4455);
         assertThat(geoMetaService.getLastModified(GeonamesSource.IP).get().getTime()).isEqualTo(expected.getTime());
         assertThat(geoMetaService.getSourceDataInfo().get(GeonamesSource.IP).getCount()).isEqualTo(4455);
     }

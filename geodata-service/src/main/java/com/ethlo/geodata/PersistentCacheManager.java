@@ -1,18 +1,17 @@
 package com.ethlo.geodata;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
-import java.io.Reader;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
-import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Supplier;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 public class PersistentCacheManager
 {
-    private final ObjectMapper mapper = new ObjectMapper();
     private final Path basePath;
 
     public PersistentCacheManager(final Path basePath)
@@ -20,14 +19,14 @@ public class PersistentCacheManager
         this.basePath = basePath;
     }
 
-    public <T> T get(final String alias, final Class<T> type, final Supplier<T> loader)
+    public <T> T get(final String alias, CacheSerializer<T> cacheSerializer, final Supplier<T> loader)
     {
-        final Path filePath = basePath.resolve(alias + "json.cache");
+        final Path filePath = basePath.resolve(alias + ".cache");
         if (Files.exists(filePath))
         {
-            try (final Reader reader = Files.newBufferedReader(filePath))
+            try (final InputStream in = new BufferedInputStream(Files.newInputStream(filePath)))
             {
-                return mapper.readValue(reader, type);
+                return cacheSerializer.read(in);
             }
             catch (IOException e)
             {
@@ -37,9 +36,9 @@ public class PersistentCacheManager
         else
         {
             final T result = loader.get();
-            try (final Writer writer = Files.newBufferedWriter(filePath))
+            try (final OutputStream out = new BufferedOutputStream(Files.newOutputStream(filePath)))
             {
-                mapper.writeValue(writer, result);
+                cacheSerializer.write(result, out);
             }
             catch (IOException e)
             {

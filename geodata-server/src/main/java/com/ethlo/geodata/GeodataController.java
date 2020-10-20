@@ -39,6 +39,7 @@ import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -275,9 +276,10 @@ public class GeodataController
         return geodataService.findByIds(ids).stream().map(this::withPath).collect(Collectors.toList());
     }
 
-    public Page<GeoLocationWithPath> findByName(final String name, final Pageable pageable)
+    @GetMapping("/v1/locations/name/{name}")
+    public Slice<GeoLocationWithPath> findByName(@PathVariable("name") final String name, final Pageable pageable)
     {
-        throw new UnsupportedOperationException();
+        return geodataService.findByName(name, pageable).map(this::withPath);
     }
 
     public void load(LoadProgressListener loadProgressListener)

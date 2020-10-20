@@ -32,8 +32,6 @@ public class HierachyBuilder
 {
     private static final Logger logger = LoggerFactory.getLogger(HierachyBuilder.class);
 
-    private static final List<String> ADMINISTRATIVE_LEVEL_NAMES = Arrays.asList("A.ADM1", "A.ADM2", "A.ADM3", "A.ADM4");
-
     private final DataSource dataSource;
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
@@ -66,8 +64,6 @@ public class HierachyBuilder
 
     private Map<Integer, Integer> processChildToParent(final StepProgressListener listener, final Map<String, Country> countries, final Map<Integer, MapFeature> featureCodes, final Map<String, Integer> adminLevels)
     {
-        final Set<String> countryLevelFeatures = new HashSet<>(Arrays.asList("A.PCLI", "A.PCLIX", "A.PCLS", "A.PCLF", "A.PCLD"));
-
         final Map<String, Integer> reverseFeatureMap = new HashMap<>();
         featureCodes.forEach((k, v) -> reverseFeatureMap.put(v.getFeatureClass() + "." + v.getFeatureCode(), k));
 
@@ -101,11 +97,6 @@ public class HierachyBuilder
                 final MapFeature mapFeature = featureId != 0 ? getMapFeature(featureCodes, featureId) : null;
                 final String featureCode = mapFeature != null ? mapFeature.getFeatureClass() + "." + mapFeature.getFeatureCode() : null;
 
-                if (id == 6255148)
-                {
-                    System.out.println(featureCode);
-                }
-
                 final String countryCode = rs.getString("country_code");
                 final String[] adminCodeArray = getAdminCodeArray(rs);
                 final Integer parentId = getParentId(id, reverseFeatureMap, featureCode, countries, adminLevels, countryCode, adminCodeArray).orElse(null);
@@ -114,7 +105,7 @@ public class HierachyBuilder
                 {
                     childToParent.put(id, parentId);
                 }
-                else if (countryLevelFeatures.contains(featureCode))
+                else if (GeoConstants.COUNTRY_LEVEL_FEATURES.contains(featureCode))
                 {
                     final int continentId = getContinentId(countryCode);
                     childToParent.put(id, continentId);
@@ -250,7 +241,7 @@ public class HierachyBuilder
 
     private Optional<Integer> getParentId(final long id, final Map<String, Integer> reverseFeatureMap, final String featureCode, final Map<String, Country> countryToId, final Map<String, Integer> cache, final String countryCode, final String[] adminCodeArray)
     {
-        final int index = ADMINISTRATIVE_LEVEL_NAMES.indexOf(featureCode);
+        final int index = GeoConstants.COUNTRY_LEVEL_FEATURES.indexOf(featureCode);
 
         if (index == 0)
         {
@@ -295,7 +286,7 @@ public class HierachyBuilder
 
     private String getKey(final Map<String, Integer> reverseFeatureMap, final String countryCode, final String[] adminCodeArray, final int index)
     {
-        final String adminLevelCode = ADMINISTRATIVE_LEVEL_NAMES.get(index);
+        final String adminLevelCode = GeoConstants.ADMINISTRATIVE_LEVEL_FEATURES.get(index);
         final String adminCodes = nullAfterOffset(adminCodeArray, index);
         return countryCode + "|" + adminCodes + "|" + reverseFeatureMap.get(adminLevelCode);
     }

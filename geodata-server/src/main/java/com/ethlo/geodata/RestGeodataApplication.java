@@ -47,17 +47,13 @@ public class RestGeodataApplication
 
         dumpMemUsage("Initial");
 
-        if (args.length == 1 && "update".equals(args[0]))
+        try
         {
-            logger.info("Data refresh requested, this may take some time");
-            try
-            {
-                ctx.getBean(GeoMetaService.class).update();
-            }
-            catch (IOException exc)
-            {
-                throw new UncheckedIOException(exc);
-            }
+            ctx.getBean(GeoMetaService.class).update();
+        }
+        catch (IOException exc)
+        {
+            throw new UncheckedIOException(exc);
         }
 
         final StatefulProgressListener listener = new StatefulProgressListener();
@@ -72,10 +68,12 @@ public class RestGeodataApplication
             filter.setEnabled(false);
         }
 
+        // Attempt to force GC
         for (int i = 0; i < 3; i++)
         {
             System.gc();
         }
+
         dumpMemUsage("Completed");
     }
 

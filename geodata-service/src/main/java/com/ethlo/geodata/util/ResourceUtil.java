@@ -126,18 +126,24 @@ public class ResourceUtil
         });
     }
 
-    private static Entry<Date, File> downloadIfNewer(String alias, Resource resource, CheckedFunction<InputStream, InputStream> fun) throws IOException
+    private static Entry<Date, File> downloadIfNewer(String alias, Resource remoteResource, CheckedFunction<InputStream, InputStream> fun) throws IOException
     {
-        final File file = new File(tmpDir, alias + "_" + resource.getURL().hashCode());
-        final Date remoteLastModified = new Date(resource.lastModified());
+        final File file = new File(tmpDir, alias + "_" + remoteResource.getURL().hashCode());
+        final Date remoteLastModified = new Date(remoteResource.lastModified());
         final long localLastModified = file.exists() ? file.lastModified() : -2;
+        if (!remoteResource.exists() && file.exists())
+        {
+            // Issue with remote file, use local file as fallback if it exists
+            return new AbstractMap.SimpleEntry<>(new Date(localLastModified), file);
+        }
+
         logger.info("Local file for " + "alias {}" + "\nPath: {}" + "\nExists: {}" + "\nLast-Modified: {}", alias, file.getAbsolutePath(), file.exists(), formatDate(localLastModified));
 
         if (remoteLastModified.getTime() > localLastModified)
         {
             logger.info("New file has last-modified value of {}", formatDate(remoteLastModified.getTime()));
-            logger.info("Downloading new file from {}", resource.getURL());
-            try (final InputStream in = fun.apply(resource.getInputStream()))
+            logger.info("Downloading new file from {}", remoteResource.getURL());
+            try (final InputStream in = fun.apply(remoteResource.getInputStream()))
             {
                 final Path tmpFile = Files.createTempFile(file.getName() + "-", ".tmp");
                 Files.copy(in, tmpFile, StandardCopyOption.REPLACE_EXISTING);

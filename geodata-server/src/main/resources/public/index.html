@@ -1,156 +1,158 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ethlo geodata server</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ethlo geodata server</title>
 
-<link rel="stylesheet"
-	href="https://unpkg.com/purecss@1.0.0/build/pure-min.css"
-	integrity="sha384-" crossorigin="anonymous">
-<link rel="stylesheet"
-	href="https://unpkg.com/purecss@1.0.0/build/grids-responsive-min.css">
-<link rel="stylesheet"
-	href="https://netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css">
-<link rel="stylesheet" href="css/layouts/marketing.css">
+    <link rel="stylesheet"
+          href="https://unpkg.com/purecss@1.0.0/build/pure-min.css"
+          integrity="sha384-" crossorigin="anonymous">
+    <link rel="stylesheet"
+          href="https://unpkg.com/purecss@1.0.0/build/grids-responsive-min.css">
+    <link rel="stylesheet"
+          href="https://netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css">
+    <link rel="stylesheet" href="css/layouts/marketing.css">
 
-<style>
-td.numeric {
-	text-align: right;
-}
+    <style>
+        td.numeric {
+            text-align: right;
+        }
 
-th, td {
-	padding: 10px;
-	color:black;
-}
-</style>
+        th, td {
+            padding: 10px;
+            color: black;
+        }
+    </style>
 
 </head>
 <body style="background: #1f8dd6">
 
-	<div class="header">
-		<div class="home-menu pure-menu pure-menu-horizontal pure-menu-fixed">
-			<a class="pure-menu-heading" href="http://ethlo.com">ethlo</a>
+<div class="header">
+    <div class="home-menu pure-menu pure-menu-horizontal pure-menu-fixed">
+        <a class="pure-menu-heading" href="http://ethlo.com">ethlo</a>
 
-			<ul class="pure-menu-list">
-				<li class="pure-menu-item"><a href="#" class="pure-menu-link">Home</a></li>
-				<li class="pure-menu-item"><a href="/swagger-ui.html"
-					class="pure-menu-link">API documentation</a></li>
-				<li class="pure-menu-item"><a
-					href="https://github.com/ethlo/geodata" class="pure-menu-link">GitHub</a></li>
-			</ul>
-		</div>
-	</div>
+        <ul class="pure-menu-list">
+            <li class="pure-menu-item"><a href="#" class="pure-menu-link">Home</a></li>
+            <li class="pure-menu-item"><a href="/swagger-ui.html"
+                                          class="pure-menu-link">API documentation</a></li>
+            <li class="pure-menu-item"><a
+                    href="https://github.com/ethlo/geodata" class="pure-menu-link">GitHub</a></li>
+        </ul>
+    </div>
+</div>
 
 
-	<div class="splash-container">
-		<div class="splash">
-			<h1 class="splash-head">ethlo geodata server</h1>
-			<p class="splash-subhead">Simple, fast and free geodata server
-				for on-site deployment</p>
-			<p>
-				<a href="https://github.com/ethlo/geodata"
-					class="pure-button pure-button-primary">GitHub</a>
-			</p>
-		</div>
-	</div>
+<div class="splash-container">
+    <div class="splash">
+        <h1 class="splash-head">ethlo geodata server</h1>
+        <p class="splash-subhead">Simple, fast and free geodata server
+            for on-site deployment</p>
+        <p>
+            <a href="https://github.com/ethlo/geodata"
+               class="pure-button pure-button-primary">GitHub</a>
+        </p>
+    </div>
+</div>
 
-	<div class="content-wrapper">
-		<div class="content">
-			<table class="pure-table pure-table-bordered" style="width: 100%">
-				<thead>
-					<tr>
-						<th>Data</th>
-						<th>Count</th>
-						<th colspan="2">Last updated</th>
-					</tr>
-				</thead>
-				<tr>
-					<td>Location hierarchy</td>
-					<td class="numeric" data-count="hierarchy"></td>
-					<td data-lastmodified="hierarchy"></td>
-					<td><time data-lastmodified="hierarchy" class="timeago"></time></td>
-				</tr>
-				<tr>
-					<td>IP locations</td>
-					<td class="numeric" data-count="ip"></td>
-					<td data-lastmodified="ip"></td>
-					<td><time data-lastmodified="ip" class="timeago"></time></td>
-				</tr>
-				<tr>
-					<td>Countries</td>
-					<td class="numeric" data-count="country"></td>
-					<td data-lastmodified="country"></td>
-					<td><time data-lastmodified="country" class="timeago"></time></td>
-				</tr>
-				<tr>
-					<td>Locations</td>
-					<td class="numeric" data-count="location"></td>
-					<td data-lastmodified="location"></td>
-					<td><time data-lastmodified="location" class="timeago"></time></td>
-				</tr>
-				<tr>
-					<td>Boundaries</td>
-					<td class="numeric" data-count="boundary"></td>
-					<td data-lastmodified="boundary"></td>
-					<td><time data-lastmodified="boundary" class="timeago"></time></td>
-				</tr>
-			</table>
-		</div>
-	</div>
+<div class="content-wrapper">
+    <div class="content">
+        <table class="pure-table pure-table-bordered" style="width: 100%">
+            <thead>
+            <tr>
+                <th>Data</th>
+                <th>Count</th>
+                <th colspan="2">Last updated</th>
+            </tr>
+            </thead>
+            <tr>
+                <td>IP locations</td>
+                <td class="numeric" data-count="IP"></td>
+                <td data-lastmodified="IP"></td>
+                <td>
+                    <time data-lastmodified="IP" class="timeago"></time>
+                </td>
+            </tr>
+            <tr>
+                <td>Countries</td>
+                <td class="numeric" data-count="COUNTRY"></td>
+                <td data-lastmodified="COUNTRY"></td>
+                <td>
+                    <time data-lastmodified="COUNTRY" class="timeago"></time>
+                </td>
+            </tr>
+            <tr>
+                <td>Locations</td>
+                <td class="numeric" data-count="LOCATION"></td>
+                <td data-lastmodified="LOCATION"></td>
+                <td>
+                    <time data-lastmodified="LOCATION" class="timeago"></time>
+                </td>
+            </tr>
+            <tr>
+                <td>Boundaries</td>
+                <td class="numeric" data-count="BOUNDARY"></td>
+                <td data-lastmodified="BOUNDARY"></td>
+                <td>
+                    <time data-lastmodified="BOUNDARY" class="timeago"></time>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
 
-	<div class="footer l-box is-center">Copyright Morten Haraldsen
-		2017-2018</div>
+<div class="footer l-box is-center">Copyright Morten Haraldsen
+    2017-2018
+</div>
 
-	<script>
-		const numberWithCommas = (x) => {
-		  var parts = x.toString().split(".");
-		  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-		  return parts.join(".");
-		}
-	
-		var xhr = new XMLHttpRequest();
-		xhr.open('GET', '/v1/source');
-		xhr.onload = function() {
+<script>
+    const numberWithCommas = (x) => {
+        var parts = x.toString().split(".");
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        return parts.join(".");
+    }
 
-			var ele = document.getElementById('source-data');
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/v1/source');
+    xhr.onload = function () {
 
-			if (xhr.status === 200) {
-				var array = JSON.parse(xhr.responseText);
-				array.forEach(function(o) {
-					var name = o.geonamesSource.toLowerCase();
-					console.log(name);
+        var ele = document.getElementById('source-data');
 
-					var ele = document.querySelector('td[data-count="' + name + '"]');
-					if (ele) ele.innerHTML = numberWithCommas(o.count);
+        if (xhr.status === 200) {
+            var array = JSON.parse(xhr.responseText);
+            array.forEach(function (o) {
+                var name = o.geonamesSource.toLowerCase();
+                console.log(name);
 
-					ele = document.querySelector('td[data-lastmodified="' + name + '"]');
-					if (ele) ele.innerHTML = o.lastModified;
+                var ele = document.querySelector('td[data-count="' + name + '"]');
+                if (ele) ele.innerHTML = numberWithCommas(o.count);
 
-					ele = document.querySelector('time[data-lastmodified="' + name + '"]');
-					if (ele) $(ele).attr('datetime', o.lastModified);
-				});
-				
-				jQuery(document).ready(function() {
-				     $("time.timeago").timeago();
-				   });
-			} else {
-				ele.innerHTML = 'Unable to load source data information';
-			}
-		};
-		xhr.send();
-		
-		
-	</script>
+                ele = document.querySelector('td[data-lastmodified="' + name + '"]');
+                if (ele) ele.innerHTML = o.lastModified;
 
-	<script
-		src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"
-		integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
-		crossorigin="anonymous"></script>
-	<script
-		src="https://cdnjs.cloudflare.com/ajax/libs/jquery-timeago/1.6.1/jquery.timeago.min.js"
-		integrity="sha256-JAdlnMiYFZRwqQqgiYwLjSkV94QtVzcbvasQMm05THk="
-		crossorigin="anonymous"></script>
+                ele = document.querySelector('time[data-lastmodified="' + name + '"]');
+                if (ele) $(ele).attr('datetime', o.lastModified);
+            });
+
+            jQuery(document).ready(function () {
+                $("time.timeago").timeago();
+            });
+        } else {
+            ele.innerHTML = 'Unable to load source data information';
+        }
+    };
+    xhr.send();
+
+</script>
+
+<script
+        src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"
+        integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+        crossorigin="anonymous"></script>
+<script
+        src="https://cdnjs.cloudflare.com/ajax/libs/jquery-timeago/1.6.1/jquery.timeago.min.js"
+        integrity="sha256-JAdlnMiYFZRwqQqgiYwLjSkV94QtVzcbvasQMm05THk="
+        crossorigin="anonymous"></script>
 
 </body>
 </html>

@@ -34,6 +34,6 @@ public class SourceDataInfoSet extends LinkedHashSet<SourceDataInfo>
     public SourceDataInfo get(GeonamesSource type)
     {
         final Optional<SourceDataInfo> entry = stream().filter(e -> e.getDataType() == type).findFirst();
-        return entry.isPresent() ? entry.get() : null;
+        return entry.orElse(null);
     }
 }

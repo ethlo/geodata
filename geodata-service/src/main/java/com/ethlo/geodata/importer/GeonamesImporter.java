@@ -29,7 +29,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -40,8 +39,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
-import com.ethlo.geodata.GeoConstants;
-
 public class GeonamesImporter implements DataImporter
 {
     private static final Logger logger = LoggerFactory.getLogger(GeonamesImporter.class);
@@ -50,15 +47,12 @@ public class GeonamesImporter implements DataImporter
 
     private final File allCountriesFile;
 
-    private final File hierarchyFile;
-
     private final File alternateNamesFile;
 
     private GeonamesImporter(Builder builder)
     {
         this.inclusions = builder.inclusions;
         this.allCountriesFile = builder.allCountriesFile;
-        this.hierarchyFile = builder.hierarchyFile;
         this.alternateNamesFile = builder.alternateNamesFile;
     }
 
@@ -215,7 +209,6 @@ public class GeonamesImporter implements DataImporter
         public File alternateNamesFile;
         private Set<String> inclusions;
         private File allCountriesFile;
-        private File hierarchyFile;
 
         public Builder inclusions(Set<String> inclusions)
         {
@@ -232,12 +225,6 @@ public class GeonamesImporter implements DataImporter
         public Builder alternateNamesFile(File alternateNamesFile)
         {
             this.alternateNamesFile = alternateNamesFile;
-            return this;
-        }
-
-        public Builder hierarchyFile(File hierarchyFile)
-        {
-            this.hierarchyFile = hierarchyFile;
             return this;
         }
 

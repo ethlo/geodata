@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
@@ -44,6 +45,7 @@ import org.springframework.stereotype.Repository;
 import com.ethlo.geodata.MapFeature;
 import com.ethlo.geodata.dao.LocationDao;
 import com.ethlo.geodata.importer.HierachyBuilder;
+import com.ethlo.geodata.importer.jdbc.MysqlCursorUtil;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.RawLocation;
@@ -99,8 +101,8 @@ public class JdbcLocationDao extends JdbcBaseDao implements LocationDao
         params.put("offset", pageable.getOffset());
         params.put("limit", pageable.getPageSize());
 
-        final String findByNameSql = "SELECT *, MATCH(name) AGAINST (:name) as relevance FROM geonames WHERE MATCH (name) AGAINST(:name IN  BOOLEAN MODE)  ORDER  BY relevance DESC, population DESC LIMIT :offset, :limit";
-        final String countByNameSql = "SELECT count(id) FROM geonames WHERE MATCH (name) AGAINST(:name IN  BOOLEAN MODE)";
+        final String findByNameSql = "SELECT id from geonames WHERE name LIKE :name ORDER  BY population DESC LIMIT :offset, :limit";
+        final String countByNameSql = "SELECT count(id) FROM geonames WHERE name LIKE :name";
 
         final List<RawLocation> content = jdbcTemplate.query(findByNameSql, params, LOCATION_MAPPER);
         final long total = count(countByNameSql, params);
@@ -187,5 +189,17 @@ public class JdbcLocationDao extends JdbcBaseDao implements LocationDao
     public Map<Integer, Integer> loadHierarchy(final Map<String, Country> countries, final Map<Integer, MapFeature> featureCodes, StepProgressListener progressListener)
     {
         return new HierachyBuilder(dataSource).build(countries, featureCodes, progressListener);
+    }
+
+    @Override
+    public void iterate(Consumer<RawLocation> consumer)
+    {
+        new MysqlCursorUtil(dataSource).query("SELECT * from geonames", Collections.emptyMap(), rs ->
+        {
+            while (rs.next())
+            {
+                consumer.accept(mapLocation(rs));
+            }
+        });
     }
 }

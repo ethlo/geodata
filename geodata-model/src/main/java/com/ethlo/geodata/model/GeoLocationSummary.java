@@ -1,39 +1,37 @@
 package com.ethlo.geodata.model;
 
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-
-@JsonPropertyOrder({"id", "name", "featureClass", "featureCode"})
 public class GeoLocationSummary
 {
-    private final GeoLocation location;
+    private final int id;
+    private final String name;
+    private final String featureClass;
+    private final String featureCode;
 
     public GeoLocationSummary(GeoLocation location)
     {
-        this.location = location;
-    }
-
-    public String getFeatureClass()
-    {
-        return location.getFeatureClass();
-    }
-
-    public String getFeatureCode()
-    {
-        return location.getFeatureCode();
+        this.id = location.getId();
+        this.name = location.getName();
+        this.featureClass = location.getFeatureClass();
+        this.featureCode = location.getFeatureCode();
     }
 
     public int getId()
     {
-        return location.getId();
+        return id;
     }
 
     public String getName()
     {
-        return location.getName();
+        return name;
     }
 
-    public GeoLocation setFeatureClass(final String featureClass)
+    public String getFeatureClass()
     {
-        return location.setFeatureClass(featureClass);
+        return featureClass;
+    }
+
+    public String getFeatureCode()
+    {
+        return featureCode;
     }
 }

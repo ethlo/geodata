@@ -29,6 +29,7 @@ import javax.validation.Valid;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
@@ -81,7 +82,7 @@ public interface GeodataService
 
     List<GeoLocation> findByIds(Collection<Integer> ids);
 
-    Page<GeoLocation> findByName(String name, Pageable pageable);
+    Slice<GeoLocation> findByName(String name, Pageable pageable);
 
     void load(LoadProgressListener loadProgressListener);
 
