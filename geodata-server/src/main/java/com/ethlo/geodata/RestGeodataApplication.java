@@ -72,7 +72,10 @@ public class RestGeodataApplication
             filter.setEnabled(false);
         }
 
-
+        for (int i = 0; i < 3; i++)
+        {
+            System.gc();
+        }
         dumpMemUsage("Completed");
     }
 

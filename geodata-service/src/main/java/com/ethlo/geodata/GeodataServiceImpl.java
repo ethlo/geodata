@@ -22,6 +22,7 @@ package com.ethlo.geodata;
  * #L%
  */
 
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -73,42 +74,46 @@ import com.ethlo.geodata.model.RawLocation;
 import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.progress.StepProgressListener;
 import com.ethlo.geodata.util.GeometryUtil;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Stopwatch;
 
 @Service
 public class GeodataServiceImpl implements GeodataService
 {
     private final Logger logger = LoggerFactory.getLogger(GeodataServiceImpl.class);
-    private final Map<Integer, Node> nodes = new HashMap<>();
-    // TODO: Make this configurable?
-    private final long maximumLocationCacheSize = 0;
+
+    // Loaded data
+    private Map<Integer, Node> nodes = new HashMap<>();
     private Map<Integer, String> timezones;
     private Map<String, Country> countries;
-    @Autowired
-    private GeoMetaService metaService;
-    @Autowired
-    private JdbcLocationDao locationDao;
-    @Autowired
-    private JdbcIpDao ipDao;
-    @Autowired
-    private ReverseGeocodingDao reverseGeocodingDao;
-    @Autowired
-    private JdbcBoundaryDao boundaryDao;
-    @Autowired
-    private FeatureCodeDao featureCodeDao;
-    @Autowired
-    private TimeZoneDao timeZoneDao;
     private List<Continent> continents = new LinkedList<>();
     private Map<Integer, MapFeature> featureCodes = new HashMap<>();
-    private final LoadingCache<Integer, GeoLocation> locationByIdCache = Caffeine.newBuilder()
-            .maximumSize(maximumLocationCacheSize)
-            .build(this::doFindById);
     private Map<String, Integer> reverseFeatureMap = new HashMap<>();
+
+    @Autowired
+    private GeoMetaService metaService;
+
+    @Autowired
+    private JdbcLocationDao locationDao;
+
+    @Autowired
+    private JdbcIpDao ipDao;
+
+    @Autowired
+    private ReverseGeocodingDao reverseGeocodingDao;
+
+    @Autowired
+    private JdbcBoundaryDao boundaryDao;
+
+    @Autowired
+    private FeatureCodeDao featureCodeDao;
+
+    @Autowired
+    private TimeZoneDao timeZoneDao;
 
     @Value("${geodata.boundaries.quality}")
     private int qualityConstant;
+
+    private PersistentCacheManager persistentCacheManager = new PersistentCacheManager(Paths.get("/tmp"));
 
     @Override
     public GeoLocation findByIp(String ip)
@@ -119,7 +124,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public GeoLocation findById(int geoNameId)
     {
-        return locationByIdCache.get(geoNameId);
+        return doFindById(geoNameId);
     }
 
     public GeoLocation doFindById(int id)
@@ -209,14 +214,13 @@ public class GeodataServiceImpl implements GeodataService
         this.countries = new HashMap<>();
         locationDao.getCountries().forEach(l -> countries.put(l.getCountryCode(), Country.from(populate(l))));
 
+        //nodes = persistentCacheManager.get("hierarchy", Map.class, () ->
         progressListener.begin("load_admin_levels");
-        final int adminLevelCount = metaService.getSourceDataInfo().get(GeonamesSource.LOCATION).getCount();
-        final Map<String, Integer> adminLevels = locationDao.loadAdminLevels(featureCodes, progressListener::progress);
-        final Map<Integer, Integer> childToParent = locationDao.processChildToParent(progressListener::progress, countries, featureCodes, adminLevels, reverseFeatureMap, adminLevelCount);
+        final Map<Integer, Integer> childToParent = locationDao.loadHierarchy(countries, featureCodes, progressListener::progress);
 
         progressListener.begin("join_admin_levels");
         joinHierarchyNodes(childToParent, progressListener::progress);
-        reportNoParent(nodes);
+        //reportNoParent(nodes);
 
         final SourceDataInfo ipMeta = sourceDataInfo.get(GeonamesSource.IP);
         if (ipMeta != null)
