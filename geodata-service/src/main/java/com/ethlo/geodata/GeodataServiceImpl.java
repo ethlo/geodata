@@ -541,7 +541,7 @@ public class GeodataServiceImpl implements GeodataService
     private List<Integer> getIds(final String name, final long max)
     {
         final List<Integer> ids = new LinkedList<>();
-        for (int[] arr : locationsByName.getValuesForClosestKeys(name.toLowerCase()))
+        for (int[] arr : locationsByName.getValuesForClosestKeys(ASCIIUtils.foldToASCII(name.toLowerCase())))
         {
             for (int id : arr)
             {
