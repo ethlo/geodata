@@ -52,7 +52,7 @@ import com.ethlo.geodata.util.ResourceUtil;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 @Component
-public class JdbcCountryImporter implements PersistentImporter
+public class JdbcCountryImporter implements DataImporter
 {
     private static final Logger logger = LoggerFactory.getLogger(JdbcCountryImporter.class);
 
@@ -117,7 +117,7 @@ public class JdbcCountryImporter implements PersistentImporter
     }
 
     @Override
-    public void purge()
+    public void purgeData()
     {
         jdbcTemplate.update("DELETE FROM geocountry", Collections.emptyMap());
     }

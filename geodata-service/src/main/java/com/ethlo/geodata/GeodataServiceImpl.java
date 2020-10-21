@@ -36,7 +36,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import javax.validation.Valid;
@@ -60,6 +59,7 @@ import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
 import org.springframework.stereotype.Service;
 
+import com.ethlo.geodata.cache.SerializableSerializer;
 import com.ethlo.geodata.dao.FeatureCodeDao;
 import com.ethlo.geodata.dao.ReverseGeocodingDao;
 import com.ethlo.geodata.dao.TimeZoneDao;
@@ -78,6 +78,7 @@ import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.progress.StepProgressListener;
 import com.ethlo.geodata.util.GeometryUtil;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.Lists;
 import com.googlecode.concurrenttrees.radix.ConcurrentRadixTree;
 import com.googlecode.concurrenttrees.radix.RadixTree;
 import com.googlecode.concurrenttrees.radix.node.concrete.SmartArrayBasedNodeFactory;
@@ -191,8 +192,8 @@ public class GeodataServiceImpl implements GeodataService
         {
             throw new EmptyResultDataAccessException("No location with id " + locationId + " found", 1);
         }
-        final long total = node.getChildren().length;
-        final List<Integer> ids = Arrays.stream(node.getChildren())
+        final long total = node.getChildren().size();
+        final List<Integer> ids = node.getChildren().stream()
                 .skip(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
@@ -226,47 +227,58 @@ public class GeodataServiceImpl implements GeodataService
 
         logger.info("Loading locations");
         progressListener.begin("load_locations");
-        locations = new Int2ObjectAVLTreeMap<>();
-
-        final AtomicInteger searchableNamesCount = new AtomicInteger();
-        locationDao.iterate(e ->
+        locations = persistentCacheManager.get("raw_locations", new SerializableSerializer<>(), () ->
         {
-            final MapFeature featureType = featureCodes.get(e.getMapFeatureId());
-            if (GeoConstants.isAdministrativeOrAbove(featureType.getKey()))
+            final Map<Integer, RawLocation> tmp = new Int2ObjectAVLTreeMap<>();
+            locationDao.iterate(e ->
             {
-                final int id = e.getId();
-                final String normalizedName = ASCIIUtils.foldToASCII(e.getName().toLowerCase());
-                final int[] existing = locationsByName.putIfAbsent(normalizedName, new int[]{id});
-                if (existing != null)
-                {
-                    final int[] newArr = Arrays.copyOf(existing, existing.length + 1);
-                    newArr[newArr.length - 1] = id;
-                    locationsByName.put(normalizedName, newArr);
-                }
-            }
-            locations.put(e.getId(), e);
-            progressListener.progress(locations.size());
+                tmp.put(e.getId(), e);
+                progressListener.progress(tmp.size());
+            });
+            return tmp;
         });
 
-        //trie();
+        logger.info("Loading search index");
+        int count = 0;
+        progressListener.begin("load_search_index");
+        for (RawLocation location : locations.values())
+        {
+            addToSearchIndex(location);
+            progressListener.progress(count);
+        }
+        progressListener.end();
 
-        logger.info("Loading admin levels");
-        progressListener.begin("load_admin_levels");
+        logger.info("Loading hierarchy data");
+        progressListener.begin("load_hierarchy_data");
         final Map<Integer, Integer> childToParent = persistentCacheManager.get("hierarchy", new IntIntMapSerializer(), () ->
                 locationDao.loadHierarchy(countries, featureCodes, progressListener::progress));
 
-        logger.info("Joining locations hierarchy");
+        logger.info("Joining location nodes hierarchy");
         progressListener.begin("join_admin_levels");
         joinHierarchyNodes(childToParent, progressListener::progress);
         //reportNoParent(nodes);
 
-        final SourceDataInfo ipMeta = sourceDataInfo.get(GeonamesSource.IP);
-        if (ipMeta != null)
+        logger.info("Loading IP to location data");
+        progressListener.begin("ip_data");
+        ipDao.load(progressListener::progress);
+
+        progressListener.end();
+    }
+
+    private void addToSearchIndex(final RawLocation e)
+    {
+        final MapFeature featureType = featureCodes.get(e.getMapFeatureId());
+        if (GeoConstants.isAdministrativeOrAbove(featureType.getKey()))
         {
-            logger.info("Loading ip2location data");
-            progressListener.begin("ip2location", ipMeta.getCount());
-            ipDao.load(progressListener::progress);
-            progressListener.end();
+            final int id = e.getId();
+            final String normalizedName = ASCIIUtils.foldToASCII(e.getName().toLowerCase());
+            final int[] existing = locationsByName.putIfAbsent(normalizedName, new int[]{id});
+            if (existing != null)
+            {
+                final int[] newArr = Arrays.copyOf(existing, existing.length + 1);
+                newArr[newArr.length - 1] = id;
+                locationsByName.put(normalizedName, newArr);
+            }
         }
     }
 
@@ -532,8 +544,13 @@ public class GeodataServiceImpl implements GeodataService
         if (!ids.isEmpty())
         {
             final boolean hasMore = ids.size() > max;
-            final List<GeoLocation> content = ids.stream().limit(max - 1).map(locations::get).map(this::populate).collect(Collectors.toList());
-            return new SliceImpl<>(content, pageable, hasMore);
+            final List<GeoLocation> content = ids.stream()
+                    .limit(max - 1)
+                    .map(locations::get)
+                    .map(this::populate)
+                    .sorted(Comparator.comparingLong(GeoLocation::getPopulation))
+                    .collect(Collectors.toList());
+            return new SliceImpl<>(Lists.reverse(content), pageable, hasMore);
         }
         return new SliceImpl<>(Collections.emptyList(), pageable, false);
     }

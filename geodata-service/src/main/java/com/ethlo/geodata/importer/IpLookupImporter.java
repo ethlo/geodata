@@ -23,18 +23,32 @@ package com.ethlo.geodata.importer;
  */
 
 import java.io.BufferedReader;
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
+import org.apache.commons.net.util.SubnetUtils;
+import org.springframework.data.util.CloseableIterator;
+import org.springframework.util.StringUtils;
+
+import ch.qos.logback.core.util.CloseUtil;
+import com.ethlo.geodata.ip.IpData;
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvSchema;
+import com.google.common.collect.AbstractIterator;
+import com.google.common.net.InetAddresses;
+import com.google.common.primitives.UnsignedInteger;
 
+@SuppressWarnings("UnstableApiUsage")
 public class IpLookupImporter implements DataImporter
 {
     private final File csvFile;
@@ -66,5 +80,76 @@ public class IpLookupImporter implements DataImporter
             throw new UncheckedIOException(e);
         }
         return count.get();
+    }
+
+    public Iterator<IpData> iterator() throws IOException
+    {
+        final CsvMapper csvMapper = new CsvMapper();
+        final CsvSchema schema = CsvSchema.emptySchema().withHeader(); // use first row as header; otherwise defaults are fine
+        final BufferedReader reader = new BufferedReader(new FileReader(csvFile));
+        final MappingIterator<Map<String, String>> it = csvMapper.readerFor(Map.class)
+                .with(schema)
+                .readValues(reader);
+        return wrapClosable(new AbstractIterator<IpData>()
+        {
+            @Override
+            protected IpData computeNext()
+            {
+                IpData data = null;
+                while (it.hasNext() && (data = processLine(it.next()).orElse(null)) == null) ;
+                if (data != null)
+                {
+                    return data;
+                }
+                return endOfData();
+            }
+        }, it);
+    }
+
+    private <T> CloseableIterator<T> wrapClosable(final Iterator<T> iter, final Closeable closeable)
+    {
+        return new CloseableIterator<T>()
+        {
+            @Override
+            public void close()
+            {
+                CloseUtil.closeQuietly(closeable);
+            }
+
+            @Override
+            public boolean hasNext()
+            {
+                return iter.hasNext();
+            }
+
+            @Override
+            public T next()
+            {
+                return iter.next();
+            }
+        };
+    }
+
+    private Optional<IpData> processLine(final Map<String, String> entry)
+    {
+        final String strGeoNameId = findMapValue(entry, "geoname_id", "represented_country_geoname_id", "registered_country_geoname_id");
+        final String strGeoNameCountryId = findMapValue(entry, "represented_country_geoname_id", "registered_country_geoname_id");
+        final Integer geonameCountryId = strGeoNameCountryId != null ? Integer.parseInt(strGeoNameCountryId) : null;
+        final Integer geonameId = strGeoNameId != null ? Integer.valueOf(Integer.parseInt(strGeoNameId)) : geonameCountryId;
+
+        if (geonameId != null)
+        {
+            final SubnetUtils u = new SubnetUtils(entry.get("network"));
+            final long lower = UnsignedInteger.fromIntBits(InetAddresses.coerceToInteger(InetAddresses.forString(u.getInfo().getLowAddress()))).longValue();
+            final long upper = UnsignedInteger.fromIntBits(InetAddresses.coerceToInteger(InetAddresses.forString(u.getInfo().getHighAddress()))).longValue();
+            return Optional.of(new IpData(geonameId, lower, upper));
+        }
+
+        return Optional.empty();
+    }
+
+    private String findMapValue(Map<String, String> map, String... needles)
+    {
+        return Arrays.stream(needles).map(map::get).filter(StringUtils::hasLength).findFirst().orElse(null);
     }
 }

@@ -40,7 +40,7 @@ import com.ethlo.geodata.importer.GeonamesBoundaryImporter;
 import com.ethlo.geodata.util.ResourceUtil;
 
 @Component
-public class JdbcGeonamesBoundaryImporter implements PersistentImporter
+public class JdbcGeonamesBoundaryImporter implements DataImporter
 {
     @Autowired
     private NamedParameterJdbcTemplate jdbcTemplate;
@@ -55,7 +55,7 @@ public class JdbcGeonamesBoundaryImporter implements PersistentImporter
     }
 
     @Override
-    public void purge() throws IOException
+    public void purgeData() throws IOException
     {
         jdbcTemplate.update("DELETE FROM geoboundaries", Collections.emptyMap());
     }

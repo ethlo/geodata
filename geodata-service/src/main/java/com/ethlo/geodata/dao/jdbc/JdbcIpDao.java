@@ -22,19 +22,24 @@ package com.ethlo.geodata.dao.jdbc;
  * #L%
  */
 
+import java.io.BufferedInputStream;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.UncheckedIOException;
 import java.net.InetAddress;
-import java.util.Collections;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.sql.DataSource;
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import com.ethlo.geodata.InvalidIpException;
 import com.ethlo.geodata.dao.IpDao;
-import com.ethlo.geodata.importer.jdbc.MysqlCursorUtil;
+import com.ethlo.geodata.importer.GeonamesSource;
+import com.ethlo.geodata.ip.IpData;
 import com.ethlo.geodata.progress.StepProgressListener;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
@@ -46,10 +51,8 @@ import com.google.common.primitives.UnsignedInteger;
 @Repository
 public class JdbcIpDao implements IpDao
 {
+    private final Path basePath = Paths.get("/tmp");
     private final RangeMap<Long, Integer> ipRangeMap = TreeRangeMap.create();
-
-    @Autowired
-    private DataSource dataSource;
 
     @Override
     public Optional<Integer> findByIp(final String ip)
@@ -77,19 +80,40 @@ public class JdbcIpDao implements IpDao
 
     public void load(StepProgressListener listener)
     {
-        final AtomicInteger count = new AtomicInteger();
-        new MysqlCursorUtil(dataSource).query("SELECT geoname_id, geoname_country_id, first, last from geoip", Collections.emptyMap(), rs ->
+        try
         {
-            while (rs.next())
-            {
-                ipRangeMap.put(Range.closed(rs.getLong("first"), rs.getLong("last")), rs.getInt("geoname_id"));
-                count.incrementAndGet();
+            doLoad(listener);
+        }
+        catch (IOException e)
+        {
+            throw new UncheckedIOException(e);
+        }
+    }
 
-                if (count.get() % 10_000 == 0)
+    private void doLoad(StepProgressListener listener) throws IOException
+    {
+        final AtomicInteger count = new AtomicInteger();
+        final Path filePath = basePath.resolve(GeonamesSource.IP.name().toLowerCase() + ".data");
+        try (final ObjectInputStream in = new ObjectInputStream(new BufferedInputStream(Files.newInputStream(filePath))))
+        {
+            Object obj;
+            try
+            {
+                while ((obj = in.readObject()) != null)
                 {
-                    listener.progress(count.get(), null);
+                    final IpData data = (IpData) obj;
+                    ipRangeMap.put(Range.closed(data.getLower(), data.getUpper()), data.getGeonameId());
+                    listener.progress(count.incrementAndGet(), null);
                 }
             }
-        });
+            catch (EOFException ignored)
+            {
+
+            }
+            catch (ClassNotFoundException exc)
+            {
+                throw new RuntimeException(exc);
+            }
+        }
     }
 }

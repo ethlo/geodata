@@ -90,21 +90,21 @@ public class GeoMetaService
         final Date countryTimestamp = countryImporter.lastRemoteModified();
         ifExpired(GeonamesSource.COUNTRY, countryTimestamp, () ->
         {
-            countryImporter.purge();
+            countryImporter.purgeData();
             return countryImporter.importData();
         });
 
         ifExpired(GeonamesSource.LOCATION, geonamesImporter.lastRemoteModified(), () ->
         {
-            geonamesImporter.purge();
+            geonamesImporter.purgeData();
             return geonamesImporter.importData();
         });
 
-        ifExpired(GeonamesSource.IP, ipLookupImporter.lastRemoteModified(), () ->
-        {
-            ipLookupImporter.purge();
-            return ipLookupImporter.importData();
-        });
+        //ifExpired(GeonamesSource.IP, ipLookupImporter.lastRemoteModified(), () ->
+        //{
+            ipLookupImporter.purgeData();
+            ipLookupImporter.importData();
+        //});
 
         /*final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
         if (boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)

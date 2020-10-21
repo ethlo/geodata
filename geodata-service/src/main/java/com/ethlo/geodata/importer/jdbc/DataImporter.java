@@ -26,11 +26,11 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Date;
 
-public interface PersistentImporter
+public interface DataImporter
 {
-    void purge() throws IOException;
+    void purgeData() throws IOException;
 
-    long importData() throws IOException, SQLException;
+    long importData() throws IOException;
 
     Date lastRemoteModified() throws IOException;
 }

@@ -8,6 +8,7 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.function.Supplier;
 
 public class PersistentCacheManager
@@ -36,13 +37,25 @@ public class PersistentCacheManager
         else
         {
             final T result = loader.get();
-            try (final OutputStream out = new BufferedOutputStream(Files.newOutputStream(filePath)))
+            final Path tmpFile = basePath.resolve(alias + ".tmp");
+            try (final OutputStream out = new BufferedOutputStream(Files.newOutputStream(tmpFile)))
             {
                 cacheSerializer.write(result, out);
+                Files.move(tmpFile, filePath, StandardCopyOption.ATOMIC_MOVE);
             }
             catch (IOException e)
             {
                 throw new UncheckedIOException(e);
+            } finally
+            {
+                try
+                {
+                    Files.deleteIfExists(tmpFile);
+                }
+                catch (IOException ignored)
+                {
+
+                }
             }
             return result;
         }

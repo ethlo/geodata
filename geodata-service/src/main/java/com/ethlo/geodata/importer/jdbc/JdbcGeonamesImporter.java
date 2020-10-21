@@ -48,7 +48,7 @@ import com.ethlo.geodata.importer.GeonamesSource;
 import com.ethlo.geodata.util.ResourceUtil;
 
 @Component
-public class JdbcGeonamesImporter implements PersistentImporter
+public class JdbcGeonamesImporter implements DataImporter
 {
     private static final Logger logger = LoggerFactory.getLogger(JdbcGeonamesImporter.class);
 
@@ -99,7 +99,7 @@ public class JdbcGeonamesImporter implements PersistentImporter
     }
 
     @Override
-    public void purge()
+    public void purgeData()
     {
         jdbcTemplate.update("DELETE FROM geonames", Collections.emptyMap());
     }

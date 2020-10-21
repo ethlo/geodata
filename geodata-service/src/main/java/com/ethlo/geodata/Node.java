@@ -22,15 +22,19 @@ package com.ethlo.geodata;
  * #L%
  */
 
-import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Objects;
+
+import org.springframework.util.StringUtils;
+
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 public class Node implements Comparable<Node>
 {
-    private static final int[] EMPTY = new int[0];
-
     private final int id;
-    private int[] children;
+    private List<Integer> children;
     private Integer parent;
 
     public Node(int id)
@@ -42,12 +46,14 @@ public class Node implements Comparable<Node>
     {
         if (children == null)
         {
-            this.children = new int[]{child};
+            this.children = new IntArrayList(1);
+            this.children.add(child);
         }
         else
         {
-            this.children = Arrays.copyOf(children, children.length + 1);
-            this.children[this.children.length - 1] = child;
+            //this.children = Arrays.copyOf(children, children.length + 1);
+            //this.children[this.children.length - 1] = child;
+            children.add(child);
         }
     }
 
@@ -56,9 +62,9 @@ public class Node implements Comparable<Node>
         return id;
     }
 
-    public int[] getChildren()
+    public List<Integer> getChildren()
     {
-        return children != null ? children : EMPTY;
+        return children != null ? children : Collections.emptyList();
     }
 
     public Integer getParent()
@@ -95,7 +101,7 @@ public class Node implements Comparable<Node>
     public String toString()
     {
         return "Node [id=" + id + ", " +
-                "children=" + Arrays.toString(children) + ", " +
+                "children=" + StringUtils.collectionToCommaDelimitedString(children) + ", " +
                 "parent=" + parent + "]";
     }
 
