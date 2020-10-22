@@ -22,8 +22,6 @@ package com.ethlo.geodata;
  * #L%
  */
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
@@ -47,19 +45,6 @@ public class RestGeodataApplication
 
         dumpMemUsage("Initial");
 
-        if (args.length == 1 && "update".equals(args[0]))
-        {
-            logger.info("Data refresh requested, this may take some time");
-            try
-            {
-                ctx.getBean(GeoMetaService.class).update();
-            }
-            catch (IOException exc)
-            {
-                throw new UncheckedIOException(exc);
-            }
-        }
-
         final StatefulProgressListener listener = new StatefulProgressListener();
         listener.begin("init", 1);
         final StartupFilter filter = ctx.getBean(StartupFilter.class);
@@ -72,8 +57,7 @@ public class RestGeodataApplication
         {
             logger.error("Load failed", exc);
             System.exit(1);
-        }
-        finally
+        } finally
         {
             filter.setEnabled(false);
         }

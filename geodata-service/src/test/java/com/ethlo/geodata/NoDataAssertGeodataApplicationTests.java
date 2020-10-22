@@ -24,11 +24,6 @@ package com.ethlo.geodata;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.IOException;
-import java.util.Calendar;
-import java.util.Date;
-
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.locationtech.jts.geom.Envelope;
@@ -42,9 +37,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
-import org.springframework.transaction.annotation.Transactional;
 
-import com.ethlo.geodata.importer.GeonamesSource;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.util.GeometryUtil;
@@ -58,37 +51,6 @@ public class NoDataAssertGeodataApplicationTests
 
     @Autowired
     private GeodataService geodataService;
-
-    @Autowired
-    private GeoMetaService geoMetaService;
-
-    @Before
-    public void contextLoads() throws IOException
-    {
-        if (!initialized)
-        {
-            geoMetaService.update();
-            initialized = true;
-        }
-    }
-
-    @Test
-    @Transactional
-    public void metadataTest()
-    {
-        final Calendar cal = Calendar.getInstance();
-        cal.set(Calendar.YEAR, 2010);
-        cal.set(Calendar.MONTH, 10);
-        cal.set(Calendar.DAY_OF_MONTH, 31);
-        cal.set(Calendar.HOUR_OF_DAY, 14);
-        cal.set(Calendar.MINUTE, 56);
-        cal.set(Calendar.SECOND, 45);
-        cal.set(Calendar.MILLISECOND, 0);
-        final Date expected = cal.getTime();
-        geoMetaService.setStatus(GeonamesSource.IP, expected, 2244);
-        assertThat(geoMetaService.getLastModified(GeonamesSource.IP).get().getTime()).isEqualTo(expected.getTime());
-        assertThat(geoMetaService.getSourceDataInfo().get(GeonamesSource.IP).getCount()).isEqualTo(2244);
-    }
 
     @Test
     public void testQueryForLocationByIp()

@@ -69,6 +69,7 @@ import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.CountrySummary;
 import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
+import com.ethlo.geodata.model.MapFeature;
 import com.ethlo.geodata.model.RawLocation;
 import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.progress.StepProgressListener;
@@ -97,9 +98,6 @@ public class GeodataServiceImpl implements GeodataService
     private Map<Integer, RawLocation> locations;
 
     @Autowired
-    private GeoMetaService metaService;
-
-    @Autowired
     private FileLocationDao locationDao;
 
     @Autowired
@@ -107,12 +105,6 @@ public class GeodataServiceImpl implements GeodataService
 
     @Autowired
     private HierarchyDao hierarchyDao;
-
-    //@Autowired
-    //private ReverseGeocodingDao reverseGeocodingDao;
-
-    //@Autowired
-    //private JdbcBoundaryDao boundaryDao;
 
     @Autowired
     private FileFeatureCodeDao featureCodeDao;
@@ -378,11 +370,6 @@ public class GeodataServiceImpl implements GeodataService
 
         //final List<Integer> countryIds = locationDao.findByPhoneNumber(stripped);
         throw new UnsupportedOperationException("Not yet");
-    }
-
-    private Country populateCountry(final GeoLocation location)
-    {
-        return Country.from(location);
     }
 
     @Override

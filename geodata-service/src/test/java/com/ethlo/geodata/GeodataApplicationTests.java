@@ -24,12 +24,6 @@ package com.ethlo.geodata;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.IOException;
-import java.sql.SQLException;
-import java.util.Calendar;
-import java.util.Date;
-
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,57 +32,20 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
-import org.springframework.transaction.annotation.Transactional;
 
-import com.ethlo.geodata.importer.GeonamesSource;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
-import com.ethlo.geodata.progress.StatefulProgressListener;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
 @TestPropertySource(locations = "classpath:test-application.properties")
 public class GeodataApplicationTests
 {
-    private static boolean initialized = false;
-
     @Autowired
     private GeodataService geodataService;
-
-    @Autowired
-    private GeoMetaService geoMetaService;
-
-    @Before
-    public void contextLoads() throws IOException, SQLException
-    {
-        if (!initialized)
-        {
-            geoMetaService.update();
-            geodataService.load(new StatefulProgressListener());
-            initialized = true;
-        }
-    }
-
-    @Test
-    @Transactional
-    public void metadataTest() throws IOException
-    {
-        final Calendar cal = Calendar.getInstance();
-        cal.set(Calendar.YEAR, 2010);
-        cal.set(Calendar.MONTH, 10);
-        cal.set(Calendar.DAY_OF_MONTH, 31);
-        cal.set(Calendar.HOUR_OF_DAY, 14);
-        cal.set(Calendar.MINUTE, 56);
-        cal.set(Calendar.SECOND, 45);
-        cal.set(Calendar.MILLISECOND, 0);
-        final Date expected = cal.getTime();
-        geoMetaService.setStatus(GeonamesSource.IP, expected, 4455);
-        assertThat(geoMetaService.getLastModified(GeonamesSource.IP).get().getTime()).isEqualTo(expected.getTime());
-        assertThat(geoMetaService.getSourceDataInfo().get(GeonamesSource.IP).getCount()).isEqualTo(4455);
-    }
 
     @Test
     public void testQueryForLocationByIp()

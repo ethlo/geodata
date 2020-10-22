@@ -48,6 +48,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ethlo.geodata.dao.MetaDao;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
@@ -66,21 +67,7 @@ public class GeodataController
     private GeodataService geodataService;
 
     @Autowired
-    private GeoMetaService geoMetaService;
-
-    /**
-     * Find locations matching the specified filter
-     *
-     * @param filter
-     * @param pageable
-     * @return
-     */
-    /*@GetMapping("/v1/locations")
-    public Page<GeoLocation> filter(LocationFilter filter, Pageable pageable)
-    {
-        return geodataService.filter(filter, pageable);
-    }
-    */
+    private MetaDao metaDao;
 
     /**
      * Find the approximate location by IP-address
@@ -373,6 +360,6 @@ public class GeodataController
     @GetMapping("/v1/source")
     public SourceDataInfoSet sourceData()
     {
-        return geoMetaService.getSourceDataInfo();
+        return metaDao.load();
     }
 }

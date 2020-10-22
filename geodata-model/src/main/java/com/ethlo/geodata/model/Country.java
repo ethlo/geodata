@@ -22,41 +22,56 @@ package com.ethlo.geodata.model;
  * #L%
  */
 
-import java.io.Serializable;
 import java.util.List;
 
-public class Country extends GeoLocation implements Serializable
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class Country
 {
-    private static final long serialVersionUID = -4692269307453103789L;
+    private final int id;
+    private final String name;
+    private final String countryCode;
+    private final String continentCode;
+    private final List<String> languages;
 
-    private List<String> languages;
-
-    protected Country()
+    @JsonCreator
+    public Country(@JsonProperty("id") final int id,
+                   @JsonProperty("name") final String name,
+                   @JsonProperty("country_code") final String countryCode,
+                   @JsonProperty("continent") String continentCode,
+                   @JsonProperty("languages") List<String> languages)
     {
-
-    }
-
-    public static Country from(GeoLocation location)
-    {
-        final Country country = new Country();
-        country.setName(location.getName());
-        country.setCoordinates(location.getCoordinates());
-        country.setId(location.getId());
-        country.setParentLocationId(location.getParentLocationId());
-        country.setFeatureCode(location.getFeatureCode());
-        country.setPopulation(location.getPopulation());
-
-        if (location.getCountry() != null)
-        {
-            country.setCountry(new CountrySummary().setCode(location.getCountry().getCode()));
-        }
-
-        return country;
+        this.id = id;
+        this.name = name;
+        this.countryCode = countryCode;
+        this.continentCode = continentCode;
+        this.languages = languages;
     }
 
     public CountrySummary toSummary(String countryCode)
     {
-        return new CountrySummary().setId((long) getId()).setName(getName()).setCode(countryCode);
+        return new CountrySummary().setId(id).setName(name).setCode(countryCode);
+    }
+
+    public int getId()
+    {
+        return id;
+    }
+
+    public String getName()
+    {
+        return name;
+    }
+
+    public String getCountryCode()
+    {
+        return countryCode;
+    }
+
+    public String getContinentCode()
+    {
+        return continentCode;
     }
 
     public List<String> getLanguages()
@@ -64,9 +79,4 @@ public class Country extends GeoLocation implements Serializable
         return languages;
     }
 
-    public Country setLanguages(List<String> languages)
-    {
-        this.languages = languages;
-        return this;
-    }
 }

@@ -12,8 +12,10 @@
     </parent>
     <modules>
         <module>geodata-model</module>
+        <module>geodata-repository</module>
         <module>geodata-service</module>
         <module>geodata-server</module>
+        <module>geodata-importer</module>
     </modules>
     <developers>
         <developer>
