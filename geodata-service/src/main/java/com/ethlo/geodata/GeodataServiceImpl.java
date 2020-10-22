@@ -112,6 +112,9 @@ public class GeodataServiceImpl implements GeodataService
     @Autowired
     private TimeZoneDao timeZoneDao;
 
+    @Value("${geodata.search.index-features}")
+    private List<String> additionalIndexedFeatures;
+
     @Value("${geodata.boundaries.quality}")
     private int qualityConstant;
 
@@ -261,7 +264,7 @@ public class GeodataServiceImpl implements GeodataService
     private void addToSearchIndex(final RawLocation e)
     {
         final MapFeature featureType = featureCodes.get(e.getMapFeatureId());
-        if (GeoConstants.isAdministrativeOrAbove(featureType.getKey()))
+        if (isSearchIndexed(featureType.getKey()))
         {
             final int id = e.getId();
             final String normalizedName = ASCIIUtils.foldToASCII(e.getName().toLowerCase());
@@ -273,6 +276,11 @@ public class GeodataServiceImpl implements GeodataService
                 locationsByName.put(normalizedName, newArr);
             }
         }
+    }
+
+    private boolean isSearchIndexed(final String key)
+    {
+        return GeoConstants.ADMINISTRATIVE_OR_ABOVE.contains(key) || additionalIndexedFeatures.contains(key);
     }
 
     @Override

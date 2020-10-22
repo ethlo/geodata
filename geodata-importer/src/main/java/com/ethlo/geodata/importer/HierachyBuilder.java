@@ -99,9 +99,8 @@ public class HierachyBuilder
 
     private static Integer getContinentId(final Map<String, Country> countries, final String countryCode)
     {
-        // FIXME!!!
-        return GeoConstants.CONTINENTS.values().iterator().next();
-        //return countries.get(countryCode).getContinentCode();
+        final Country country = Optional.ofNullable(countries.get(countryCode.toUpperCase())).orElseThrow();
+        return GeoConstants.CONTINENTS.entrySet().stream().filter(e -> e.getKey().equals(country.getContinentCode())).findFirst().map(Map.Entry::getValue).orElseThrow();
     }
 
     private static Optional<Integer> getParentId(final long id, final String featureCode, final Map<String, Country> countryToId, final Map<String, Integer> cache, final String countryCode, final String[] adminCodeArray)
