@@ -1,30 +1,18 @@
 package com.ethlo.geodata.importer;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.sql.DataSource;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.util.StringUtils;
 
 import com.ethlo.geodata.GeoConstants;
-import com.ethlo.geodata.MapFeature;
-import com.ethlo.geodata.importer.jdbc.MysqlCursorUtil;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.progress.StepProgressListener;
 
@@ -32,41 +20,18 @@ public class HierachyBuilder
 {
     private static final Logger logger = LoggerFactory.getLogger(HierachyBuilder.class);
 
-    private final DataSource dataSource;
-    private final NamedParameterJdbcTemplate jdbcTemplate;
-
-    public HierachyBuilder(DataSource datasource)
-    {
-        this.dataSource = datasource;
-        this.jdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
-    }
-
-    private static MapFeature getMapFeature(final Map<Integer, MapFeature> featureCodes, final int featureCodeId)
-    {
-        return Optional.ofNullable(featureCodes.get(featureCodeId)).orElseThrow(() -> new EmptyResultDataAccessException("No feature code with ID " + featureCodeId, 1));
-    }
-
     private static String nullAfterOffset(final String[] strings, int offset)
     {
         final String[] copy = Arrays.copyOf(strings, strings.length);
         for (int i = offset + 1; i < copy.length; i++)
         {
-            copy[i] = null;
+            copy[i] = "";
         }
         return StringUtils.arrayToDelimitedString(copy, "|");
     }
 
-    public Map<Integer, Integer> build(final Map<String, Country> countries, final Map<Integer, MapFeature> featureCodes, StepProgressListener progressListener)
+    public static Map<Integer, Integer> build(Iterator<Map<String, String>> locations, final Map<String, Integer> adminLevels, final Map<String, Country> countries, StepProgressListener progressListener)
     {
-        final Map<String, Integer> adminLevels = loadAdminLevels(featureCodes, progressListener);
-        return processChildToParent(progressListener, countries, featureCodes, adminLevels);
-    }
-
-    private Map<Integer, Integer> processChildToParent(final StepProgressListener listener, final Map<String, Country> countries, final Map<Integer, MapFeature> featureCodes, final Map<String, Integer> adminLevels)
-    {
-        final Map<String, Integer> reverseFeatureMap = new HashMap<>();
-        featureCodes.forEach((k, v) -> reverseFeatureMap.put(v.getFeatureClass() + "." + v.getFeatureCode(), k));
-
         final Map<Integer, Integer> childToParent = new HashMap<>(100_000)
         {
             @Override
@@ -79,68 +44,43 @@ public class HierachyBuilder
                 return super.put(key, value);
             }
         };
-        final AtomicInteger count = new AtomicInteger();
 
-        final MysqlCursorUtil cursorUtil = new MysqlCursorUtil(dataSource);
-        final String sqlAll = "SELECT id, country_code, name, feature_code_id, admin_code1, admin_code2, admin_code3, admin_code4 FROM geonames" +
-                " WHERE admin_code1 is not null" +
-                " OR admin_code2 is not null" +
-                " OR admin_code3 is not null" +
-                " OR admin_code4 is not null";
-
-        cursorUtil.query(sqlAll, Collections.emptyMap(), rs ->
+        while (locations.hasNext())
         {
-            while (rs.next())
+            final Map<String, String> rs = locations.next();
+            final int id = Integer.parseInt(rs.get("geonameid"));
+            final String featureCode = rs.get("feature_class") + "." + rs.get("feature_code");
+            final String countryCode = rs.get("country_code");
+            final String[] adminCodeArray = getAdminCodeArray(rs);
+            final Integer parentId = getParentId(id, featureCode, countries, adminLevels, countryCode, adminCodeArray).orElse(null);
+
+            if (parentId != null)
             {
-                final int id = rs.getInt("id");
-                final int featureId = rs.getInt("feature_code_id");
-                final MapFeature mapFeature = featureId != 0 ? getMapFeature(featureCodes, featureId) : null;
-                final String featureCode = mapFeature != null ? mapFeature.getFeatureClass() + "." + mapFeature.getFeatureCode() : null;
-
-                final String countryCode = rs.getString("country_code");
-                final String[] adminCodeArray = getAdminCodeArray(rs);
-                final Integer parentId = getParentId(id, reverseFeatureMap, featureCode, countries, adminLevels, countryCode, adminCodeArray).orElse(null);
-
-                if (parentId != null)
+                childToParent.put(id, parentId);
+            }
+            else if (GeoConstants.COUNTRY_LEVEL_FEATURES.contains(featureCode))
+            {
+                final int continentId = getContinentId(countries, countryCode);
+                childToParent.put(id, continentId);
+            }
+            else if (!StringUtils.isEmpty(countryCode))
+            {
+                final int countryId = getCountryId(countries, countryCode);
+                if (countryId != id)
                 {
-                    childToParent.put(id, parentId);
-                }
-                else if (GeoConstants.COUNTRY_LEVEL_FEATURES.contains(featureCode))
-                {
-                    final int continentId = getContinentId(countryCode);
-                    childToParent.put(id, continentId);
-                }
-                else if (countryCode != null)
-                {
-                    final int countryId = getCountryId(countryCode);
-                    if (countryId != id)
-                    {
-                        childToParent.put(id, countryId);
-                    }
-                    else
-                    {
-                        final int continentId = getContinentId(countryCode);
-                        childToParent.put(id, continentId);
-                    }
+                    childToParent.put(id, countryId);
                 }
                 else
                 {
-                    logger.info("No parent: {}", id);
+                    final int continentId = getContinentId(countries, countryCode);
+                    childToParent.put(id, continentId);
                 }
-
-                if (count.get() % 200_000 == 0)
-                {
-                    logger.info("Loaded {} locations", count.get());
-                }
-
-                if (count.get() % 1_000 == 0)
-                {
-                    listener.progress(count.get(), null);
-                }
-
-                count.incrementAndGet();
             }
-        });
+            else
+            {
+                logger.info("No parent: {}", id);
+            }
+        }
 
         // Link continents to earth
         GeoConstants.CONTINENTS.values().forEach(c -> childToParent.put(c, GeoConstants.EARTH_ID));
@@ -149,99 +89,26 @@ public class HierachyBuilder
         return childToParent;
     }
 
-    public Map<String, Integer> loadAdminLevels(final Map<Integer, MapFeature> featureCodes, final StepProgressListener listener)
-    {
-        final List<Integer> administrativeLevelIds = getAdministrativeLevelIds(featureCodes);
-
-        final Map<String, Integer> cache = new HashMap<>();
-        if (administrativeLevelIds.isEmpty())
-        {
-            return Collections.emptyMap();
-        }
-
-        final String sqlAdminCodes = "SELECT id, country_code, name, feature_code_id, admin_code1, admin_code2, admin_code3, admin_code4 FROM geonames WHERE feature_code_id in (" + StringUtils.collectionToCommaDelimitedString(administrativeLevelIds) + ")";
-        final MysqlCursorUtil cursorUtil = new MysqlCursorUtil(dataSource);
-        cursorUtil.query(sqlAdminCodes, Collections.emptyMap(), rs ->
-        {
-            while (rs.next())
-            {
-                final int id = rs.getInt("id");
-                final String countryCode = rs.getString("country_code");
-                final int featureCodeId = rs.getInt("feature_code_id");
-                final String adminCode = getConcatenatedAdminCodes(rs);
-                addToCache(cache, featureCodeId, countryCode, adminCode, id);
-                listener.progress(cache.size(), null);
-            }
-        });
-        return cache;
-    }
-
-    private List<Integer> getAdministrativeLevelIds(final Map<Integer, MapFeature> featureCodes)
-    {
-        final Set<String> levelNames = new HashSet<>(Arrays.asList("ADM1", "ADM2", "ADM3", "ADM4"));
-        final List<Integer> result = new ArrayList<>();
-        featureCodes.forEach((id, feature) ->
-        {
-            if (levelNames.contains(feature.getFeatureCode()))
-            {
-                result.add(id);
-            }
-        });
-        return result;
-    }
-
-    private void addToCache(Map<String, Integer> cache, int featureCodeId, String countryCode, String adminCode, int id)
-    {
-        final String key = countryCode + "|" + adminCode + "|" + featureCodeId;
-        final Integer old = cache.put(key, id);
-        if (old != null)
-        {
-            throw new IllegalArgumentException("Attempted to add key " + key + " with id " + id + ", but already seen with id " + old);
-        }
-    }
-
-    private String getConcatenatedAdminCodes(final ResultSet rs) throws SQLException
-    {
-        final String[] adminCodes = getAdminCodeArray(rs);
-        return StringUtils.arrayToDelimitedString(adminCodes, "|");
-    }
-
-    private String[] getAdminCodeArray(final ResultSet rs) throws SQLException
+    private static String[] getAdminCodeArray(final Map<String, String> rs)
     {
         final String[] result = new String[4];
-        result[0] = rs.getString("admin_code1");
-        result[1] = rs.getString("admin_code2");
-        result[2] = rs.getString("admin_code3");
-        result[3] = rs.getString("admin_code4");
+        result[0] = rs.get("adm1");
+        result[1] = rs.get("adm2");
+        result[2] = rs.get("adm3");
+        result[3] = rs.get("adm4");
         return result;
     }
 
-    private Integer getCountryId(final String countryCode)
+    private static Integer getContinentId(final Map<String, Country> countries, final String countryCode)
     {
-        return jdbcTemplate.query("SELECT geoname_id AS id from geocountry where iso = :country_code", Collections.singletonMap("country_code", countryCode), rs -> {
-            if (rs.next())
-            {
-                final int id = rs.getInt("id");
-                return id != 0 ? id : null;
-            }
-            return null;
-        });
+        // TODO: FIXME!!!
+        return GeoConstants.CONTINENTS.values().iterator().next();
+        //return countries.get(countryCode).getContinentCode();
     }
 
-    private Integer getContinentId(final String countryCode)
+    private static Optional<Integer> getParentId(final long id, final String featureCode, final Map<String, Country> countryToId, final Map<String, Integer> cache, final String countryCode, final String[] adminCodeArray)
     {
-        return jdbcTemplate.query("SELECT continent from geocountry where iso = :country_code", Collections.singletonMap("country_code", countryCode), rs -> {
-            if (rs.next())
-            {
-                return GeoConstants.CONTINENTS.get(rs.getString("continent"));
-            }
-            return null;
-        });
-    }
-
-    private Optional<Integer> getParentId(final long id, final Map<String, Integer> reverseFeatureMap, final String featureCode, final Map<String, Country> countryToId, final Map<String, Integer> cache, final String countryCode, final String[] adminCodeArray)
-    {
-        final int index = GeoConstants.COUNTRY_LEVEL_FEATURES.indexOf(featureCode);
+        final int index = GeoConstants.ADMINISTRATIVE_LEVEL_FEATURES.indexOf(featureCode);
 
         if (index == 0)
         {
@@ -253,15 +120,15 @@ public class HierachyBuilder
 
         if (isAdminLevelLocation)
         {
-            final String key = getKey(reverseFeatureMap, countryCode, adminCodeArray, index - 1);
+            final String key = getKey(countryCode, adminCodeArray, index - 1);
             return Optional.ofNullable(cache.get(key));
         }
         else
         {
-            final int lastNonNullIndex = lastOfNonNull(adminCodeArray);
-            for (int i = lastNonNullIndex; i >= 0; i--)
+            final int lastNonEmptyIndex = lastOfNotEmpty(adminCodeArray);
+            for (int i = lastNonEmptyIndex; i >= 0; i--)
             {
-                final String key = getKey(reverseFeatureMap, countryCode, adminCodeArray, i);
+                final String key = getKey(countryCode, adminCodeArray, i);
                 final Integer parentId = cache.get(key);
                 if (parentId != null)
                 {
@@ -274,7 +141,7 @@ public class HierachyBuilder
         return Optional.empty();
     }
 
-    private int getCountryId(final Map<String, Country> countryToId, final String countryCode)
+    private static int getCountryId(final Map<String, Country> countryToId, final String countryCode)
     {
         final Country country = countryToId.get(countryCode);
         if (country != null)
@@ -284,18 +151,18 @@ public class HierachyBuilder
         throw new EmptyResultDataAccessException("Unknown country code: " + countryCode, 1);
     }
 
-    private String getKey(final Map<String, Integer> reverseFeatureMap, final String countryCode, final String[] adminCodeArray, final int index)
+    private static String getKey(final String countryCode, final String[] adminCodeArray, final int index)
     {
         final String adminLevelCode = GeoConstants.ADMINISTRATIVE_LEVEL_FEATURES.get(index);
         final String adminCodes = nullAfterOffset(adminCodeArray, index);
-        return countryCode + "|" + adminCodes + "|" + reverseFeatureMap.get(adminLevelCode);
+        return countryCode + "|" + adminCodes + "|" + adminLevelCode;
     }
 
-    private int lastOfNonNull(final String[] codes)
+    private static int lastOfNotEmpty(final String[] codes)
     {
         for (int i = codes.length - 1; i >= 0; i--)
         {
-            if (codes[i] != null)
+            if (!"".equals(codes[i]))
             {
                 return i;
             }

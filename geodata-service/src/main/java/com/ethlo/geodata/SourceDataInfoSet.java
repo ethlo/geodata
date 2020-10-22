@@ -22,18 +22,35 @@ package com.ethlo.geodata;
  * #L%
  */
 
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 import com.ethlo.geodata.importer.GeonamesSource;
 
-public class SourceDataInfoSet extends LinkedHashSet<SourceDataInfo>
+public class SourceDataInfoSet
 {
-    private static final long serialVersionUID = 8084440663064395217L;
+    private Set<SourceDataInfo> data = new HashSet<>();
 
     public SourceDataInfo get(GeonamesSource type)
     {
-        final Optional<SourceDataInfo> entry = stream().filter(e -> e.getDataType() == type).findFirst();
+        final Optional<SourceDataInfo> entry = data.stream().filter(e -> e.getDataType() == type).findFirst();
         return entry.orElse(null);
+    }
+
+    public void add(final SourceDataInfo sourceDataInfo)
+    {
+        data.add(sourceDataInfo);
+    }
+
+    public Set<SourceDataInfo> getData()
+    {
+        return data;
+    }
+
+    public SourceDataInfoSet setData(final Set<SourceDataInfo> data)
+    {
+        this.data = data;
+        return this;
     }
 }

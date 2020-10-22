@@ -26,5 +26,7 @@ import java.util.Map;
 
 public interface TimeZoneDao
 {
-    Map<Integer, String> findTimeZones();
+    Map<Integer, String> load();
+
+    void save(Map<String, Integer> timezones);
 }

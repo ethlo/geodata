@@ -35,7 +35,7 @@ public class SourceDataInfo
     private final Date lastModified;
 
     @JsonCreator
-    public SourceDataInfo(@JsonProperty("alias") GeonamesSource geonamesSource, @JsonProperty("count") int count, @JsonProperty("lastModified") Date lastModified)
+    public SourceDataInfo(@JsonProperty("dataType") GeonamesSource geonamesSource, @JsonProperty("count") int count, @JsonProperty("lastModified") Date lastModified)
     {
         this.geonamesSource = geonamesSource;
         this.count = count;
@@ -78,12 +78,9 @@ public class SourceDataInfo
         SourceDataInfo other = (SourceDataInfo) obj;
         if (geonamesSource == null)
         {
-            if (other.geonamesSource != null)
-                return false;
+            return other.geonamesSource == null;
         }
-        else if (!geonamesSource.equals(other.geonamesSource))
-            return false;
-        return true;
+        else return geonamesSource.equals(other.geonamesSource);
     }
 
     @Override

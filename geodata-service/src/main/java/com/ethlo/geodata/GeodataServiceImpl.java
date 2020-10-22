@@ -22,7 +22,6 @@ package com.ethlo.geodata;
  * #L%
  */
 
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -59,14 +58,11 @@ import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
 import org.springframework.stereotype.Service;
 
-import com.ethlo.geodata.cache.SerializableSerializer;
-import com.ethlo.geodata.dao.FeatureCodeDao;
-import com.ethlo.geodata.dao.ReverseGeocodingDao;
+import com.ethlo.geodata.dao.HierarchyDao;
 import com.ethlo.geodata.dao.TimeZoneDao;
-import com.ethlo.geodata.dao.jdbc.JdbcBoundaryDao;
-import com.ethlo.geodata.dao.jdbc.JdbcIpDao;
-import com.ethlo.geodata.dao.jdbc.JdbcLocationDao;
-import com.ethlo.geodata.importer.GeonamesSource;
+import com.ethlo.geodata.dao.file.FileFeatureCodeDao;
+import com.ethlo.geodata.dao.file.FileIpDao;
+import com.ethlo.geodata.dao.file.FileLocationDao;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
@@ -83,7 +79,7 @@ import com.googlecode.concurrenttrees.radix.ConcurrentRadixTree;
 import com.googlecode.concurrenttrees.radix.RadixTree;
 import com.googlecode.concurrenttrees.radix.node.concrete.SmartArrayBasedNodeFactory;
 import com.illucit.util.ASCIIUtils;
-import it.unimi.dsi.fastutil.ints.Int2ObjectAVLTreeMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
 @Service
 public class GeodataServiceImpl implements GeodataService
@@ -91,7 +87,7 @@ public class GeodataServiceImpl implements GeodataService
     private final Logger logger = LoggerFactory.getLogger(GeodataServiceImpl.class);
 
     // Loaded data
-    private Map<Integer, Node> nodes = new Int2ObjectAVLTreeMap<>();
+    private Map<Integer, Node> nodes = new Int2ObjectOpenHashMap<>();
     private Map<Integer, String> timezones;
     private Map<String, Country> countries;
     private List<Continent> continents = new LinkedList<>();
@@ -104,19 +100,22 @@ public class GeodataServiceImpl implements GeodataService
     private GeoMetaService metaService;
 
     @Autowired
-    private JdbcLocationDao locationDao;
+    private FileLocationDao locationDao;
 
     @Autowired
-    private JdbcIpDao ipDao;
+    private FileIpDao ipDao;
 
     @Autowired
-    private ReverseGeocodingDao reverseGeocodingDao;
+    private HierarchyDao hierarchyDao;
+
+    //@Autowired
+    //private ReverseGeocodingDao reverseGeocodingDao;
+
+    //@Autowired
+    //private JdbcBoundaryDao boundaryDao;
 
     @Autowired
-    private JdbcBoundaryDao boundaryDao;
-
-    @Autowired
-    private FeatureCodeDao featureCodeDao;
+    private FileFeatureCodeDao featureCodeDao;
 
     @Autowired
     private TimeZoneDao timeZoneDao;
@@ -124,7 +123,7 @@ public class GeodataServiceImpl implements GeodataService
     @Value("${geodata.boundaries.quality}")
     private int qualityConstant;
 
-    private PersistentCacheManager persistentCacheManager = new PersistentCacheManager(Paths.get("/tmp"));
+    private Map<String, Country> countryCodeToId;
 
     @Override
     public GeoLocation findByIp(String ip)
@@ -150,7 +149,8 @@ public class GeodataServiceImpl implements GeodataService
         RawLocation location = null;
         while (range <= maxDistanceInKilometers && location == null)
         {
-            location = reverseGeocodingDao.findContaining(point, range);
+            // Bring back
+            //location = reverseGeocodingDao.findContaining(point, range);
             range *= 2;
         }
         if (location != null)
@@ -163,9 +163,11 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable)
     {
-        final Map<Integer, Double> locations = reverseGeocodingDao.findNearest(point, maxDistanceInKilometers, pageable);
+        /*final Map<Integer, Double> locations = reverseGeocodingDao.findNearest(point, maxDistanceInKilometers, pageable);
         final List<GeoLocationDistance> content = locations.entrySet().stream().map(e -> new GeoLocationDistance().setLocation(findById(e.getKey())).setDistance(e.getValue())).collect(Collectors.toList());
         return new PageImpl<>(content, pageable, metaService.getSourceDataInfo().get(GeonamesSource.LOCATION).getCount());
+        */
+        throw new UnsupportedOperationException("Not yet");
     }
 
     @Override
@@ -175,13 +177,15 @@ public class GeodataServiceImpl implements GeodataService
         {
             return Collections.emptyList();
         }
-        return locationDao.findByIds(ids).stream().map(this::populate).collect(Collectors.toList());
+        return (ids).stream().map(this::doFindById).collect(Collectors.toList());
     }
 
     @Override
     public byte[] findBoundaries(int id)
     {
-        return boundaryDao.findById(id).orElseThrow(() -> new EmptyResultDataAccessException("No boundaries found for location " + id, 1));
+        // TODO: Bring back
+        throw new EmptyResultDataAccessException("No boundaries found for location " + id, 1);
+        //return boundaryDao.findById(id).orElseThrow(() -> new EmptyResultDataAccessException("No boundaries found for location " + id, 1));
     }
 
     @Override
@@ -205,15 +209,20 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public void load(LoadProgressListener progressListener)
     {
-        final SourceDataInfoSet sourceDataInfo = metaService.getSourceDataInfo();
-
         progressListener.begin("feature_codes", 1);
-        this.featureCodes = featureCodeDao.findFeatureCodes();
+        this.featureCodes = featureCodeDao.load();
         this.reverseFeatureMap = new LinkedHashMap<>();
-        featureCodes.forEach((k, v) -> reverseFeatureMap.put(v.getFeatureClass() + "." + v.getFeatureCode(), k));
+        for (Entry<Integer, MapFeature> e : featureCodes.entrySet())
+        {
+            reverseFeatureMap.put(e.getValue().getFeatureClass() + "." + e.getValue().getFeatureCode(), e.getKey());
+        }
 
         progressListener.begin("time_zones", 1);
-        this.timezones = timeZoneDao.findTimeZones();
+        this.timezones = timeZoneDao.load();
+
+        logger.info("Loading locations");
+        progressListener.begin("load_locations");
+        locations = locationDao.load();
 
         progressListener.begin("continents", 1);
         continents = findByIds(GeoConstants.CONTINENTS.values())
@@ -223,20 +232,10 @@ public class GeodataServiceImpl implements GeodataService
 
         progressListener.begin("countries", null);
         this.countries = new HashMap<>();
-        locationDao.getCountries().forEach(l -> countries.put(l.getCountryCode(), Country.from(populate(l))));
 
-        logger.info("Loading locations");
-        progressListener.begin("load_locations");
-        locations = persistentCacheManager.get("raw_locations", new SerializableSerializer<>(), () ->
-        {
-            final Map<Integer, RawLocation> tmp = new Int2ObjectAVLTreeMap<>();
-            locationDao.iterate(e ->
-            {
-                tmp.put(e.getId(), e);
-                progressListener.progress(tmp.size());
-            });
-            return tmp;
-        });
+        // TODO: Implement
+        //locationDao.getCountries().forEach(l -> countries.put(l.getCountryCode(), Country.from(populate(l))));
+
 
         logger.info("Loading search index");
         int count = 0;
@@ -250,17 +249,19 @@ public class GeodataServiceImpl implements GeodataService
 
         logger.info("Loading hierarchy data");
         progressListener.begin("load_hierarchy_data");
-        final Map<Integer, Integer> childToParent = persistentCacheManager.get("hierarchy", new IntIntMapSerializer(), () ->
-                locationDao.loadHierarchy(countries, featureCodes, progressListener::progress));
+        final Map<Integer, Integer> childToParent = hierarchyDao.load();
 
         logger.info("Joining location nodes hierarchy");
         progressListener.begin("join_admin_levels");
         joinHierarchyNodes(childToParent, progressListener::progress);
         //reportNoParent(nodes);
 
-        logger.info("Loading IP to location data");
+        /*logger.info("Loading IP to location data");
         progressListener.begin("ip_data");
         ipDao.load(progressListener::progress);
+        */
+
+        logger.info("All data loaded successfully");
 
         progressListener.end();
     }
@@ -325,7 +326,8 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<Country> findCountriesOnContinent(String continentCode, Pageable pageable)
     {
-        return locationDao.findCountriesOnContinent(continentCode, pageable).map(e -> Country.from(populate(e)));
+        throw new UnsupportedOperationException("Not yet");
+        //return locationDao.findCountriesOnContinent(continentCode, pageable).map(e -> Country.from(populate(e)));
     }
 
     @Override
@@ -348,17 +350,16 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<GeoLocation> findChildren(String countryCode, Pageable pageable)
     {
-        final int adm1Id = reverseFeatureMap.get("A.ADM1");
-        return locationDao.findChildren(countryCode, adm1Id, pageable).map(raw ->
-        {
-            final GeoLocation l = populate(raw);
-            return Country.from(l);
-        });
+        final int id = Optional.ofNullable(countryCodeToId.get(countryCode)).map(Country::getId).orElseThrow(() -> new EmptyResultDataAccessException("No country code " + countryCode, 1));
+        final List<Integer> childIds = Optional.ofNullable(nodes.get(id).getChildren()).orElse(Collections.emptyList());
+        final int skip = (int) (pageable.getOffset() + pageable.getPageSize());
+        final List<GeoLocation> content = childIds.stream().skip(skip).limit(pageable.getPageSize()).map(this::doFindById).collect(Collectors.toList());
+        return new PageImpl<>(content, pageable, childIds.size());
     }
 
     private void joinHierarchyNodes(final Map<Integer, Integer> childToParent, StepProgressListener listener)
     {
-        nodes = new Int2ObjectAVLTreeMap<>();
+        nodes = new Int2ObjectOpenHashMap<>(childToParent.size());
         childToParent.forEach((child, parent) ->
         {
             final Node childNode = nodes.computeIfAbsent(child, Node::new);
@@ -375,9 +376,8 @@ public class GeodataServiceImpl implements GeodataService
         String stripped = phoneNumber.replaceAll("[^\\d.]", "");
         stripped = stripped.replaceFirst("^0+(?!$)", "");
 
-        final List<Integer> countryIds = locationDao.findByPhoneNumber(stripped);
-
-        return !countryIds.isEmpty() ? populateCountry(findById(countryIds.get(0))) : null;
+        //final List<Integer> countryIds = locationDao.findByPhoneNumber(stripped);
+        throw new UnsupportedOperationException("Not yet");
     }
 
     private Country populateCountry(final GeoLocation location)

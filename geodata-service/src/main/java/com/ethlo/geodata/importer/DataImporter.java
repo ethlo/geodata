@@ -1,4 +1,4 @@
-package com.ethlo.geodata.importer;
+package com.ethlo.geodata.importer.jdbc;
 
 /*-
  * #%L
@@ -22,10 +22,14 @@ package com.ethlo.geodata.importer;
  * #L%
  */
 
-import java.util.Map;
-import java.util.function.Consumer;
+import java.io.IOException;
+import java.util.Date;
 
 public interface DataImporter
 {
-    long processFile(Consumer<Map<String, String>> sink);
+    void purgeData() throws IOException;
+
+    int importData() throws IOException;
+
+    Date lastRemoteModified() throws IOException;
 }

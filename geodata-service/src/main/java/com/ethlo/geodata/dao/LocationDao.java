@@ -38,19 +38,6 @@ import com.ethlo.geodata.progress.StepProgressListener;
 
 public interface LocationDao
 {
-    Page<RawLocation> findChildren(String countryCode, int adm1FeatureCodeId, Pageable pageable);
 
-    Optional<RawLocation> findById(int id);
-
-    Page<RawLocation> findCountriesOnContinent(String continentCode, Pageable pageable);
-
-    List<RawLocation> findCountries();
-
-    List<Integer> findByPhoneNumber(String phoneNumber);
-
-    List<RawLocation> getCountries();
-
-    Map<Integer, Integer> loadHierarchy(Map<String, Country> countries, Map<Integer, MapFeature> featureCodes, StepProgressListener progressListener);
-
-    void iterate(Consumer<RawLocation> consumer);
+    Map<Integer, RawLocation> load();
 }

@@ -22,13 +22,18 @@ package com.ethlo.geodata;
  * #L%
  */
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class MapFeature
 {
     private final String featureClass;
     private final String featureCode;
     private final String key;
 
-    public MapFeature(final String featureClass, final String featureCode)
+    @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+    public MapFeature(@JsonProperty("feature_class") final String featureClass, @JsonProperty("feature_code") final String featureCode)
     {
         this.featureClass = featureClass;
         this.featureCode = featureCode;
@@ -45,6 +50,7 @@ public class MapFeature
         return featureCode;
     }
 
+    @JsonIgnore
     public String getKey()
     {
         return key;

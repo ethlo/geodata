@@ -10,12 +10,12 @@ package com.ethlo.geodata;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -24,7 +24,10 @@ package com.ethlo.geodata;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import javax.annotation.Nonnull;
 import javax.servlet.FilterChain;
@@ -39,6 +42,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.ethlo.geodata.progress.StatefulProgressListener;
+import com.ethlo.geodata.progress.Step;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.common.io.ByteStreams;
@@ -79,7 +83,9 @@ public class StartupFilter extends OncePerRequestFilter
         {
             response.setStatus(503);
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            objectMapper.writeValue(response.getOutputStream(), new ApiError(HttpStatus.SERVICE_UNAVAILABLE, "Service is starting up", Collections.emptyList()));
+            final List<Map.Entry<String, Step>> steps = new ArrayList<>(progress.getSteps().entrySet());
+            final String stepName = !steps.isEmpty() ? steps.get(steps.size() - 1).getKey() : "initializing";
+            objectMapper.writeValue(response.getOutputStream(), new ApiError(HttpStatus.SERVICE_UNAVAILABLE, "Service is starting up", Collections.singletonList(stepName)));
         }
         else if (isStatusPage)
         {

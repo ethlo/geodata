@@ -22,6 +22,7 @@ package com.ethlo.geodata.importer;
  * #L%
  */
 
+/*
 import static org.apache.commons.lang3.StringUtils.stripToNull;
 
 import java.io.BufferedReader;
@@ -36,7 +37,7 @@ import java.util.function.Consumer;
 
 import org.springframework.util.StringUtils;
 
-public class CountryImporter implements DataImporter
+public class CountryImporter extends BaseFileImporter<Raw>
 {
     private final File csvFile;
 
@@ -48,27 +49,6 @@ public class CountryImporter implements DataImporter
     @Override
     public long processFile(Consumer<Map<String, String>> sink)
     {
-        /*
-         * ISO
-         * ISO3
-         * ISO-Numeric
-         * fips
-         * Country
-         * Capital
-         * Area(in sq km)
-         * Population
-         * Continent
-         * tld
-         * CurrencyCode
-         * CurrencyName
-         * Phone
-         * Postal Code Format
-         * Postal Code Regex
-         * Languages
-         * geonameid
-         * neighbours
-         * EquivalentFipsCode
-         */
         final AtomicInteger count = new AtomicInteger();
         try (final BufferedReader reader = new BufferedReader(new FileReader(csvFile)))
         {
@@ -111,3 +91,5 @@ public class CountryImporter implements DataImporter
         return count.get();
     }
 }
+
+*/

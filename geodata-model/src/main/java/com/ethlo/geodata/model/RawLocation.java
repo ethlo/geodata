@@ -22,13 +22,12 @@ package com.ethlo.geodata.model;
  * #L%
  */
 
-import java.io.Externalizable;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
 import java.util.Objects;
 
-public class RawLocation implements Externalizable
+public class RawLocation implements CompactSerializable
 {
     private static final long serialVersionUID = -4918529556780291151L;
 
@@ -40,6 +39,7 @@ public class RawLocation implements Externalizable
     private int mapFeatureId;
     private long population;
     private int timeZoneId;
+    private int elevation;
 
     public RawLocation()
     {
@@ -93,33 +93,6 @@ public class RawLocation implements Externalizable
     }
 
     @Override
-    public void writeExternal(final ObjectOutput o) throws IOException
-    {
-        o.writeInt(id);
-        o.writeUTF(name);
-        o.writeUTF(countryCode != null ? countryCode : "");
-        o.writeDouble(lat);
-        o.writeDouble(lng);
-        o.writeInt(mapFeatureId);
-        o.writeLong(population);
-        o.writeInt(timeZoneId);
-    }
-
-    @Override
-    public void readExternal(final ObjectInput in) throws IOException
-    {
-        id = in.readInt();
-        name = in.readUTF();
-        final String cc = in.readUTF();
-        countryCode = "".equals(cc) ? null : cc;
-        lat = in.readDouble();
-        lng = in.readDouble();
-        mapFeatureId = in.readInt();
-        population = in.readLong();
-        timeZoneId = in.readInt();
-    }
-
-    @Override
     public boolean equals(final Object o)
     {
         if (this == o) return true;
@@ -139,5 +112,32 @@ public class RawLocation implements Externalizable
     public int hashCode()
     {
         return Objects.hash(id, name);
+    }
+
+    @Override
+    public void write(final DataOutputStream out) throws IOException
+    {
+        out.writeInt(id);
+        out.writeUTF(name);
+        out.writeUTF(countryCode != null ? countryCode : "");
+        out.writeDouble(lat);
+        out.writeDouble(lng);
+        out.writeInt(mapFeatureId);
+        out.writeLong(population);
+        out.writeInt(timeZoneId);
+    }
+
+    @Override
+    public void read(final DataInputStream in) throws IOException
+    {
+        id = in.readInt();
+        name = in.readUTF();
+        final String cc = in.readUTF();
+        countryCode = "".equals(cc) ? null : cc;
+        lat = in.readDouble();
+        lng = in.readDouble();
+        mapFeatureId = in.readInt();
+        population = in.readLong();
+        timeZoneId = in.readInt();
     }
 }

@@ -1,17 +1,18 @@
 package com.ethlo.geodata.ip;
 
-import java.io.Externalizable;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
 
-public class IpData implements Externalizable
+import com.ethlo.geodata.model.CompactSerializable;
+
+public class IpData implements CompactSerializable
 {
     private int geonameId;
     private long lower;
     private long upper;
 
-    public IpData()
+    private IpData()
     {
 
     }
@@ -39,7 +40,7 @@ public class IpData implements Externalizable
     }
 
     @Override
-    public void writeExternal(final ObjectOutput out) throws IOException
+    public void write(final DataOutputStream out) throws IOException
     {
         out.writeInt(geonameId);
         out.writeLong(lower);
@@ -47,7 +48,7 @@ public class IpData implements Externalizable
     }
 
     @Override
-    public void readExternal(final ObjectInput in) throws IOException, ClassNotFoundException
+    public void read(final DataInputStream in) throws IOException
     {
         geonameId = in.readInt();
         lower = in.readLong();

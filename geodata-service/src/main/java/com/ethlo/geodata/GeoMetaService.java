@@ -23,88 +23,72 @@ package com.ethlo.geodata;
  */
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.Date;
-import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
 import java.util.function.Supplier;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import com.ethlo.geodata.importer.GeoFabrikBoundaryLoader;
 import com.ethlo.geodata.importer.GeonamesSource;
-import com.ethlo.geodata.importer.jdbc.JdbcCountryImporter;
-import com.ethlo.geodata.importer.jdbc.JdbcGeonamesBoundaryImporter;
-import com.ethlo.geodata.importer.jdbc.JdbcGeonamesImporter;
-import com.ethlo.geodata.importer.jdbc.JdbcIpLookupImporter;
+import com.ethlo.geodata.importer.jdbc.FileGeonamesImporter;
+import com.ethlo.geodata.importer.jdbc.FileIpDataImporter;
+import com.ethlo.geodata.util.JsonUtil;
 
 @Service
 public class GeoMetaService
 {
+    public static final String META_INFO_FILE = "meta.json";
+
     private final GeoFabrikBoundaryLoader geoFabrikBoundaryLoader = new GeoFabrikBoundaryLoader();
 
-    @Autowired
-    private JdbcCountryImporter countryImporter;
-    @Autowired
-    private JdbcIpLookupImporter ipLookupImporter;
-    @Autowired
-    private JdbcGeonamesImporter geonamesImporter;
-    @Autowired
-    private JdbcGeonamesBoundaryImporter geonamesBoundaryImporter;
-    @Autowired
-    private NamedParameterJdbcTemplate jdbcTemplate;
+    private final Duration maxDataAge;
+    private final FileIpDataImporter ipLookupImporter;
+    private final FileGeonamesImporter geonamesImporter;
+    private final Path basePath;
 
-    @Value("${geodata.max-data-age}")
-    private Duration maxDataAge;
+    public GeoMetaService(@Value("${geodata.base-path}") final Path basePath,
+                          @Value("${geodata.max-data-age}") final Duration maxDataAge,
+                          FileIpDataImporter ipLookupImporter,
+                          FileGeonamesImporter geonamesImporter)
+    {
+        this.basePath = basePath;
+        this.maxDataAge = maxDataAge;
+        this.ipLookupImporter = ipLookupImporter;
+        this.geonamesImporter = geonamesImporter;
+    }
+
 
     public Optional<Date> getLastModified(GeonamesSource alias)
     {
-        final String sql = "SELECT last_modified from metadata where alias = :alias";
-        return jdbcTemplate.query(sql, Collections.singletonMap("alias", alias.name().toLowerCase()), rs ->
-        {
-            if (rs.next())
-            {
-                return Optional.of(rs.getTimestamp("last_modified"));
-            }
-            return Optional.empty();
-        });
+        return Optional.ofNullable(getSourceDataInfo().get(alias)).map(SourceDataInfo::getLastModified);
     }
 
-    public void setStatus(GeonamesSource type, Date lastModified, final long count)
+    public void setStatus(GeonamesSource type, Date lastModified, final int count)
     {
-        final String sql = "REPLACE INTO `metadata` (`alias`, `last_modified`, `entry_count`) VALUES (:alias, :last_modified, :entry_count)";
-        final Map<String, Object> params = new TreeMap<>();
-        params.put("alias", type.name().toLowerCase());
-        params.put("last_modified", lastModified);
-        params.put("entry_count", count);
-        jdbcTemplate.update(sql, params);
+        final Path file = basePath.resolve(META_INFO_FILE);
+        final SourceDataInfoSet data = getSourceDataInfo();
+        data.add(new SourceDataInfo(type, count, lastModified));
+        JsonUtil.write(file, data);
     }
 
     public void update() throws IOException
     {
-        final Date countryTimestamp = countryImporter.lastRemoteModified();
-        ifExpired(GeonamesSource.COUNTRY, countryTimestamp, () ->
-        {
-            countryImporter.purgeData();
-            return countryImporter.importData();
-        });
-
         ifExpired(GeonamesSource.LOCATION, geonamesImporter.lastRemoteModified(), () ->
         {
             geonamesImporter.purgeData();
             return geonamesImporter.importData();
         });
 
-        //ifExpired(GeonamesSource.IP, ipLookupImporter.lastRemoteModified(), () ->
-        //{
+        ifExpired(GeonamesSource.IP, ipLookupImporter.lastRemoteModified(), () ->
+        {
             ipLookupImporter.purgeData();
-            ipLookupImporter.importData();
-        //});
+            return ipLookupImporter.importData();
+        });
 
         /*final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
         if (boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)
@@ -116,21 +100,23 @@ public class GeoMetaService
         */
     }
 
-    private void ifExpired(final GeonamesSource type, final Date sourceTimestamp, final Supplier<Long> updater)
+    private void ifExpired(final GeonamesSource type, final Date sourceTimestamp, final Supplier<Integer> updater)
     {
         final Optional<Date> localDataModifiedAt = getLastModified(type);
         if (localDataModifiedAt.isEmpty() || sourceTimestamp.getTime() > localDataModifiedAt.get().getTime() + maxDataAge.toMillis())
         {
-            final long count = updater.get();
+            final int count = updater.get();
             setStatus(type, sourceTimestamp, count);
         }
     }
 
     public SourceDataInfoSet getSourceDataInfo()
     {
-        final SourceDataInfoSet result = new SourceDataInfoSet();
-        result.addAll(jdbcTemplate.query("SELECT alias, entry_count, last_modified FROM metadata", Collections.emptyMap(), (rs, rowNum) ->
-                new SourceDataInfo(GeonamesSource.valueOf(rs.getString("alias").toUpperCase()), rs.getInt("entry_count"), rs.getDate("last_modified"))));
-        return result;
+        final Path file = basePath.resolve(META_INFO_FILE);
+        if (Files.exists(file))
+        {
+            return JsonUtil.read(file, SourceDataInfoSet.class);
+        }
+        return new SourceDataInfoSet();
     }
 }
