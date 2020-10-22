@@ -36,6 +36,7 @@ import org.locationtech.jts.util.Assert;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -54,6 +55,12 @@ public class BenchmarkController
 
     @Autowired
     private GeodataController controller;
+
+    @GetMapping("/")
+    public ResponseEntity<String> staticResponse()
+    {
+        return ResponseEntity.ok("hello");
+    }
 
     @GetMapping("/v1/ips")
     public Map<String, Object> ipLookup(@RequestParam("count") final Integer count, @RequestParam("iterations") final Integer iterations)

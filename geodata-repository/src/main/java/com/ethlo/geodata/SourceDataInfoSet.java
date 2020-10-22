@@ -38,6 +38,7 @@ public class SourceDataInfoSet
 
     public void add(final SourceDataInfo sourceDataInfo)
     {
+        data.remove(sourceDataInfo);
         data.add(sourceDataInfo);
     }
 

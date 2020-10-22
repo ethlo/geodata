@@ -63,14 +63,12 @@ public class SourceDataInfo
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         final SourceDataInfo that = (SourceDataInfo) o;
-        return count == that.count &&
-                lastModified.equals(that.lastModified) &&
-                type.equals(that.type);
+        return type.equals(that.type);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(count, lastModified, type);
+        return Objects.hash(type);
     }
 }

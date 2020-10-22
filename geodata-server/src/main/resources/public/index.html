@@ -67,34 +67,26 @@
             </thead>
             <tr>
                 <td>IP locations</td>
-                <td class="numeric" data-count="IP"></td>
-                <td data-lastmodified="IP"></td>
+                <td class="numeric" data-count="ip"></td>
+                <td data-lastmodified="ip"></td>
                 <td>
-                    <time data-lastmodified="IP" class="timeago"></time>
-                </td>
-            </tr>
-            <tr>
-                <td>Countries</td>
-                <td class="numeric" data-count="COUNTRY"></td>
-                <td data-lastmodified="COUNTRY"></td>
-                <td>
-                    <time data-lastmodified="COUNTRY" class="timeago"></time>
+                    <time data-lastmodified="ip" class="timeago"></time>
                 </td>
             </tr>
             <tr>
                 <td>Locations</td>
-                <td class="numeric" data-count="LOCATION"></td>
-                <td data-lastmodified="LOCATION"></td>
+                <td class="numeric" data-count="locations"></td>
+                <td data-lastmodified="locations"></td>
                 <td>
-                    <time data-lastmodified="LOCATION" class="timeago"></time>
+                    <time data-lastmodified="locations" class="timeago"></time>
                 </td>
             </tr>
             <tr>
                 <td>Boundaries</td>
-                <td class="numeric" data-count="BOUNDARY"></td>
-                <td data-lastmodified="BOUNDARY"></td>
+                <td class="numeric" data-count="boundary"></td>
+                <td data-lastmodified="boundary"></td>
                 <td>
-                    <time data-lastmodified="BOUNDARY" class="timeago"></time>
+                    <time data-lastmodified="boundary" class="timeago"></time>
                 </td>
             </tr>
         </table>
@@ -119,11 +111,10 @@
         var ele = document.getElementById('source-data');
 
         if (xhr.status === 200) {
-            var array = JSON.parse(xhr.responseText);
+            var array = JSON.parse(xhr.responseText).data;
             array.forEach(function (o) {
-                var name = o.geonamesSource.toLowerCase();
-                console.log(name);
-
+                console.log(o);
+                var name = o.dataType.toLowerCase();
                 var ele = document.querySelector('td[data-count="' + name + '"]');
                 if (ele) ele.innerHTML = numberWithCommas(o.count);
 

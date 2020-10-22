@@ -33,7 +33,8 @@ import com.ethlo.geodata.util.JsonUtil;
 @Repository
 public class FileMetaDao implements MetaDao
 {
-    private final String FILE = "metadata.json";
+    public static final String FILE = "metadata.json";
+
     private final Path basePath;
 
     public FileMetaDao(@Value("${geodata.base-path}") final Path basePath)

@@ -10,12 +10,12 @@ package com.ethlo.geodata.importer;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -25,14 +25,13 @@ package com.ethlo.geodata.importer;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Date;
 import java.util.Map;
-import java.util.zip.GZIPInputStream;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -40,8 +39,9 @@ import org.springframework.stereotype.Component;
 import com.ethlo.geodata.DataType;
 import com.ethlo.geodata.dao.file.FileIpDao;
 import com.ethlo.geodata.util.ResourceUtil;
-import com.google.common.io.ByteStreams;
-import com.google.common.primitives.Ints;
+import com.ethlo.geodata.util.TarGzUtil;
+import com.maxmind.db.Metadata;
+import com.maxmind.db.Reader;
 
 @Component
 public class FileIpDataImporter implements DataImporter
@@ -76,15 +76,42 @@ public class FileIpDataImporter implements DataImporter
         try
         {
             final Map.Entry<Date, File> entry = ResourceUtil.fetchResource(DataType.IP, url);
-            final Path tmp = filePath.getParent().resolve("ip.tmp");
-            final GZIPInputStream source = new GZIPInputStream(new BufferedInputStream(Files.newInputStream(entry.getValue().toPath())));
-            final long bytes = ByteStreams.copy(source, Files.newOutputStream(tmp));
+            final Path tmp = filePath.getParent().resolve(FileIpDao.IP_FILE + ".tmp");
+            TarGzUtil.extract(new BufferedInputStream(Files.newInputStream(entry.getValue().toPath())), (e) ->
+            {
+                if (e.getKey().getName().endsWith("GeoLite2-City.mmdb"))
+                {
+                    try
+                    {
+                        Files.copy(e.getValue(), tmp);
+                    }
+                    catch (IOException exc)
+                    {
+                        throw new UncheckedIOException(exc);
+                    }
+                }
+            });
             Files.move(tmp, filePath, StandardCopyOption.ATOMIC_MOVE);
-            return Ints.saturatedCast(bytes);
+            final Metadata metadata = new Reader(filePath.toFile()).getMetadata();
+            return extractCount(metadata);
         }
         catch (IOException exc)
         {
             throw new UncheckedIOException(exc);
+        }
+    }
+
+    private int extractCount(final Metadata metadata)
+    {
+        try
+        {
+            final Field nodeCountField = Metadata.class.getDeclaredField("nodeCount");
+            nodeCountField.setAccessible(true);
+            return (int) nodeCountField.get(metadata);
+        }
+        catch (IllegalAccessException | NoSuchFieldException e)
+        {
+            throw new RuntimeException(e);
         }
     }
 

@@ -38,13 +38,12 @@ import org.springframework.stereotype.Service;
 import com.ethlo.geodata.DataType;
 import com.ethlo.geodata.SourceDataInfo;
 import com.ethlo.geodata.SourceDataInfoSet;
+import com.ethlo.geodata.dao.FileMetaDao;
 import com.ethlo.geodata.util.JsonUtil;
 
 @Service
 public class DataImporterService
 {
-    public static final String META_INFO_FILE = "meta.json";
-
     private final GeoFabrikBoundaryLoader geoFabrikBoundaryLoader = new GeoFabrikBoundaryLoader();
 
     private final Duration maxDataAge;
@@ -71,7 +70,7 @@ public class DataImporterService
 
     public void setStatus(String type, Date lastModified, final int count)
     {
-        final Path file = basePath.resolve(META_INFO_FILE);
+        final Path file = basePath.resolve(FileMetaDao.FILE);
         final SourceDataInfoSet data = getSourceDataInfo();
         data.add(new SourceDataInfo(type, count, lastModified));
         JsonUtil.write(file, data);
@@ -114,7 +113,7 @@ public class DataImporterService
 
     public SourceDataInfoSet getSourceDataInfo()
     {
-        final Path file = basePath.resolve(META_INFO_FILE);
+        final Path file = basePath.resolve(FileMetaDao.FILE);
         if (Files.exists(file))
         {
             return JsonUtil.read(file, SourceDataInfoSet.class);
