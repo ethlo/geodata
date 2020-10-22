@@ -28,12 +28,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -46,7 +44,6 @@ import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.io.WKBWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -58,6 +55,7 @@ import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
 import org.springframework.stereotype.Service;
 
+import com.ethlo.geodata.dao.CountryDao;
 import com.ethlo.geodata.dao.HierarchyDao;
 import com.ethlo.geodata.dao.TimeZoneDao;
 import com.ethlo.geodata.dao.file.FileFeatureCodeDao;
@@ -74,6 +72,7 @@ import com.ethlo.geodata.model.RawLocation;
 import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.progress.StepProgressListener;
 import com.ethlo.geodata.util.GeometryUtil;
+import com.ethlo.geodata.util.MemoryUsageUtil;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
 import com.googlecode.concurrenttrees.radix.ConcurrentRadixTree;
@@ -86,39 +85,35 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 public class GeodataServiceImpl implements GeodataService
 {
     private final Logger logger = LoggerFactory.getLogger(GeodataServiceImpl.class);
-
+    private final RadixTree<int[]> locationsByName = new ConcurrentRadixTree<>(new SmartArrayBasedNodeFactory());
+    private final FileLocationDao locationDao;
+    private final FileIpDao ipDao;
+    private final HierarchyDao hierarchyDao;
+    private final FileFeatureCodeDao featureCodeDao;
+    private final TimeZoneDao timeZoneDao;
+    private final CountryDao countryDao;
     // Loaded data
     private Map<Integer, Node> nodes = new Int2ObjectOpenHashMap<>();
     private Map<Integer, String> timezones;
     private Map<String, Country> countries;
     private List<Continent> continents = new LinkedList<>();
     private Map<Integer, MapFeature> featureCodes = new HashMap<>();
-    private Map<String, Integer> reverseFeatureMap = new HashMap<>();
-    private RadixTree<int[]> locationsByName = new ConcurrentRadixTree<>(new SmartArrayBasedNodeFactory());
     private Map<Integer, RawLocation> locations;
-
-    @Autowired
-    private FileLocationDao locationDao;
-
-    @Autowired
-    private FileIpDao ipDao;
-
-    @Autowired
-    private HierarchyDao hierarchyDao;
-
-    @Autowired
-    private FileFeatureCodeDao featureCodeDao;
-
-    @Autowired
-    private TimeZoneDao timeZoneDao;
-
     @Value("${geodata.search.index-features}")
     private List<String> additionalIndexedFeatures;
 
     @Value("${geodata.boundaries.quality}")
     private int qualityConstant;
 
-    private Map<String, Country> countryCodeToId;
+    public GeodataServiceImpl(final FileLocationDao locationDao, final FileIpDao ipDao, final HierarchyDao hierarchyDao, final FileFeatureCodeDao featureCodeDao, final TimeZoneDao timeZoneDao, final CountryDao countryDao)
+    {
+        this.locationDao = locationDao;
+        this.ipDao = ipDao;
+        this.hierarchyDao = hierarchyDao;
+        this.featureCodeDao = featureCodeDao;
+        this.timeZoneDao = timeZoneDao;
+        this.countryDao = countryDao;
+    }
 
     @Override
     public GeoLocation findByIp(String ip)
@@ -140,6 +135,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public GeoLocation findWithin(Coordinates point, int maxDistanceInKilometers)
     {
+        // Support this
         int range = 25;
         RawLocation location = null;
         while (range <= maxDistanceInKilometers && location == null)
@@ -158,6 +154,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable)
     {
+        // TODO: Support this!
         /*final Map<Integer, Double> locations = reverseGeocodingDao.findNearest(point, maxDistanceInKilometers, pageable);
         final List<GeoLocationDistance> content = locations.entrySet().stream().map(e -> new GeoLocationDistance().setLocation(findById(e.getKey())).setDistance(e.getValue())).collect(Collectors.toList());
         return new PageImpl<>(content, pageable, metaService.getSourceDataInfo().get(GeonamesSource.LOCATION).getCount());
@@ -206,18 +203,16 @@ public class GeodataServiceImpl implements GeodataService
     {
         progressListener.begin("feature_codes", 1);
         this.featureCodes = featureCodeDao.load();
-        this.reverseFeatureMap = new LinkedHashMap<>();
-        for (Entry<Integer, MapFeature> e : featureCodes.entrySet())
-        {
-            reverseFeatureMap.put(e.getValue().getFeatureClass() + "." + e.getValue().getFeatureCode(), e.getKey());
-        }
 
         progressListener.begin("time_zones", 1);
         this.timezones = timeZoneDao.load();
 
+        MemoryUsageUtil.dumpMemUsage("Before locations loaded");
         logger.info("Loading locations");
         progressListener.begin("load_locations");
         locations = locationDao.load();
+        logger.info("Loaded {} locations", locations.size());
+        MemoryUsageUtil.dumpMemUsage("After locations loaded");
 
         progressListener.begin("continents", 1);
         continents = findByIds(GeoConstants.CONTINENTS.values())
@@ -226,11 +221,8 @@ public class GeodataServiceImpl implements GeodataService
                 .collect(Collectors.toList());
 
         progressListener.begin("countries", null);
-        this.countries = new HashMap<>();
 
-        // TODO: Implement
-        //locationDao.getCountries().forEach(l -> countries.put(l.getCountryCode(), Country.from(populate(l))));
-
+        this.countries = countryDao.load();
 
         logger.info("Loading search index");
         int count = 0;
@@ -240,21 +232,21 @@ public class GeodataServiceImpl implements GeodataService
             addToSearchIndex(location);
             progressListener.progress(count);
         }
+
+        MemoryUsageUtil.dumpMemUsage("Search index loaded");
+
+        logger.info("Search index loaded with {} entries", locationsByName.size());
         progressListener.end();
 
         logger.info("Loading hierarchy data");
         progressListener.begin("load_hierarchy_data");
         final Map<Integer, Integer> childToParent = hierarchyDao.load();
+        logger.info("Loaded {} hierarchy references", childToParent.size());
 
-        logger.info("Joining location nodes hierarchy");
+        logger.info("Joining hierarchy nodes");
         progressListener.begin("join_admin_levels");
         joinHierarchyNodes(childToParent, progressListener::progress);
         //reportNoParent(nodes);
-
-        /*logger.info("Loading IP to location data");
-        progressListener.begin("ip_data");
-        ipDao.load(progressListener::progress);
-        */
 
         logger.info("All data loaded successfully");
 
@@ -289,22 +281,6 @@ public class GeodataServiceImpl implements GeodataService
         return getPath(id).stream().skip(1).map(this::findById).collect(Collectors.toList());
     }
 
-    private void reportNoParent(final Map<Integer, Node> nodes)
-    {
-        final Map<String, Integer> featureStatsNoParent = new HashMap<>();
-        nodes.forEach((id, node) ->
-        {
-            if (node.getParent() == null && !Objects.equals(id, GeoConstants.EARTH_ID))
-            {
-                logger.info("{} has no parent", id);
-                final GeoLocation location = findById(node.getId());
-                featureStatsNoParent.compute(location.getFeatureClass() + "." + location.getFeatureCode(), (key, existing) -> existing == null ? 1 : existing + 1);
-            }
-        });
-
-        logger.info("No parent by feature type: {}", featureStatsNoParent);
-    }
-
     @Override
     public Page<Continent> findContinents()
     {
@@ -326,8 +302,12 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<Country> findCountriesOnContinent(String continentCode, Pageable pageable)
     {
-        throw new UnsupportedOperationException("Not yet");
-        //return locationDao.findCountriesOnContinent(continentCode, pageable).map(e -> Country.from(populate(e)));
+        final List<Country> onContinent = countries.values()
+                .stream()
+                .filter(c -> c.getContinentCode().equals(continentCode))
+                .collect(Collectors.toList());
+        return new PageImpl<>(onContinent.stream().skip(pageable.getOffset()).limit(pageable.getPageSize()).collect(Collectors.toList()), pageable, onContinent.size());
+
     }
 
     @Override
@@ -350,7 +330,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<GeoLocation> findChildren(String countryCode, Pageable pageable)
     {
-        final int id = Optional.ofNullable(countryCodeToId.get(countryCode)).map(Country::getId).orElseThrow(() -> new EmptyResultDataAccessException("No country code " + countryCode, 1));
+        final int id = Optional.ofNullable(countries.get(countryCode)).map(Country::getId).orElseThrow(() -> new EmptyResultDataAccessException("No country code " + countryCode, 1));
         final List<Integer> childIds = Optional.ofNullable(nodes.get(id).getChildren()).orElse(Collections.emptyList());
         final int skip = (int) (pageable.getOffset() + pageable.getPageSize());
         final List<GeoLocation> content = childIds.stream().skip(skip).limit(pageable.getPageSize()).map(this::doFindById).collect(Collectors.toList());
@@ -373,6 +353,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Country findByPhoneNumber(String phoneNumber)
     {
+        // TODO: Support this?
         String stripped = phoneNumber.replaceAll("[^\\d.]", "");
         stripped = stripped.replaceFirst("^0+(?!$)", "");
 

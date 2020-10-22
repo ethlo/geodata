@@ -22,10 +22,6 @@ package com.ethlo.geodata;
  * #L%
  */
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.lang.management.MemoryUsage;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
@@ -33,6 +29,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
 
 import com.ethlo.geodata.progress.StatefulProgressListener;
+import com.ethlo.geodata.util.MemoryUsageUtil;
 
 @SpringBootApplication
 public class RestGeodataApplication
@@ -43,7 +40,7 @@ public class RestGeodataApplication
     {
         final ApplicationContext ctx = SpringApplication.run(RestGeodataApplication.class, args);
 
-        dumpMemUsage("Initial");
+        MemoryUsageUtil.dumpMemUsage("Initial");
 
         final StatefulProgressListener listener = new StatefulProgressListener();
         listener.begin("init", 1);
@@ -68,35 +65,6 @@ public class RestGeodataApplication
             System.gc();
         }
 
-        dumpMemUsage("Completed");
-    }
-
-    private static void dumpMemUsage(String description)
-    {
-        if (!logger.isInfoEnabled())
-        {
-            return;
-        }
-
-        final MemoryMXBean mbean = ManagementFactory.getMemoryMXBean();
-        final MemoryUsage mem = mbean.getHeapMemoryUsage();
-        logger.info("Memory status at stage '{}':\nUsed: {}\nCommitted: {}\nMax: {}",
-                description,
-                humanReadableByteCount(mem.getUsed(), false),
-                humanReadableByteCount(mem.getCommitted(), false),
-                humanReadableByteCount(mem.getMax(), false)
-        );
-    }
-
-    public static String humanReadableByteCount(long bytes, boolean si)
-    {
-        final int unit = si ? 1000 : 1024;
-        if (bytes < unit)
-        {
-            return bytes + " B";
-        }
-        final int exp = (int) (Math.log(bytes) / Math.log(unit));
-        String pre = (si ? "kMGTPE" : "KMGTPE").charAt(exp - 1) + (si ? "" : "i");
-        return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
+        MemoryUsageUtil.dumpMemUsage("Completed");
     }
 }

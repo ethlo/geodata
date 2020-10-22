@@ -29,8 +29,6 @@ import java.util.Objects;
 
 public class RawLocation implements CompactSerializable
 {
-    private static final long serialVersionUID = -4918529556780291151L;
-
     private int id;
     private String name;
     private String countryCode;
