@@ -222,7 +222,11 @@ public class GeodataServiceImpl implements GeodataService
 
         progressListener.begin("countries", null);
 
-        this.countries = countryDao.load();
+        this.countries = new HashMap<>();
+        for (final Country country : countryDao.load())
+        {
+            countries.put(country.getCountryCode(), country);
+        }
 
         logger.info("Loading search index");
         int count = 0;

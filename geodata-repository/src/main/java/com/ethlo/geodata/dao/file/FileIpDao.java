@@ -43,7 +43,7 @@ import com.maxmind.db.Reader;
 @Repository
 public class FileIpDao implements IpDao
 {
-    public static final String IP_FILE = "ip.mmdb";
+    public static final String IP_FILE = "geolite2.mmdb";
 
     private final Reader reader;
 

@@ -154,7 +154,7 @@ public class FileGeonamesImporter extends BaseCsvFileImporter<RawLocation>
     protected void processing()
     {
         logger.info("Writing countries");
-        countryDao.save(countries);
+        countryDao.save(countries.values());
 
         logger.info("Writing timezones");
         timeZoneDao.save(timezones);
@@ -167,7 +167,7 @@ public class FileGeonamesImporter extends BaseCsvFileImporter<RawLocation>
         {
             final Iterator<Map<String, String>> filtered = new FilterIterator<>(iterator, e -> inclusions.contains(e.get("feature_class") + "." + e.get("feature_code")));
             final Map<Integer, Integer> childToParent = HierachyBuilder.build(filtered, adminLevels, countries);
-            logger.info("child to parent nodes: {}", childToParent.size());
+            logger.info("Hierarchy nodes: {}", childToParent.size());
             hierarchyDao.save(childToParent);
         }
         catch (IOException exc)
