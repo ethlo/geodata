@@ -168,7 +168,7 @@ public abstract class BaseCsvFileImporter<T extends CompactSerializable> impleme
         {
             throw new UncheckedIOException(e);
         }
-        
+
         Map.Entry<Date, File> fileData;
         try
         {
