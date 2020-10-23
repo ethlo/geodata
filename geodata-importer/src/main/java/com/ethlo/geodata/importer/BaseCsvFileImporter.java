@@ -10,12 +10,12 @@ package com.ethlo.geodata.importer;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -29,9 +29,12 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -48,7 +51,9 @@ import com.ethlo.geodata.util.ResourceUtil;
 import com.ethlo.geodata.util.SerializationUtil;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Iterators;
+import com.google.common.io.CountingOutputStream;
 
+@SuppressWarnings("UnstableApiUsage")
 public abstract class BaseCsvFileImporter<T extends CompactSerializable> implements DataImporter
 {
     private final Path basePath;
@@ -95,14 +100,49 @@ public abstract class BaseCsvFileImporter<T extends CompactSerializable> impleme
     private int writeData(Iterator<T> data) throws IOException
     {
         int count = 0;
-        try (final DataOutputStream out = new DataOutputStream(new BufferedOutputStream(CompressionUtil.compress(Files.newOutputStream(getDataFilePath())))))
+
+        final Path indexPath = getDataFilePath().getParent().resolve(getDataFilePath().getFileName() + ".index");
+        final Path uncompressedDataPath = getDataFilePath().getParent().resolve(getDataFilePath().getFileName() + ".raw");
+
+        try (final OutputStream uncompressedIndex = Files.newOutputStream(indexPath))
         {
+            // Write placeholder
+            uncompressedIndex.write(new byte[4]);
+        }
+
+        try (final DataOutputStream indexOut = new DataOutputStream(CompressionUtil.compress(new BufferedOutputStream(Files.newOutputStream(indexPath, StandardOpenOption.APPEND))));
+             final CountingOutputStream countingBytes = new CountingOutputStream(new BufferedOutputStream(Files.newOutputStream(uncompressedDataPath)));
+             final DataOutputStream uncompressedOut = new DataOutputStream(countingBytes))
+        {
+            //final DataOutputStream compressedOut = new DataOutputStream(new BufferedOutputStream(CompressionUtil.compress(Files.newOutputStream(getDataFilePath())))))
+
             while (data.hasNext())
             {
-                data.next().write(out);
+                final T d = data.next();
+
+                // Write to compressed file
+                //d.write(compressedOut);
+
+                // Write raw data
+                final long startPos = countingBytes.getCount();
+                d.write(uncompressedOut);
+                //final long written = countingBytes.getCount() - startPos;
+
+                // Write index in the raw file
+                indexOut.writeInt(d.getId());
+                indexOut.writeInt((int) startPos);
+
                 count++;
             }
         }
+
+        // Replace count
+        try (final RandomAccessFile raf = new RandomAccessFile(indexPath.toFile(), "rw");)
+        {
+            raf.seek(0);
+            raf.writeInt(count);
+        }
+
         return count;
     }
 

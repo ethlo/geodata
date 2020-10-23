@@ -47,12 +47,19 @@ public class FileIpDao implements IpDao
 
     private final Reader reader;
 
-    public FileIpDao(@Value("${geodata.base-path}") final Path basePath) throws IOException
+    public FileIpDao(@Value("${geodata.base-path}") final Path basePath)
     {
         final Path ipFile = basePath.resolve(IP_FILE);
         if (Files.exists(ipFile))
         {
-            this.reader = new Reader(ipFile.toFile());
+            try
+            {
+                this.reader = new Reader(ipFile.toFile());
+            }
+            catch (IOException e)
+            {
+                throw new UncheckedIOException(e);
+            }
         }
         else
         {

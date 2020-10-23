@@ -10,12 +10,12 @@ package com.ethlo.geodata.dao.file;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -24,20 +24,21 @@ package com.ethlo.geodata.dao.file;
 
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.util.CloseableIterator;
-import org.springframework.stereotype.Repository;
 
 import com.ethlo.geodata.dao.LocationDao;
 import com.ethlo.geodata.model.RawLocation;
 import com.ethlo.geodata.util.SerializationUtil;
 import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap;
 
-@Repository
+//@Repository
 public class FileLocationDao implements LocationDao
 {
     public static final String LOCATION_FILE = "locations.data";
+    final Map<Integer, RawLocation> locations = new Int2ObjectLinkedOpenHashMap<>(50_000);
     private final Path basePath;
 
     public FileLocationDao(@Value("${geodata.base-path}") final Path basePath)
@@ -46,9 +47,8 @@ public class FileLocationDao implements LocationDao
     }
 
     @Override
-    public Map<Integer, RawLocation> load()
+    public int load()
     {
-        final Map<Integer, RawLocation> locations = new Int2ObjectLinkedOpenHashMap<>(100_000);
         try (final CloseableIterator<RawLocation> locationIter = SerializationUtil.read(basePath.resolve(LOCATION_FILE), RawLocation::new))
         {
             while (locationIter.hasNext())
@@ -57,6 +57,18 @@ public class FileLocationDao implements LocationDao
                 locations.put(l.getId(), l);
             }
         }
-        return locations;
+        return locations.size();
+    }
+
+    @Override
+    public CloseableIterator<RawLocation> iterator()
+    {
+        return SerializationUtil.wrapClosable(locations.values().iterator(), null);
+    }
+
+    @Override
+    public Optional<RawLocation> get(final int id)
+    {
+        return Optional.ofNullable(locations.get(id));
     }
 }

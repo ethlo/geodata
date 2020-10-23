@@ -53,14 +53,15 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
+import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import com.ethlo.geodata.dao.CountryDao;
+import com.ethlo.geodata.dao.FeatureCodeDao;
 import com.ethlo.geodata.dao.HierarchyDao;
+import com.ethlo.geodata.dao.IpDao;
+import com.ethlo.geodata.dao.LocationDao;
 import com.ethlo.geodata.dao.TimeZoneDao;
-import com.ethlo.geodata.dao.file.FileFeatureCodeDao;
-import com.ethlo.geodata.dao.file.FileIpDao;
-import com.ethlo.geodata.dao.file.FileLocationDao;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
@@ -86,26 +87,25 @@ public class GeodataServiceImpl implements GeodataService
 {
     private final Logger logger = LoggerFactory.getLogger(GeodataServiceImpl.class);
     private final RadixTree<int[]> locationsByName = new ConcurrentRadixTree<>(new SmartArrayBasedNodeFactory());
-    private final FileLocationDao locationDao;
-    private final FileIpDao ipDao;
+    private final LocationDao locationDao;
+    private final IpDao ipDao;
     private final HierarchyDao hierarchyDao;
-    private final FileFeatureCodeDao featureCodeDao;
+    private final FeatureCodeDao featureCodeDao;
     private final TimeZoneDao timeZoneDao;
     private final CountryDao countryDao;
+    private final List<String> additionalIndexedFeatures;
+    private final int qualityConstant;
     // Loaded data
     private Map<Integer, Node> nodes = new Int2ObjectOpenHashMap<>();
     private Map<Integer, String> timezones;
     private Map<String, Country> countries;
     private List<Continent> continents = new LinkedList<>();
     private Map<Integer, MapFeature> featureCodes = new HashMap<>();
-    private Map<Integer, RawLocation> locations;
-    @Value("${geodata.search.index-features}")
-    private List<String> additionalIndexedFeatures;
 
-    @Value("${geodata.boundaries.quality}")
-    private int qualityConstant;
-
-    public GeodataServiceImpl(final FileLocationDao locationDao, final FileIpDao ipDao, final HierarchyDao hierarchyDao, final FileFeatureCodeDao featureCodeDao, final TimeZoneDao timeZoneDao, final CountryDao countryDao)
+    public GeodataServiceImpl(final LocationDao locationDao, final IpDao ipDao, final HierarchyDao hierarchyDao,
+                              final FeatureCodeDao featureCodeDao, final TimeZoneDao timeZoneDao, final CountryDao countryDao,
+                              @Value("${geodata.search.index-features}") final List<String> additionalIndexedFeatures,
+                              @Value("${geodata.boundaries.quality}") final int qualityConstant)
     {
         this.locationDao = locationDao;
         this.ipDao = ipDao;
@@ -113,6 +113,8 @@ public class GeodataServiceImpl implements GeodataService
         this.featureCodeDao = featureCodeDao;
         this.timeZoneDao = timeZoneDao;
         this.countryDao = countryDao;
+        this.additionalIndexedFeatures = additionalIndexedFeatures;
+        this.qualityConstant = qualityConstant;
     }
 
     @Override
@@ -127,9 +129,9 @@ public class GeodataServiceImpl implements GeodataService
         return doFindById(geoNameId);
     }
 
-    public GeoLocation doFindById(int id)
+    private GeoLocation doFindById(int id)
     {
-        return Optional.ofNullable(locations.get(id)).map(this::populate).orElseThrow(() -> new EmptyResultDataAccessException("No location with id " + id, 1));
+        return locationDao.get(id).map(this::populate).orElseThrow(() -> new EmptyResultDataAccessException("No location with id " + id, 1));
     }
 
     @Override
@@ -207,12 +209,18 @@ public class GeodataServiceImpl implements GeodataService
         progressListener.begin("time_zones", 1);
         this.timezones = timeZoneDao.load();
 
-        MemoryUsageUtil.dumpMemUsage("Before locations loaded");
+        //MemoryUsageUtil.dumpMemUsage("Before locations loaded");
         logger.info("Loading locations");
         progressListener.begin("load_locations");
-        locations = locationDao.load();
-        logger.info("Loaded {} locations", locations.size());
+        final int locationCount = locationDao.load();
+        logger.info("Loaded {} locations", locationCount);
         MemoryUsageUtil.dumpMemUsage("After locations loaded");
+
+        this.countries = new HashMap<>();
+        for (final Country country : countryDao.load())
+        {
+            countries.put(country.getCountryCode(), country);
+        }
 
         progressListener.begin("continents", 1);
         continents = findByIds(GeoConstants.CONTINENTS.values())
@@ -222,38 +230,43 @@ public class GeodataServiceImpl implements GeodataService
 
         progressListener.begin("countries", null);
 
-        this.countries = new HashMap<>();
-        for (final Country country : countryDao.load())
-        {
-            countries.put(country.getCountryCode(), country);
-        }
-
-        logger.info("Loading search index");
-        int count = 0;
-        progressListener.begin("load_search_index");
-        for (RawLocation location : locations.values())
-        {
-            addToSearchIndex(location);
-            progressListener.progress(count);
-        }
-
+        loadSearchIndex(progressListener);
+        logger.info("Search index loaded with {} entries", locationsByName.size());
         MemoryUsageUtil.dumpMemUsage("Search index loaded");
 
-        logger.info("Search index loaded with {} entries", locationsByName.size());
-        progressListener.end();
-
         logger.info("Loading hierarchy data");
-        progressListener.begin("load_hierarchy_data");
-        final Map<Integer, Integer> childToParent = hierarchyDao.load();
-        logger.info("Loaded {} hierarchy references", childToParent.size());
+        final Map<Integer, Integer> childToParent = loadHierarchy(progressListener);
 
         logger.info("Joining hierarchy nodes");
         progressListener.begin("join_admin_levels");
         joinHierarchyNodes(childToParent, progressListener::progress);
-        //reportNoParent(nodes);
 
         logger.info("All data loaded successfully");
 
+        progressListener.end();
+    }
+
+    private Map<Integer, Integer> loadHierarchy(final LoadProgressListener progressListener)
+    {
+        progressListener.begin("load_hierarchy_data");
+        final Map<Integer, Integer> childToParent = hierarchyDao.load();
+        logger.info("Loaded {} hierarchy references", childToParent.size());
+        progressListener.end();
+        return childToParent;
+    }
+
+    private void loadSearchIndex(final LoadProgressListener progressListener)
+    {
+        logger.info("Loading search index");
+        int count = 0;
+        progressListener.begin("load_search_index");
+        final CloseableIterator<RawLocation> locationIter = locationDao.iterator();
+        while (locationIter.hasNext())
+        {
+            final RawLocation location = locationIter.next();
+            addToSearchIndex(location);
+            progressListener.progress(count);
+        }
         progressListener.end();
     }
 
@@ -526,8 +539,7 @@ public class GeodataServiceImpl implements GeodataService
             final boolean hasMore = ids.size() > max;
             final List<GeoLocation> content = ids.stream()
                     .limit(max - 1)
-                    .map(locations::get)
-                    .map(this::populate)
+                    .map(this::doFindById)
                     .sorted(Comparator.comparingLong(GeoLocation::getPopulation))
                     .collect(Collectors.toList());
             return new SliceImpl<>(Lists.reverse(content), pageable, hasMore);

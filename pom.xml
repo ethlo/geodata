@@ -16,6 +16,7 @@
         <module>geodata-service</module>
         <module>geodata-server</module>
         <module>geodata-importer</module>
+        <module>geodata-fast-server</module>
     </modules>
     <developers>
         <developer>

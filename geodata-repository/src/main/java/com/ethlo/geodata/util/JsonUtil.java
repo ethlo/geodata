@@ -27,11 +27,21 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 public class JsonUtil
 {
-    private static final ObjectMapper mapper = new ObjectMapper();
+    private static final ObjectMapper mapper;
+
+    static
+    {
+        mapper = new ObjectMapper();
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        mapper.disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT);
+        mapper.findAndRegisterModules();
+    }
 
     public static <T> T read(final Path path, final Class<T> type)
     {

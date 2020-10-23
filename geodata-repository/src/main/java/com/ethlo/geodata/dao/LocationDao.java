@@ -22,11 +22,17 @@ package com.ethlo.geodata.dao;
  * #L%
  */
 
-import java.util.Map;
+import java.util.Optional;
+
+import org.springframework.data.util.CloseableIterator;
 
 import com.ethlo.geodata.model.RawLocation;
 
 public interface LocationDao
 {
-    Map<Integer, RawLocation> load();
+    int load();
+
+    CloseableIterator<RawLocation> iterator();
+
+    Optional<RawLocation> get(int id);
 }
