@@ -45,7 +45,7 @@ public class Server
         final StatefulProgressListener progressListener = new StatefulProgressListener();
         geodataService.load(progressListener);
 
-        App.init(args, "secret=YOUR-SECRET");
+        App.init(args, "mode=production");
         Log.info("Starting application");
 
         final App app = new App();

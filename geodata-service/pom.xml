@@ -23,6 +23,11 @@
             <version>8.4.2</version>
         </dependency>
         <dependency>
+            <groupId>com.ethlo.time</groupId>
+            <artifactId>chronograph</artifactId>
+            <version>1.2.0</version>
+        </dependency>
+        <dependency>
             <groupId>com.googlecode.concurrent-trees</groupId>
             <artifactId>concurrent-trees</artifactId>
             <version>2.6.1</version>

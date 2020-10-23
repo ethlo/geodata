@@ -13,10 +13,10 @@
     <modules>
         <module>geodata-model</module>
         <module>geodata-repository</module>
+        <module>geodata-importer</module>
         <module>geodata-service</module>
         <module>geodata-server</module>
-        <module>geodata-importer</module>
-        <module>geodata-fast-server</module>
+        <module>geodata-server-fast</module>
     </modules>
     <developers>
         <developer>

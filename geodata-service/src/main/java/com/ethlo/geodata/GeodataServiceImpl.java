@@ -74,6 +74,7 @@ import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.progress.StepProgressListener;
 import com.ethlo.geodata.util.GeometryUtil;
 import com.ethlo.geodata.util.MemoryUsageUtil;
+import com.ethlo.time.Chronograph;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
 import com.googlecode.concurrenttrees.radix.ConcurrentRadixTree;
@@ -209,50 +210,60 @@ public class GeodataServiceImpl implements GeodataService
         progressListener.begin("time_zones", 1);
         this.timezones = timeZoneDao.load();
 
-        //MemoryUsageUtil.dumpMemUsage("Before locations loaded");
+        final Chronograph chronograph = Chronograph.create();
+        chronograph.timed("Locations", () -> loadLocations(progressListener));
+        chronograph.timed("Countries", () -> loadCountries(progressListener));
+        chronograph.timed("Continents", () -> loadContinents(progressListener));
+        chronograph.timed("SearchIndex", () -> loadSearchIndex(progressListener));
+        chronograph.timed("Hierarchy", () -> loadHierarchy(progressListener));
+
+        logger.info(chronograph.prettyPrint("All data loaded successfully"));
+        MemoryUsageUtil.dumpMemUsage("Startup complete");
+
+        progressListener.end();
+    }
+
+    private void loadLocations(final LoadProgressListener progressListener)
+    {
         logger.info("Loading locations");
         progressListener.begin("load_locations");
         final int locationCount = locationDao.load();
         logger.info("Loaded {} locations", locationCount);
         MemoryUsageUtil.dumpMemUsage("After locations loaded");
+    }
 
+    private void loadCountries(final LoadProgressListener progressListener)
+    {
+        progressListener.begin("countries", null);
         this.countries = new HashMap<>();
         for (final Country country : countryDao.load())
         {
             countries.put(country.getCountryCode(), country);
         }
+        progressListener.end();
+    }
 
+    private void loadContinents(final LoadProgressListener progressListener)
+    {
         progressListener.begin("continents", 1);
         continents = findByIds(GeoConstants.CONTINENTS.values())
                 .stream()
                 .map(l -> new Continent(getContinentCode(l.getId()), l))
                 .collect(Collectors.toList());
-
-        progressListener.begin("countries", null);
-
-        loadSearchIndex(progressListener);
-        logger.info("Search index loaded with {} entries", locationsByName.size());
-        MemoryUsageUtil.dumpMemUsage("Search index loaded");
-
-        logger.info("Loading hierarchy data");
-        final Map<Integer, Integer> childToParent = loadHierarchy(progressListener);
-
-        logger.info("Joining hierarchy nodes");
-        progressListener.begin("join_admin_levels");
-        joinHierarchyNodes(childToParent, progressListener::progress);
-
-        logger.info("All data loaded successfully");
-
-        progressListener.end();
     }
 
-    private Map<Integer, Integer> loadHierarchy(final LoadProgressListener progressListener)
+    private void loadHierarchy(final LoadProgressListener progressListener)
     {
         progressListener.begin("load_hierarchy_data");
         final Map<Integer, Integer> childToParent = hierarchyDao.load();
         logger.info("Loaded {} hierarchy references", childToParent.size());
         progressListener.end();
-        return childToParent;
+        MemoryUsageUtil.dumpMemUsage("Location hierarchy loaded");
+
+        progressListener.begin("join_admin_levels");
+        joinHierarchyNodes(childToParent, progressListener::progress);
+        progressListener.end();
+
     }
 
     private void loadSearchIndex(final LoadProgressListener progressListener)
@@ -268,6 +279,8 @@ public class GeodataServiceImpl implements GeodataService
             progressListener.progress(count);
         }
         progressListener.end();
+        logger.info("Search index loaded with {} entries", locationsByName.size());
+        MemoryUsageUtil.dumpMemUsage("Search-index loaded");
     }
 
     private void addToSearchIndex(final RawLocation e)
