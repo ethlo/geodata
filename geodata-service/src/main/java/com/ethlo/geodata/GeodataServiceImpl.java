@@ -217,10 +217,9 @@ public class GeodataServiceImpl implements GeodataService
         chronograph.timed("SearchIndex", () -> loadSearchIndex(progressListener));
         chronograph.timed("Hierarchy", () -> loadHierarchy(progressListener));
 
-        logger.info(chronograph.prettyPrint("All data loaded successfully"));
-        MemoryUsageUtil.dumpMemUsage("Startup complete");
+        logger.info("Data loaded successfully");
 
-        progressListener.end();
+        logger.info(chronograph.prettyPrint());
     }
 
     private void loadLocations(final LoadProgressListener progressListener)

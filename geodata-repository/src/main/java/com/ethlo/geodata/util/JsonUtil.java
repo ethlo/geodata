@@ -78,4 +78,9 @@ public class JsonUtil
             throw new UncheckedIOException(exc);
         }
     }
+
+    public static ObjectMapper getMapper()
+    {
+        return mapper;
+    }
 }
