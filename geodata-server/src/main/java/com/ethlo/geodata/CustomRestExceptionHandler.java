@@ -167,9 +167,16 @@ public class CustomRestExceptionHandler extends ResponseEntityExceptionHandler
         final StringBuilder builder = new StringBuilder();
         builder.append(ex.getContentType());
         builder.append(" media type is not supported. Supported media types are ");
-        ex.getSupportedMediaTypes().forEach(t -> builder.append(t + " "));
+        ex.getSupportedMediaTypes().forEach(t -> builder.append(t).append(" "));
 
         final ApiError apiError = new ApiError(HttpStatus.UNSUPPORTED_MEDIA_TYPE, ex.getLocalizedMessage(), builder.substring(0, builder.length() - 2));
+        return new ResponseEntity<>(apiError, new HttpHeaders(), apiError.getStatus());
+    }
+
+    @ExceptionHandler({InvalidDataException.class})
+    public ResponseEntity<Object> handleAll(final InvalidDataException ex, final WebRequest request)
+    {
+        final ApiError apiError = new ApiError(HttpStatus.BAD_REQUEST, ex.getMessage());
         return new ResponseEntity<>(apiError, new HttpHeaders(), apiError.getStatus());
     }
 
@@ -177,7 +184,7 @@ public class CustomRestExceptionHandler extends ResponseEntityExceptionHandler
     public ResponseEntity<Object> handleAll(final Exception ex, final WebRequest request)
     {
         logger.error("error", ex);
-        final ApiError apiError = new ApiError(HttpStatus.INTERNAL_SERVER_ERROR, "An unhandled exception occured", "error");
+        final ApiError apiError = new ApiError(HttpStatus.INTERNAL_SERVER_ERROR, "An unhandled exception occurred");
         return new ResponseEntity<>(apiError, new HttpHeaders(), apiError.getStatus());
     }
 

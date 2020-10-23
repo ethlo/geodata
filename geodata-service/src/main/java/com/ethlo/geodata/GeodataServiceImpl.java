@@ -359,10 +359,18 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<GeoLocation> findChildren(String countryCode, Pageable pageable)
     {
-        final int id = Optional.ofNullable(countries.get(countryCode)).map(Country::getId).orElseThrow(() -> new EmptyResultDataAccessException("No country code " + countryCode, 1));
+        final int id = Optional.ofNullable(countries.get(countryCode.toUpperCase()))
+                .map(Country::getId)
+                .orElseThrow(() -> new EmptyResultDataAccessException("No country code " + countryCode, 1));
+
         final List<Integer> childIds = Optional.ofNullable(nodes.get(id).getChildren()).orElse(Collections.emptyList());
-        final int skip = (int) (pageable.getOffset() + pageable.getPageSize());
-        final List<GeoLocation> content = childIds.stream().skip(skip).limit(pageable.getPageSize()).map(this::doFindById).collect(Collectors.toList());
+
+        final List<GeoLocation> content = childIds.stream()
+                .skip(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .map(this::doFindById)
+                .sorted(Comparator.comparing(GeoLocation::getName))
+                .collect(Collectors.toList());
         return new PageImpl<>(content, pageable, childIds.size());
     }
 

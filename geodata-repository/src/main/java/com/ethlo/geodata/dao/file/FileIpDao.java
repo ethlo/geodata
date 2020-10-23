@@ -32,6 +32,7 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 
+import com.ethlo.geodata.InvalidDataException;
 import com.ethlo.geodata.dao.IpDao;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.Ints;
@@ -70,7 +71,15 @@ public class FileIpDao implements IpDao
     @Override
     public Optional<Integer> findByIp(final String ip)
     {
-        final InetAddress address = InetAddresses.forString(ip);
+        InetAddress address;
+        try
+        {
+            address = InetAddresses.forString(ip);
+        }
+        catch (IllegalArgumentException exc)
+        {
+            throw new InvalidDataException(ip, exc.getMessage());
+        }
 
         try
         {
