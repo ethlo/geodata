@@ -23,42 +23,19 @@ package com.ethlo.geodata;
  */
 
 
-import java.io.IOException;
-import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 
-import javax.servlet.http.HttpServletResponse;
-
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.WKBReader;
-import org.locationtech.jts.io.geojson.GeoJsonWriter;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
-import com.ethlo.geodata.dao.MetaDao;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
-import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.CountrySummary;
 import com.ethlo.geodata.model.GeoLocation;
-import com.ethlo.geodata.model.GeoLocationDistance;
-import com.ethlo.geodata.model.GeoLocationWithPath;
-import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.rest.v1.handler.V1ApiDelegate;
 import com.ethlo.geodata.rest.v1.model.V1Continent;
 import com.ethlo.geodata.rest.v1.model.V1Coordinates;
@@ -69,7 +46,7 @@ import com.ethlo.geodata.rest.v1.model.V1PageContinent;
 import com.ethlo.geodata.rest.v1.model.V1PageCountry;
 import com.ethlo.geodata.rest.v1.model.V1PageGeoLocation;
 import com.ethlo.geodata.rest.v1.model.V1PageGeoLocationDistance;
-import com.google.common.collect.Lists;
+import com.ethlo.geodata.rest.v1.model.V1SliceGeoLocation;
 
 @Component
 public class V1ApiImpl implements V1ApiDelegate
@@ -118,6 +95,18 @@ public class V1ApiImpl implements V1ApiDelegate
                 .population(l.getPopulation());
     }
 
+    private V1Continent transform(final Continent c)
+    {
+        return new V1Continent()
+                .id((long) c.getId())
+                .continentCode(c.getContinentCode())
+                .name(c.getName())
+                .featureClass(c.getFeatureClass())
+                .featureCode(c.getFeatureCode())
+                .coordinates(this.transform(c.getCoordinates()))
+                .population(c.getPopulation());
+    }
+
     private V1Coordinates transform(final Coordinates coordinates)
     {
         return new V1Coordinates().lat(coordinates.getLat()).lng(coordinates.getLng());
@@ -127,14 +116,21 @@ public class V1ApiImpl implements V1ApiDelegate
     {
         return new V1CountrySummary()
                 .code(country.getCode())
-                .id((long)country.getId())
+                .id((long) country.getId())
                 .name(country.getName());
     }
 
     @Override
-    public ResponseEntity<V1PageGeoLocation> findByName(final String name, final Integer page, final Integer size)
+    public ResponseEntity<V1SliceGeoLocation> findByName(final String name, final Integer page, final Integer size)
     {
-        return null;
+        final Slice<V1GeoLocation> slice = geodataService.findByName(name, PageRequest.of(page, size)).map(this::transform);
+        return ResponseEntity.ok(new V1SliceGeoLocation()
+                .content(slice.getContent())
+                .first(slice.isFirst())
+                .last(slice.isLast())
+                .number(slice.getNumber())
+                .numberOfElements(slice.getNumberOfElements())
+                .size(slice.getSize()));
     }
 
     @Override
@@ -182,7 +178,8 @@ public class V1ApiImpl implements V1ApiDelegate
     @Override
     public ResponseEntity<V1GeoLocation> findLocation(final Long id)
     {
-        return null;
+        final GeoLocation location = geodataService.findById(id.intValue());
+        return ResponseEntity.ok(transform(notNull(location, "No location found for id " + id)));
     }
 
     @Override
@@ -248,7 +245,16 @@ public class V1ApiImpl implements V1ApiDelegate
     @Override
     public ResponseEntity<V1PageContinent> listContinents()
     {
-        return null;
+        final Page<V1Continent> page = geodataService.findContinents().map(this::transform);
+        return ResponseEntity.ok(new V1PageContinent()
+                .content(page.getContent())
+                .first(page.isFirst())
+                .last(page.isLast())
+                .number(page.getNumber())
+                .numberOfElements(page.getNumberOfElements())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages()));
     }
 
     @Override
