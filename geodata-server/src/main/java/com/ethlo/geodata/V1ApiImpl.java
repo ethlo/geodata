@@ -45,7 +45,6 @@ import com.ethlo.geodata.rest.v1.model.V1GeoLocation;
 import com.ethlo.geodata.rest.v1.model.V1PageContinent;
 import com.ethlo.geodata.rest.v1.model.V1PageCountry;
 import com.ethlo.geodata.rest.v1.model.V1PageGeoLocation;
-import com.ethlo.geodata.rest.v1.model.V1PageGeoLocationDistance;
 import com.ethlo.geodata.rest.v1.model.V1SliceGeoLocation;
 
 @Component
@@ -56,18 +55,6 @@ public class V1ApiImpl implements V1ApiDelegate
     public V1ApiImpl(GeodataService geodataService)
     {
         this.geodataService = geodataService;
-    }
-
-    @Override
-    public ResponseEntity<byte[]> findBoundaries(final Long id)
-    {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<Void> findBoundaries1(final Long id)
-    {
-        return null;
     }
 
     @Override
@@ -136,43 +123,48 @@ public class V1ApiImpl implements V1ApiDelegate
     @Override
     public ResponseEntity<V1PageGeoLocation> findChildren(final Long id, final Integer page, final Integer size)
     {
-        return null;
+        final Page<V1GeoLocation> res = geodataService.findChildren(id.intValue(), PageRequest.of(page, size)).map(this::transform);
+        return ResponseEntity.ok(toGeolocationPage(res));
     }
 
-    @Override
-    public ResponseEntity<V1Continent> findContinentByCode(final String continentCode)
+    private V1PageGeoLocation toGeolocationPage(final Page<V1GeoLocation> res)
     {
-        return null;
+        return new V1PageGeoLocation()
+                .content(res.getContent())
+                .first(res.isFirst())
+                .last(res.isLast())
+                .number(res.getNumber())
+                .numberOfElements(res.getNumberOfElements())
+                .size(res.getSize())
+                .totalElements(res.getTotalElements())
+                .totalPages(res.getTotalPages());
     }
 
     @Override
     public ResponseEntity<V1PageCountry> findCountries(final Integer page, final Integer size)
     {
+        // TODO
         return null;
     }
 
     @Override
-    public ResponseEntity<V1PageCountry> findCountriesOnContient(final String continent, final Integer page, final Integer size)
+    public ResponseEntity<V1PageCountry> findCountriesOnContinent(final String continent, final Integer page, final Integer size)
     {
+        // TODO
         return null;
     }
 
     @Override
     public ResponseEntity<V1Country> findCountryByCode(final String countryCode)
     {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<V1Country> findCountryByPhone(final String phone)
-    {
+        // TODO
         return null;
     }
 
     @Override
     public ResponseEntity<V1PageGeoLocation> findCountryChildren(final String countryCode, final Integer page, final Integer size)
     {
-        return null;
+        return ResponseEntity.ok(toGeolocationPage(geodataService.findChildren(countryCode, PageRequest.of(page, size)).map(this::transform)));
     }
 
     @Override
@@ -183,62 +175,22 @@ public class V1ApiImpl implements V1ApiDelegate
     }
 
     @Override
-    public ResponseEntity<V1GeoLocation> findLocation1(final Integer maxDistance, final Double lat, final Double lng)
+    public ResponseEntity<Boolean> isLocationInside(final Long id, final Long child)
     {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<Boolean> findLocation2(final Long id, final Long child)
-    {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<V1PageGeoLocationDistance> findNear(final Integer maxDistance, final Integer page, final Integer size, final Double lat, final Double lng)
-    {
-        return null;
+        return ResponseEntity.ok(geodataService.isLocationInside(id.intValue(), child.intValue()));
     }
 
     @Override
     public ResponseEntity<V1GeoLocation> findParentLocation(final Long id)
     {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<byte[]> findPreviewBoundaries(final Long id, final Double minLng, final Double maxLng, final Double minLat, final Double maxLat, final Integer height, final Integer width)
-    {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<Void> findPreviewBoundaries1(final Long id, final Double minLng, final Double maxLng, final Double minLat, final Double maxLat, final Integer height, final Integer width)
-    {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<V1GeoLocation> findProximity(final Integer maxDistance, final Double lat, final Double lng)
-    {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<byte[]> findSimpleBoundaries(final Long id, final Double maxTolerance)
-    {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<Void> findSimpleBoundaries1(final Long id, final Double maxTolerance)
-    {
+        // TODO
         return null;
     }
 
     @Override
     public ResponseEntity<Boolean> insideAny(final String ids, final Long id)
     {
+        // TODO
         return null;
     }
 
@@ -260,6 +212,7 @@ public class V1ApiImpl implements V1ApiDelegate
     @Override
     public ResponseEntity<Boolean> outsideAll(final String ids, final Long id)
     {
+        // TODO
         return null;
     }
 

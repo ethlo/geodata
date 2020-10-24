@@ -22,6 +22,9 @@ package com.ethlo.geodata;
  * #L%
  */
 
+import java.time.Duration;
+import java.time.OffsetDateTime;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
@@ -59,12 +62,15 @@ public class RestGeodataApplication
             filter.setEnabled(false);
         }
 
+        logger.info("Startup completed in {}", Duration.between(MemoryUsageUtil.getJvmStartTime(), OffsetDateTime.now()));
+
+        logger.info("Triggering GC");
         // Attempt to force GC
         for (int i = 0; i < 3; i++)
         {
             System.gc();
         }
 
-        MemoryUsageUtil.dumpMemUsage("Completed");
+        MemoryUsageUtil.dumpMemUsage("Ready");
     }
 }

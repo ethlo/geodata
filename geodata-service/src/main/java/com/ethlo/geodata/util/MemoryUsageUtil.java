@@ -10,12 +10,12 @@ package com.ethlo.geodata.util;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -25,6 +25,10 @@ package com.ethlo.geodata.util;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
+import java.lang.management.RuntimeMXBean;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +36,13 @@ import org.slf4j.LoggerFactory;
 public class MemoryUsageUtil
 {
     private static final Logger logger = LoggerFactory.getLogger(MemoryUsageUtil.class);
+
+    public static OffsetDateTime getJvmStartTime()
+    {
+        RuntimeMXBean bean = ManagementFactory.getRuntimeMXBean();
+        final long startTime = bean.getStartTime();
+        return OffsetDateTime.ofInstant(Instant.ofEpochMilli(startTime), ZoneOffset.systemDefault());
+    }
 
     public static void dumpMemUsage(String description)
     {

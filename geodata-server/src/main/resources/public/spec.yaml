@@ -14,21 +14,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PageContinent'
-              # Inheritance never work correctly ! Argh!
-              #  allOf:
-              #   - $ref: '#/components/schemas/Page'
-              #    - type: object
-              #      properties:
-              #        content:
-              #          type: array
-              #          items:
-              #            $ref: '#/components/schemas/Continent'
+                allOf:
+                  - $ref: '#/components/schemas/PageContinent'
 
   "/v1/continents/{continentCode}":
     get:
-      tags:
-        - Geo-service operations
       summary: Return continent by continent code
       operationId: findContinentByCode
       parameters:
@@ -48,10 +38,8 @@ paths:
 
   "/v1/continents/{continent}/countries":
     get:
-      tags:
-        - Geo-service operations
       summary: Return countries on the specified continent
-      operationId: findCountriesOnContient
+      operationId: findCountriesOnContinent
       parameters:
         - name: continent
           in: path
@@ -71,8 +59,6 @@ paths:
 
   /v1/countries:
     get:
-      tags:
-        - Geo-service operations
       summary: Return countries
       operationId: findCountries
       parameters:
@@ -89,8 +75,6 @@ paths:
 
   "/v1/countries/{countryCode}":
     get:
-      tags:
-        - Geo-service operations
       summary: Find country by 2-letter ISO country code
       operationId: findCountryByCode
       parameters:
@@ -110,8 +94,6 @@ paths:
 
   "/v1/countries/{countryCode}/children":
     get:
-      tags:
-        - Geo-service operations
       summary: Find top-level level administrative locations for the specified country
       operationId: findCountryChildren
       parameters:
@@ -133,10 +115,8 @@ paths:
 
   /v1/locations/contains:
     get:
-      tags:
-        - Geo-service operations
       summary: Return the smallest area location containing the coordinates specified
-      operationId: findLocation1
+      operationId: findWithin
       parameters:
         - name: maxDistance
           in: query
@@ -169,8 +149,6 @@ paths:
 
   /v1/locations/coordinates:
     get:
-      tags:
-        - Geo-service operations
       summary: Return location deemed closest to the specified coordinate
       operationId: findProximity
       parameters:
@@ -205,8 +183,6 @@ paths:
 
   /v1/locations/ids:
     get:
-      tags:
-        - Geo-service operations
       summary: Return locations identified by ids
       operationId: findByIds
       parameters:
@@ -232,8 +208,6 @@ paths:
 
   "/v1/locations/ip/{ip}":
     get:
-      tags:
-        - Geo-service operations
       summary: Return the approximate location for the IP-address specified
       operationId: findByIp
       parameters:
@@ -253,8 +227,6 @@ paths:
 
   "/v1/locations/name/{name}":
     get:
-      tags:
-        - Geo-service operations
       summary: Return the approximate location for the IP-address specified
       operationId: findByName
       parameters:
@@ -276,8 +248,6 @@ paths:
 
   "/v1/locations/phone/{phone}":
     get:
-      tags:
-        - Geo-service operations
       summary: Return the country for the phone number specified
       operationId: findCountryByPhone
       parameters:
@@ -297,8 +267,6 @@ paths:
 
   /v1/locations/proximity:
     get:
-      tags:
-        - Geo-service operations
       summary: Return locations sorted by proximity
       operationId: findNear
       parameters:
@@ -335,8 +303,6 @@ paths:
 
   "/v1/locations/{id}":
     get:
-      tags:
-        - Geo-service operations
       summary: Return the location by id
       operationId: findLocation
       parameters:
@@ -357,10 +323,8 @@ paths:
 
   "/v1/locations/{id}/boundaries":
     get:
-      tags:
-        - Geo-service operations
       summary: Return boundaries in GeoJson format
-      operationId: findBoundaries1
+      operationId: findBoundariesAsGeoJson
       parameters:
         - name: id
           in: path
@@ -375,10 +339,8 @@ paths:
 
   "/v1/locations/{id}/boundaries.wkb":
     get:
-      tags:
-        - Geo-service operations
       summary: Return boundaries in WKB (Well Known Binary) format
-      operationId: findBoundaries
+      operationId: findBoundariesAsWkb
       parameters:
         - name: id
           in: path
@@ -398,8 +360,6 @@ paths:
 
   "/v1/locations/{id}/children":
     get:
-      tags:
-        - Geo-service operations
       summary: Return child locations of the specified location
       operationId: findChildren
       parameters:
@@ -422,10 +382,8 @@ paths:
 
   "/v1/locations/{id}/contains/{child}":
     get:
-      tags:
-        - Geo-service operations
       summary: Return whether the child is contained by the location
-      operationId: findLocation2
+      operationId: isLocationInside
       parameters:
         - name: id
           in: path
@@ -451,8 +409,6 @@ paths:
 
   "/v1/locations/{id}/insideany/{ids}":
     get:
-      tags:
-        - Geo-service operations
       summary: Return whether the location is inside any of the one's in the specified
         list
       operationId: insideAny
@@ -480,8 +436,6 @@ paths:
 
   "/v1/locations/{id}/outsideall/{ids}":
     get:
-      tags:
-        - Geo-service operations
       summary: Return whether the location is outside all of the one's in the specified
         list
       operationId: outsideAll
@@ -509,8 +463,6 @@ paths:
 
   "/v1/locations/{id}/parent":
     get:
-      tags:
-        - Geo-service operations
       summary: Return the parent location of the specified id if any
       operationId: findParentLocation
       parameters:
@@ -531,8 +483,6 @@ paths:
 
   "/v1/locations/{id}/previewboundaries":
     get:
-      tags:
-        - Geo-service operations
       summary: Return boundaries in GeoJson format simplified to a suitable resolution
       operationId: findPreviewBoundaries1
       parameters:
@@ -585,8 +535,6 @@ paths:
 
   "/v1/locations/{id}/previewboundaries.wkb":
     get:
-      tags:
-        - Geo-service operations
       summary: Return boundaries in WKB (Well Known Binary) format simplified to a
         suitable resolution
       operationId: findPreviewBoundaries
@@ -645,8 +593,6 @@ paths:
 
   "/v1/locations/{id}/simpleboundaries":
     get:
-      tags:
-        - Geo-service operations
       summary: Return boundaries in GeoJson format simplified to the maxTolerance
         specified in Km
       operationId: findSimpleBoundaries1
@@ -671,8 +617,6 @@ paths:
 
   "/v1/locations/{id}/simpleboundaries.wkb":
     get:
-      tags:
-        - Geo-service operations
       summary: Return boundaries in WKB (Well Known Binary) format simplified to the
         maxTolerance specified in Km
       operationId: findSimpleBoundaries
