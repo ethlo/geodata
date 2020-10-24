@@ -30,7 +30,6 @@ import java.util.Map;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.util.StringUtils;
 
-import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 
 public class CountryParser

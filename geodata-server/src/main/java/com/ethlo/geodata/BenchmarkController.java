@@ -42,7 +42,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.ethlo.geodata.model.GeoLocationWithPath;
+import com.ethlo.geodata.rest.v1.model.V1GeoLocation;
 import com.google.common.net.InetAddresses;
 
 @ConditionalOnProperty(value = "benchmark.enabled", havingValue = "true")
@@ -54,7 +54,7 @@ public class BenchmarkController
     private final AtomicBoolean running = new AtomicBoolean();
 
     @Autowired
-    private GeodataController controller;
+    private V1ApiImpl controller;
 
     @GetMapping("/")
     public ResponseEntity<String> staticResponse()
@@ -106,7 +106,7 @@ public class BenchmarkController
             {
                 try
                 {
-                    final GeoLocationWithPath location = controller.findByIp(ip);
+                    final ResponseEntity<V1GeoLocation> location = controller.findByIp(ip);
                 }
                 catch (EmptyResultDataAccessException exc)
                 {

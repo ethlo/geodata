@@ -30,13 +30,13 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 @JsonPropertyOrder({"id", "parentLocationId", "name", "featureClass", "featureCode", "country", "coordinates", "timeZone", "population", "path"})
 public class GeoLocationWithPath
 {
-    private final GeoLocation location;
-    private final List<GeoLocationSummary> path;
+    private final com.ethlo.geodata.model.GeoLocation location;
+    private final List<com.ethlo.geodata.model.GeoLocationSummary> path;
 
-    public GeoLocationWithPath(GeoLocation location, List<GeoLocation> path)
+    public GeoLocationWithPath(com.ethlo.geodata.model.GeoLocation location, List<com.ethlo.geodata.model.GeoLocation> path)
     {
         this.location = location;
-        this.path = path.stream().map(GeoLocationSummary::new).collect(Collectors.toList());
+        this.path = path.stream().map(com.ethlo.geodata.model.GeoLocationSummary::new).collect(Collectors.toList());
     }
 
     public String getFeatureCode()
@@ -54,7 +54,7 @@ public class GeoLocationWithPath
         return location.getName();
     }
 
-    public CountrySummary getCountry()
+    public com.ethlo.geodata.model.CountrySummary getCountry()
     {
         return location.getCountry();
     }
@@ -64,7 +64,7 @@ public class GeoLocationWithPath
         return location.getParentLocationId();
     }
 
-    public Coordinates getCoordinates()
+    public com.ethlo.geodata.model.Coordinates getCoordinates()
     {
         return location.getCoordinates();
     }
@@ -84,7 +84,7 @@ public class GeoLocationWithPath
         return location.getTimeZone();
     }
 
-    public List<GeoLocationSummary> getPath()
+    public List<com.ethlo.geodata.model.GeoLocationSummary> getPath()
     {
         return path;
     }

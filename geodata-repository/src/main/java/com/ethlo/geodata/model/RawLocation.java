@@ -27,7 +27,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Objects;
 
-public class RawLocation implements CompactSerializable
+public class RawLocation implements com.ethlo.geodata.model.CompactSerializable
 {
     private int id;
     private String name;
@@ -43,7 +43,7 @@ public class RawLocation implements CompactSerializable
     {
     }
 
-    public RawLocation(final int id, final String name, final String countryCode, final Coordinates coordinates, final int mapFeatureId, final long population, final int timeZoneId)
+    public RawLocation(final int id, final String name, final String countryCode, final com.ethlo.geodata.model.Coordinates coordinates, final int mapFeatureId, final long population, final int timeZoneId)
     {
         this.id = id;
         this.name = name;
@@ -70,9 +70,9 @@ public class RawLocation implements CompactSerializable
         return countryCode;
     }
 
-    public Coordinates getCoordinates()
+    public com.ethlo.geodata.model.Coordinates getCoordinates()
     {
-        return Coordinates.from(lat, lng);
+        return com.ethlo.geodata.model.Coordinates.from(lat, lng);
     }
 
     public int getMapFeatureId()

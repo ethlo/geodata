@@ -1,0 +1,1102 @@
+openapi: 3.0.0
+info:
+  description: " Geodata Service"
+  version: "1.0"
+  title: " Geodata Service"
+paths:
+  /v1/continents:
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return list of continents
+      operationId: listContinents
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page_Continent_"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/continents/{continentCode}":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return continent by continent code
+      operationId: findContinentByCode
+      parameters:
+        - name: continentCode
+          in: path
+          description: continentCode
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Continent"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/continents/{continent}/countries":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return countries on the specified continent
+      operationId: findCountriesOnContient
+      parameters:
+        - name: continent
+          in: path
+          description: continent
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Results page you want to retrieve (0..N)
+          required: false
+          schema:
+            type: integer
+            format: int32
+        - name: size
+          in: query
+          description: Number of records per page
+          required: false
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page_Country_"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  /v1/countries:
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return countries
+      operationId: findCountries
+      parameters:
+        - name: page
+          in: query
+          description: Results page you want to retrieve (0..N)
+          required: false
+          schema:
+            type: integer
+            format: int32
+        - name: size
+          in: query
+          description: Number of records per page
+          required: false
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page_Country_"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/countries/{countryCode}":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Find country by 2-letter ISO country code
+      operationId: findCountryByCode
+      parameters:
+        - name: countryCode
+          in: path
+          description: countryCode
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Country"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/countries/{countryCode}/children":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Find top-level level administrative locations for the specified country
+      operationId: findCountryChildren
+      parameters:
+        - name: countryCode
+          in: path
+          description: countryCode
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Results page you want to retrieve (0..N)
+          required: false
+          schema:
+            type: integer
+            format: int32
+        - name: size
+          in: query
+          description: Number of records per page
+          required: false
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page_GeoLocation_"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  /v1/locations/contains:
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return the smallest area location containing the coordinates specified
+      operationId: findLocation_1
+      parameters:
+        - name: maxDistance
+          in: query
+          description: maxDistance
+          required: true
+          schema:
+            type: integer
+            format: int32
+        - name: lat
+          in: query
+          description: Latitude
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: lng
+          in: query
+          description: Longitude
+          required: false
+          schema:
+            type: number
+            format: double
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeoLocation"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  /v1/locations/coordinates:
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return location deemed closest to the specified coordinate
+      operationId: findProximity
+      parameters:
+        - name: maxDistance
+          in: query
+          description: maxDistance
+          required: true
+          schema:
+            type: integer
+            format: int32
+        - name: lat
+          in: query
+          description: Latitude
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: lng
+          in: query
+          description: Longitude
+          required: false
+          schema:
+            type: number
+            format: double
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeoLocation"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  /v1/locations/ids:
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return locations identified by ids
+      operationId: findByIds
+      parameters:
+        - name: ids
+          in: query
+          description: ids
+          required: true
+          explode: true
+          schema:
+            type: array
+            items:
+              type: integer
+              format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GeoLocation"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/locations/ip/{ip}":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return the approximate location for the IP-address specified
+      operationId: findByIp
+      parameters:
+        - name: ip
+          in: path
+          description: ip
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeoLocation"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/locations/name/{name}":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return the approximate location for the IP-address specified
+      operationId: findByName
+      parameters:
+        - name: name
+          in: path
+          description: name
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Results page you want to retrieve (0..N)
+          required: false
+          schema:
+            type: integer
+            format: int32
+        - name: size
+          in: query
+          description: Number of records per page
+          required: false
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page_GeoLocation_"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/locations/phone/{phone}":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return the country for the phone number specified
+      operationId: findCountryByPhone
+      parameters:
+        - name: phone
+          in: path
+          description: phone
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Country"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  /v1/locations/proximity:
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return locations sorted by proximity
+      operationId: findNear
+      parameters:
+        - name: maxDistance
+          in: query
+          description: maxDistance
+          required: true
+          schema:
+            type: integer
+            format: int32
+        - name: page
+          in: query
+          description: Results page you want to retrieve (0..N)
+          required: false
+          schema:
+            type: integer
+            format: int32
+        - name: size
+          in: query
+          description: Number of records per page
+          required: false
+          schema:
+            type: integer
+            format: int32
+        - name: lat
+          in: query
+          description: Latitude
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: lng
+          in: query
+          description: Longitude
+          required: false
+          schema:
+            type: number
+            format: double
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page_GeoLocationDistance_"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/locations/{id}":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return the location by id
+      operationId: findLocation
+      parameters:
+        - name: id
+          in: path
+          description: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeoLocation"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/locations/{id}/boundaries":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return boundaries in GeoJson format
+      operationId: findBoundaries_1
+      parameters:
+        - name: id
+          in: path
+          description: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/locations/{id}/boundaries.wkb":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return boundaries in WKB (Well Known Binary) format
+      operationId: findBoundaries
+      parameters:
+        - name: id
+          in: path
+          description: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+                format: byte
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/locations/{id}/children":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return child locations of the specified location
+      operationId: findChildren
+      parameters:
+        - name: id
+          in: path
+          description: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: page
+          in: query
+          description: Results page you want to retrieve (0..N)
+          required: false
+          schema:
+            type: integer
+            format: int32
+        - name: size
+          in: query
+          description: Number of records per page
+          required: false
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page_GeoLocation_"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/locations/{id}/contains/{child}":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return whether the child is contained by the location
+      operationId: findLocation_2
+      parameters:
+        - name: id
+          in: path
+          description: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: child
+          in: path
+          description: child
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: boolean
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/locations/{id}/insideany/{ids}":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return whether the location is inside any of the one's in the specified
+        list
+      operationId: insideAny
+      parameters:
+        - name: ids
+          in: path
+          description: ids
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          description: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: boolean
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/locations/{id}/outsideall/{ids}":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return whether the location is outside all of the one's in the specified
+        list
+      operationId: outsideAll
+      parameters:
+        - name: ids
+          in: path
+          description: ids
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          description: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: boolean
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/locations/{id}/parent":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return the parent location of the specified id if any
+      operationId: findParentLocation
+      parameters:
+        - name: id
+          in: path
+          description: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeoLocation"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/locations/{id}/previewboundaries":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return boundaries in GeoJson format simplified to a suitable resolution
+      operationId: findPreviewBoundaries_1
+      parameters:
+        - name: id
+          in: path
+          description: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: minLng
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: maxLng
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: minLat
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: maxLat
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: height
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+        - name: width
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/locations/{id}/previewboundaries.wkb":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return boundaries in WKB (Well Known Binary) format simplified to a
+        suitable resolution
+      operationId: findPreviewBoundaries
+      parameters:
+        - name: id
+          in: path
+          description: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: minLng
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: maxLng
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: minLat
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: maxLat
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: height
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+        - name: width
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+                format: byte
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/locations/{id}/simpleboundaries":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return boundaries in GeoJson format simplified to the maxTolerance
+        specified in Km
+      operationId: findSimpleBoundaries_1
+      parameters:
+        - name: id
+          in: path
+          description: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: maxTolerance
+          in: query
+          description: maxTolerance
+          required: false
+          schema:
+            type: number
+            format: double
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+  "/v1/locations/{id}/simpleboundaries.wkb":
+    get:
+      tags:
+        - Geo-service operations
+      summary: Return boundaries in WKB (Well Known Binary) format simplified to the
+        maxTolerance specified in Km
+      operationId: findSimpleBoundaries
+      parameters:
+        - name: id
+          in: path
+          description: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: maxTolerance
+          in: query
+          description: maxTolerance
+          required: true
+          schema:
+            type: number
+            format: double
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+                format: byte
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+servers:
+  - url: //geolocation.demo./
+components:
+  schemas:
+    Continent:
+      type: object
+      properties:
+        continentCode:
+          type: string
+        coordinates:
+          $ref: "#/components/schemas/Coordinates"
+        country:
+          $ref: "#/components/schemas/CountrySummary"
+        featureCode:
+          type: string
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        parentLocationId:
+          type: integer
+          format: int64
+        population:
+          type: integer
+          format: int64
+    Coordinates:
+      type: object
+      properties:
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+    Country:
+      type: object
+      properties:
+        coordinates:
+          $ref: "#/components/schemas/Coordinates"
+        country:
+          $ref: "#/components/schemas/CountrySummary"
+        featureCode:
+          type: string
+        id:
+          type: integer
+          format: int64
+        languages:
+          type: array
+          items:
+            type: string
+        name:
+          type: string
+        parentLocationId:
+          type: integer
+          format: int64
+        population:
+          type: integer
+          format: int64
+    CountrySummary:
+      type: object
+      properties:
+        code:
+          type: string
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+    GeoLocation:
+      type: object
+      properties:
+        coordinates:
+          $ref: "#/components/schemas/Coordinates"
+        country:
+          $ref: "#/components/schemas/CountrySummary"
+        featureCode:
+          type: string
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        parentLocationId:
+          type: integer
+          format: int64
+        population:
+          type: integer
+          format: int64
+    GeoLocationDistance:
+      type: object
+      properties:
+        distance:
+          type: number
+          format: double
+        location:
+          $ref: "#/components/schemas/GeoLocation"
+    Sort:
+      type: object
+    Page_Continent_:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/Continent"
+        first:
+          type: boolean
+        last:
+          type: boolean
+        number:
+          type: integer
+          format: int32
+        numberOfElements:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        sort:
+          $ref: "#/components/schemas/Sort"
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    Page_Country_:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/Country"
+        first:
+          type: boolean
+        last:
+          type: boolean
+        number:
+          type: integer
+          format: int32
+        numberOfElements:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        sort:
+          $ref: "#/components/schemas/Sort"
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    Page_GeoLocationDistance_:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeoLocationDistance"
+        first:
+          type: boolean
+        last:
+          type: boolean
+        number:
+          type: integer
+          format: int32
+        numberOfElements:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        sort:
+          $ref: "#/components/schemas/Sort"
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    Page_GeoLocation_:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeoLocation"
+        first:
+          type: boolean
+        last:
+          type: boolean
+        number:
+          type: integer
+          format: int32
+        numberOfElements:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        sort:
+          $ref: "#/components/schemas/Sort"
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32

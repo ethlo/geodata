@@ -26,7 +26,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.util.SerializationUtils.deserialize;
 import static org.springframework.util.SerializationUtils.serialize;
 
-import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
 public class RawLocationTest

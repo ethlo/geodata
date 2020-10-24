@@ -29,7 +29,7 @@ public class GeoLocationSummary
     private final String featureClass;
     private final String featureCode;
 
-    public GeoLocationSummary(GeoLocation location)
+    public GeoLocationSummary(com.ethlo.geodata.model.GeoLocation location)
     {
         this.id = location.getId();
         this.name = location.getName();
