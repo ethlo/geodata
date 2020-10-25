@@ -22,6 +22,7 @@ package com.ethlo.geodata;
  * #L%
  */
 
+import static com.ethlo.geodata.util.InetUtil.inet;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.Test;
@@ -50,9 +51,9 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForLocationByIp()
     {
-        assertThat(geodataService.findByIp("77.88.103.250")).isNotNull();
-        assertThat(geodataService.findByIp("103.199.40.241")).isNotNull();
-        assertThat(geodataService.findByIp("136.1.107.78")).isNotNull();
+        assertThat(geodataService.findByIp(inet("77.88.103.250"))).isNotNull();
+        assertThat(geodataService.findByIp(inet("103.199.40.241"))).isNotNull();
+        assertThat(geodataService.findByIp(inet("136.1.107.78"))).isNotNull();
     }
 
     @Test

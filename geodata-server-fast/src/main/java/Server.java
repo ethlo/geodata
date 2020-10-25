@@ -51,6 +51,7 @@ import com.ethlo.geodata.dao.file.FileTimeZoneDao;
 import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationWithPath;
 import com.ethlo.geodata.progress.StatefulProgressListener;
+import com.ethlo.geodata.util.InetUtil;
 import com.ethlo.geodata.util.JsonUtil;
 import com.google.common.collect.Lists;
 
@@ -82,7 +83,7 @@ public class Server
                 handleError(() -> withPath(geodataService.findById(id))));
 
         On.get("/v1/locations/ip/{ip}").json((String ip) ->
-                handleError(() -> withPath(geodataService.findByIp(ip))));
+                handleError(() -> withPath(geodataService.findByIp(InetUtil.inet(ip)))));
 
         On.get("/v1/locations/name/{name}").json((String name, Integer page, Integer page_size) ->
                 geodataService.findByName(name, PageRequest.of(page != null ? page : 0, page_size != null ? page_size : 25)).map(this::withPath));

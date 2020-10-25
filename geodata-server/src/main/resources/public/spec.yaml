@@ -418,7 +418,10 @@ paths:
           description: ids
           required: true
           schema:
-            type: string
+            type: array
+            items:
+              type: integer
+              format: int32
         - name: id
           in: path
           description: id
@@ -445,7 +448,10 @@ paths:
           description: ids
           required: true
           schema:
-            type: string
+            type: array
+            items:
+              type: integer
+              format: int32
         - name: id
           in: path
           description: id

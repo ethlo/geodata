@@ -22,6 +22,7 @@ package com.ethlo.geodata;
  * #L%
  */
 
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -119,7 +120,7 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public GeoLocation findByIp(String ip)
+    public GeoLocation findByIp(InetAddress ip)
     {
         return ipDao.findByIp(ip).map(this::findById).orElseThrow(() -> new EmptyResultDataAccessException("Cannot find location for ip " + ip, 1));
     }
@@ -475,7 +476,7 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public GeoLocation findbyCoordinate(Coordinates point, int distance)
+    public GeoLocation findByCoordinate(Coordinates point, int distance)
     {
         GeoLocation location = findWithin(point, distance);
 

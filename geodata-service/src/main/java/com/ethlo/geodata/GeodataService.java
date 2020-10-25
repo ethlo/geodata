@@ -22,6 +22,7 @@ package com.ethlo.geodata;
  * #L%
  */
 
+import java.net.InetAddress;
 import java.util.Collection;
 import java.util.List;
 
@@ -40,7 +41,7 @@ import com.ethlo.geodata.model.View;
 
 public interface GeodataService
 {
-    GeoLocation findByIp(String ip);
+    GeoLocation findByIp(InetAddress ip);
 
     GeoLocation findById(int geoNameId);
 
@@ -70,7 +71,7 @@ public interface GeodataService
 
     GeoLocation findParent(int id);
 
-    GeoLocation findbyCoordinate(Coordinates point, int distance);
+    GeoLocation findByCoordinate(Coordinates point, int distance);
 
     boolean isInsideAny(List<Integer> locations, int location);
 

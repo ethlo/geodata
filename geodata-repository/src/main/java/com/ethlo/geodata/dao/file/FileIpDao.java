@@ -32,15 +32,12 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 
-import com.ethlo.geodata.InvalidDataException;
 import com.ethlo.geodata.dao.IpDao;
-import com.google.common.net.InetAddresses;
 import com.google.common.primitives.Ints;
 import com.maxmind.db.MaxMindDbConstructor;
 import com.maxmind.db.MaxMindDbParameter;
 import com.maxmind.db.Reader;
 
-@SuppressWarnings("UnstableApiUsage")
 @Repository
 public class FileIpDao implements IpDao
 {
@@ -69,21 +66,11 @@ public class FileIpDao implements IpDao
     }
 
     @Override
-    public Optional<Integer> findByIp(final String ip)
+    public Optional<Integer> findByIp(final InetAddress ip)
     {
-        InetAddress address;
         try
         {
-            address = InetAddresses.forString(ip);
-        }
-        catch (IllegalArgumentException exc)
-        {
-            throw new InvalidDataException(ip, exc.getMessage());
-        }
-
-        try
-        {
-            final LookupResult result = reader.get(address, LookupResult.class);
+            final LookupResult result = reader.get(ip, LookupResult.class);
             return Optional.ofNullable(result).map(LookupResult::getCity).map(LookupResult.City::getId);
         }
         catch (IOException e)

@@ -1,4 +1,4 @@
-package com.ethlo.geodata.dao;
+package com.ethlo.geodata.util;
 
 /*-
  * #%L
@@ -10,12 +10,12 @@ package com.ethlo.geodata.dao;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- *
+ * 
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- *
+ * 
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -23,9 +23,22 @@ package com.ethlo.geodata.dao;
  */
 
 import java.net.InetAddress;
-import java.util.Optional;
 
-public interface IpDao
+import com.ethlo.geodata.InvalidDataException;
+import com.google.common.net.InetAddresses;
+
+public class InetUtil
 {
-    Optional<Integer> findByIp(InetAddress ip);
+    @SuppressWarnings("UnstableApiUsage")
+    public static InetAddress inet(final String ip)
+    {
+        try
+        {
+            return InetAddresses.forString(ip);
+        }
+        catch (IllegalArgumentException exc)
+        {
+            throw new InvalidDataException(ip, exc.getMessage());
+        }
+    }
 }
