@@ -26,6 +26,7 @@ package com.ethlo.geodata;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
@@ -45,6 +46,7 @@ import com.ethlo.geodata.rest.v1.model.V1Coordinates;
 import com.ethlo.geodata.rest.v1.model.V1Country;
 import com.ethlo.geodata.rest.v1.model.V1CountrySummary;
 import com.ethlo.geodata.rest.v1.model.V1GeoLocation;
+import com.ethlo.geodata.rest.v1.model.V1GeoLocationSummary;
 import com.ethlo.geodata.rest.v1.model.V1PageContinent;
 import com.ethlo.geodata.rest.v1.model.V1PageCountry;
 import com.ethlo.geodata.rest.v1.model.V1PageGeoLocation;
@@ -62,9 +64,9 @@ public class V1ApiImpl implements V1ApiDelegate
     }
 
     @Override
-    public ResponseEntity<List<V1GeoLocation>> findByIds(final List<Long> ids)
+    public ResponseEntity<List<V1GeoLocation>> findByIds(final List<Integer> ids)
     {
-        return null;
+        return ResponseEntity.ok(geodataService.findByIds(ids).stream().map(this::transform).collect(Collectors.toList()));
     }
 
     @Override
@@ -80,17 +82,31 @@ public class V1ApiImpl implements V1ApiDelegate
         return new V1GeoLocation()
                 .country(transform(l.getCountry()))
                 .coordinates(transform(l.getCoordinates()))
+                .featureClass(l.getFeatureClass())
                 .featureCode(l.getFeatureCode())
-                .id((long) l.getId())
+                .id(l.getId())
                 .name(l.getName())
-                .parentLocationId(l.getParentLocationId() != null ? (long) l.getParentLocationId() : null)
-                .population(l.getPopulation());
+                .parentLocationId(l.getParentLocationId() != null ? l.getParentLocationId() : null)
+                .population(l.getPopulation() != 0 ? l.getPopulation() : null)
+                .timeZone(l.getTimeZone())
+                .path(transform(geodataService.findPath(l.getId())));
+    }
+
+    private List<V1GeoLocationSummary> transform(final List<GeoLocation> path)
+    {
+        return path.stream().map(l ->
+                new V1GeoLocationSummary()
+                        .id(l.getId())
+                        .name(l.getName())
+                        .featureClass(l.getFeatureClass())
+                        .featureCode(l.getFeatureCode()))
+                .collect(Collectors.toList());
     }
 
     private V1Continent transform(final Continent c)
     {
         return new V1Continent()
-                .id((long) c.getId())
+                .id(c.getId())
                 .continentCode(c.getContinentCode())
                 .name(c.getName())
                 .featureClass(c.getFeatureClass())
@@ -102,7 +118,7 @@ public class V1ApiImpl implements V1ApiDelegate
     private V1Country transform(final Country c)
     {
         return new V1Country()
-                .id((long) c.getId())
+                .id(c.getId())
                 .name(c.getName());
         // TODO:
         //.featureCode(c.getFeatureCode())
@@ -119,7 +135,7 @@ public class V1ApiImpl implements V1ApiDelegate
     {
         return new V1CountrySummary()
                 .code(country.getCode())
-                .id((long) country.getId())
+                .id(country.getId())
                 .name(country.getName());
     }
 
@@ -137,9 +153,9 @@ public class V1ApiImpl implements V1ApiDelegate
     }
 
     @Override
-    public ResponseEntity<V1PageGeoLocation> findChildren(final Long id, final Integer page, final Integer size)
+    public ResponseEntity<V1PageGeoLocation> findChildren(final Integer id, final Integer page, final Integer size)
     {
-        final Page<V1GeoLocation> res = geodataService.findChildren(id.intValue(), pageable(page, size)).map(this::transform);
+        final Page<V1GeoLocation> res = geodataService.findChildren(id, pageable(page, size)).map(this::transform);
         return ResponseEntity.ok(toGeolocationPage(res));
     }
 
@@ -198,31 +214,31 @@ public class V1ApiImpl implements V1ApiDelegate
     }
 
     @Override
-    public ResponseEntity<V1GeoLocation> findLocation(final Long id)
+    public ResponseEntity<V1GeoLocation> findLocation(final Integer id)
     {
-        final Optional<GeoLocation> location = Optional.ofNullable(geodataService.findById(id.intValue()));
+        final Optional<GeoLocation> location = Optional.ofNullable(geodataService.findById(id));
         return ResponseEntity.ok(location.map(this::transform).orElseThrow(notNull("No location found for id " + id)));
     }
 
     @Override
-    public ResponseEntity<Boolean> isLocationInside(final Long id, final Long child)
+    public ResponseEntity<Boolean> isLocationInside(final Integer id, final Integer child)
     {
-        return ResponseEntity.ok(geodataService.isLocationInside(id.intValue(), child.intValue()));
+        return ResponseEntity.ok(geodataService.isLocationInside(id, child));
     }
 
     @Override
-    public ResponseEntity<V1GeoLocation> findParentLocation(final Long id)
+    public ResponseEntity<V1GeoLocation> findParentLocation(final Integer id)
     {
-        final Optional<GeoLocation> location = Optional.ofNullable(geodataService.findParent(id.intValue()));
+        final Optional<GeoLocation> location = Optional.ofNullable(geodataService.findParent(id));
         return ResponseEntity.ok(location.map(this::transform).orElseThrow(notNull("No parent location found for id " + id)));
     }
 
     @Override
-    public ResponseEntity<Boolean> insideAny(final List<Integer> ids, final Long id)
+    public ResponseEntity<Boolean> insideAny(final List<Integer> ids, final Integer id)
     {
         ids.forEach(geodataService::findById);
-        geodataService.findById(id.intValue());
-        return ResponseEntity.ok(geodataService.isInsideAny(ids, id.intValue()));
+        geodataService.findById(id);
+        return ResponseEntity.ok(geodataService.isInsideAny(ids, id));
     }
 
     @Override
@@ -241,11 +257,11 @@ public class V1ApiImpl implements V1ApiDelegate
     }
 
     @Override
-    public ResponseEntity<Boolean> outsideAll(final List<Integer> ids, final Long id)
+    public ResponseEntity<Boolean> outsideAll(final List<Integer> ids, final Integer id)
     {
         ids.forEach(geodataService::findById);
-        geodataService.findById(id.intValue());
-        return ResponseEntity.ok(geodataService.isOutsideAll(ids, id.intValue()));
+        geodataService.findById(id);
+        return ResponseEntity.ok(geodataService.isOutsideAll(ids, id));
     }
 
     private Supplier<EmptyResultDataAccessException> notNull(String errorMessage)

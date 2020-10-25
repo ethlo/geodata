@@ -64,7 +64,6 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/size'
-
       responses:
         200:
           description: OK
@@ -195,7 +194,7 @@ paths:
             type: array
             items:
               type: integer
-              format: int64
+              format: int32
       responses:
         200:
           description: OK
@@ -312,7 +311,7 @@ paths:
           required: true
           schema:
             type: integer
-            format: int64
+            format: int32
       responses:
         200:
           description: OK
@@ -332,7 +331,7 @@ paths:
           required: true
           schema:
             type: integer
-            format: int64
+            format: int32
       responses:
         200:
           description: OK
@@ -348,7 +347,7 @@ paths:
           required: true
           schema:
             type: integer
-            format: int64
+            format: int32
       responses:
         200:
           description: OK
@@ -369,7 +368,7 @@ paths:
           required: true
           schema:
             type: integer
-            format: int64
+            format: int32
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/size'
       responses:
@@ -391,14 +390,14 @@ paths:
           required: true
           schema:
             type: integer
-            format: int64
+            format: int32
         - name: child
           in: path
           description: child
           required: true
           schema:
             type: integer
-            format: int64
+            format: int32
       responses:
         200:
           description: OK
@@ -428,7 +427,7 @@ paths:
           required: true
           schema:
             type: integer
-            format: int64
+            format: int32
       responses:
         200:
           description: OK
@@ -458,7 +457,7 @@ paths:
           required: true
           schema:
             type: integer
-            format: int64
+            format: int32
       responses:
         200:
           description: OK
@@ -478,7 +477,7 @@ paths:
           required: true
           schema:
             type: integer
-            format: int64
+            format: int32
       responses:
         200:
           description: OK
@@ -498,7 +497,7 @@ paths:
           required: true
           schema:
             type: integer
-            format: int64
+            format: int32
         - name: minLng
           in: query
           required: false
@@ -551,7 +550,7 @@ paths:
           required: true
           schema:
             type: integer
-            format: int64
+            format: int32
         - name: minLng
           in: query
           required: false
@@ -609,7 +608,7 @@ paths:
           required: true
           schema:
             type: integer
-            format: int64
+            format: int32
         - name: maxTolerance
           in: query
           description: maxTolerance
@@ -633,7 +632,7 @@ paths:
           required: true
           schema:
             type: integer
-            format: int64
+            format: int32
         - name: maxTolerance
           in: query
           description: maxTolerance
@@ -676,6 +675,11 @@ components:
     Continent:
       type: object
       properties:
+        id:
+          type: integer
+          format: int32
+        name:
+          type: string
         continentCode:
           type: string
         coordinates:
@@ -683,11 +687,6 @@ components:
         featureClass:
           type: string
         featureCode:
-          type: string
-        id:
-          type: integer
-          format: int64
-        name:
           type: string
         population:
           type: integer
@@ -705,24 +704,24 @@ components:
     Country:
       type: object
       properties:
+        id:
+          type: integer
+          format: int32
+        name:
+          type: string
         coordinates:
           $ref: "#/components/schemas/Coordinates"
         country:
           $ref: "#/components/schemas/CountrySummary"
         featureCode:
           type: string
-        id:
-          type: integer
-          format: int64
         languages:
           type: array
           items:
             type: string
-        name:
-          type: string
         parentLocationId:
           type: integer
-          format: int64
+          format: int32
         population:
           type: integer
           format: int64
@@ -733,29 +732,51 @@ components:
           type: string
         id:
           type: integer
-          format: int64
+          format: int32
         name:
           type: string
+
     GeoLocation:
       type: object
       properties:
+        id:
+          type: integer
+          format: int32
+        name:
+          type: string
         coordinates:
           $ref: "#/components/schemas/Coordinates"
         country:
           $ref: "#/components/schemas/CountrySummary"
-        featureCode:
+        featureClass:
           type: string
-        id:
-          type: integer
-          format: int64
-        name:
+        featureCode:
           type: string
         parentLocationId:
           type: integer
-          format: int64
+          format: int32
         population:
           type: integer
           format: int64
+        timeZone:
+          type: string
+        path:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeoLocationSummary'
+    GeoLocationSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+        name:
+          type: string
+        featureClass:
+          type: string
+        featureCode:
+          type: string
+
     GeoLocationDistance:
       type: object
       properties:

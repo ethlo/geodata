@@ -77,6 +77,8 @@ import com.ethlo.geodata.util.GeometryUtil;
 import com.ethlo.geodata.util.MemoryUsageUtil;
 import com.ethlo.time.Chronograph;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Lists;
 import com.googlecode.concurrenttrees.radix.ConcurrentRadixTree;
 import com.googlecode.concurrenttrees.radix.RadixTree;
@@ -99,7 +101,7 @@ public class GeodataServiceImpl implements GeodataService
     private final int qualityConstant;
     // Loaded data
     private Map<Integer, Node> nodes = new Int2ObjectOpenHashMap<>();
-    private Map<Integer, String> timezones;
+    private BiMap<String, Integer> timezones;
     private Map<String, Country> countries;
     private List<Continent> continents = new LinkedList<>();
     private Map<Integer, MapFeature> featureCodes = new HashMap<>();
@@ -209,7 +211,7 @@ public class GeodataServiceImpl implements GeodataService
         this.featureCodes = featureCodeDao.load();
 
         progressListener.begin("time_zones", 1);
-        this.timezones = timeZoneDao.load();
+        this.timezones = HashBiMap.create(timeZoneDao.load());
 
         final Chronograph chronograph = Chronograph.create();
         chronograph.timed("Locations", () -> loadLocations(progressListener));
@@ -597,7 +599,7 @@ public class GeodataServiceImpl implements GeodataService
         final int featureCodeId = l.getMapFeatureId();
         final MapFeature mapFeature = featureCodeId != 0 ? featureCodes.get(featureCodeId) : null;
 
-        final String timezone = timezones.get(l.getTimeZoneId());
+        final String timezone = timezones.inverse().get(l.getTimeZoneId());
 
         final GeoLocation result = new GeoLocation();
         result.setId(id);
