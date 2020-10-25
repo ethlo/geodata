@@ -1,4 +1,4 @@
-/*-
+package com.ethlo.geodata;/*-
  * #%L
  * geodata-server
  * %%

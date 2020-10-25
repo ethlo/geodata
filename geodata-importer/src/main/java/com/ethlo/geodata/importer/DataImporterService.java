@@ -28,10 +28,13 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Date;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import javax.annotation.PostConstruct;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -44,8 +47,8 @@ import com.ethlo.geodata.util.JsonUtil;
 @Service
 public class DataImporterService
 {
+    private static final Logger logger = LoggerFactory.getLogger(DataImporterService.class);
     private final GeoFabrikBoundaryLoader geoFabrikBoundaryLoader = new GeoFabrikBoundaryLoader();
-
     private final Duration maxDataAge;
     private final FileIpDataImporter ipLookupImporter;
     private final FileGeonamesImporter geonamesImporter;
@@ -61,7 +64,6 @@ public class DataImporterService
         this.ipLookupImporter = ipLookupImporter;
         this.geonamesImporter = geonamesImporter;
     }
-
 
     public Optional<Date> getLastModified(String alias)
     {
@@ -79,17 +81,25 @@ public class DataImporterService
     @PostConstruct
     public void update() throws IOException
     {
+        final AtomicBoolean updated = new AtomicBoolean();
         ifExpired(DataType.LOCATIONS, geonamesImporter.lastRemoteModified(), () ->
         {
             geonamesImporter.purgeData();
+            updated.set(true);
             return geonamesImporter.importData();
         });
 
         ifExpired(DataType.IP, ipLookupImporter.lastRemoteModified(), () ->
         {
             ipLookupImporter.purgeData();
+            updated.set(true);
             return ipLookupImporter.importData();
         });
+
+        if (!updated.get())
+        {
+            logger.info("No data to update. Max data age {}", maxDataAge);
+        }
 
         /*final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
         if (boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)
