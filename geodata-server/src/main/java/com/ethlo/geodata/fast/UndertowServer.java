@@ -1,4 +1,4 @@
-package com.ethlo.geodata;
+package com.ethlo.geodata.fast;
 
 /*-
  * #%L
@@ -24,8 +24,14 @@ package com.ethlo.geodata;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.Collections;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.ethlo.geodata.GeodataServiceImpl;
 import com.ethlo.geodata.dao.CountryDao;
 import com.ethlo.geodata.dao.FeatureCodeDao;
 import com.ethlo.geodata.dao.HierarchyDao;
@@ -39,10 +45,14 @@ import com.ethlo.geodata.dao.file.FileIpDao;
 import com.ethlo.geodata.dao.file.FileMmapLocationDao;
 import com.ethlo.geodata.dao.file.FileTimeZoneDao;
 import com.ethlo.geodata.progress.StatefulProgressListener;
+import com.ethlo.geodata.util.MemoryUsageUtil;
+import io.undertow.Undertow;
 import io.undertow.server.RoutingHandler;
 
 public class UndertowServer
 {
+    private static final Logger logger = LoggerFactory.getLogger(UndertowServer.class);
+
     public static void main(String[] args)
     {
         final Path basePath = Paths.get("/tmp/geodata");
@@ -59,7 +69,18 @@ public class UndertowServer
 
         final RoutingHandler routes = new ServerHandler(geodataService).handler();
         SimpleServer server = SimpleServer.simpleServer(routes);
-        //Undertow.Builder undertow = server.getUndertow();
         server.start();
+
+        logger.info("Startup completed in {}", Duration.between(MemoryUsageUtil.getJvmStartTime(), OffsetDateTime.now()));
+
+        logger.info("Triggering GC");
+        // Attempt to force GC
+        for (int i = 0; i < 3; i++)
+        {
+            System.gc();
+        }
+
+        MemoryUsageUtil.dumpMemUsage("Ready");
+
     }
 }

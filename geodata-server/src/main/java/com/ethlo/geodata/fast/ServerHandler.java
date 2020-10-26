@@ -1,4 +1,4 @@
-package com.ethlo.geodata;
+package com.ethlo.geodata.fast;
 
 /*-
  * #%L
@@ -23,17 +23,16 @@ package com.ethlo.geodata;
  */
 
 import java.util.Deque;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.PageRequest;
 
-import com.ethlo.geodata.model.GeoLocation;
-import com.ethlo.geodata.model.GeoLocationWithPath;
+import com.ethlo.geodata.GeodataService;
+import com.ethlo.geodata.Mapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.collect.Lists;
 import com.jsoniter.output.EncodingMode;
 import com.jsoniter.output.JsonStream;
 import io.undertow.Handlers;
@@ -46,10 +45,12 @@ import io.undertow.util.Methods;
 public class ServerHandler
 {
     private final GeodataService geodataService;
+    private final Mapper mapper;
 
     public ServerHandler(final GeodataService geodataService)
     {
         this.geodataService = geodataService;
+        this.mapper = new Mapper(geodataService);
 
         JsonStream.setMode(EncodingMode.DYNAMIC_MODE);
     }
@@ -71,7 +72,7 @@ public class ServerHandler
                 .add(Methods.GET, "/v1/locations/{id}/children", exchange ->
                 {
                     final int id = getIntParam(exchange, "id");
-                    json(exchange, geodataService.findChildren(id, pageable(exchange)));
+                    json(exchange, Mapper.toGeolocationPage(geodataService.findChildren(id, getPageable(exchange)).map(mapper::transform)));
                 })
 
                 .add(Methods.GET, "/v1/continents/{continentCode}", exchange -> exchange.getResponseSender().send("findContinentByCode"))
@@ -89,7 +90,7 @@ public class ServerHandler
                 .add(Methods.GET, "/v1/locations/{id}", exchange ->
                 {
                     final int id = getIntParam(exchange, "id");
-                    json(exchange, withPath(geodataService.findById(id)));
+                    json(exchange, Optional.ofNullable(geodataService.findById(id)).map(mapper::transform).orElseThrow(notNull("No location with id " + id)));
                 })
 
                 .add(Methods.GET, "/v1/locations/proximity", exchange -> exchange.getResponseSender().send("findNear"))
@@ -150,16 +151,15 @@ public class ServerHandler
         return () -> new IllegalArgumentException("Missing parameter: " + name);
     }
 
-    private GeoLocationWithPath withPath(final GeoLocation location)
-    {
-        final List<GeoLocation> path = Lists.reverse(geodataService.findPath(location.getId()));
-        return new GeoLocationWithPath(location, path);
-    }
-
-    private PageRequest pageable(final HttpServerExchange exchange)
+    private PageRequest getPageable(final HttpServerExchange exchange)
     {
         final Integer page = getIntParam(exchange, "page");
         final Integer size = getIntParam(exchange, "size");
         return PageRequest.of(page != null ? page : 0, size != null && size > 0 & size <= 10_000 ? size : 25);
+    }
+
+    private Supplier<EmptyResultDataAccessException> notNull(String errorMessage)
+    {
+        return () -> new EmptyResultDataAccessException(errorMessage, 1);
     }
 }
