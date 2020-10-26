@@ -579,13 +579,17 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Slice<GeoLocation> findByName(String name, Pageable pageable)
     {
-        final long max = pageable.getOffset() + pageable.getPageSize();
-        final List<Integer> ids = getIds(name, max + 1);
+        final long queryLimit = pageable.getOffset() + pageable.getPageSize();
+        final long skip = pageable.getOffset();
+        final long size = pageable.getPageSize();
+
+        final List<Integer> ids = getIds(name, queryLimit + 1);
         if (!ids.isEmpty())
         {
-            final boolean hasMore = ids.size() > max;
+            final boolean hasMore = ids.size() > queryLimit;
             final List<GeoLocation> content = ids.stream()
-                    .limit(max - 1)
+                    .skip(skip)
+                    .limit(size)
                     .map(this::doFindById)
                     .sorted(Comparator.comparingLong(GeoLocation::getPopulation))
                     .collect(Collectors.toList());

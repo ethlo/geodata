@@ -70,6 +70,12 @@ public class V1ApiImpl implements V1ApiDelegate
     }
 
     @Override
+    public ResponseEntity<V1Continent> findContinentByCode(final String continentCode)
+    {
+        return ResponseEntity.ok(Optional.ofNullable(geodataService.findContinent(continentCode)).map(this::transform).orElseThrow(notNull("No continent found for continent code " + continentCode)));
+    }
+
+    @Override
     public ResponseEntity<V1Country> findCountryByPhone(final String phone)
     {
         final Country country = Optional.ofNullable(geodataService.findByPhoneNumber(phone)).orElseThrow(notNull("Unable to determine country by phone number " + phone));
