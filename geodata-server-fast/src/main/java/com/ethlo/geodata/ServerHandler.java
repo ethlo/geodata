@@ -121,7 +121,6 @@ public class ServerHandler
                         exchange.getResponseSender().send("outsideAll");
                     }
                 });
-
     }
 
     private void json(final HttpServerExchange exchange, final Object obj) throws JsonProcessingException
@@ -132,8 +131,18 @@ public class ServerHandler
 
     private Integer getIntParam(final HttpServerExchange exchange, final String name)
     {
+        return getFirstParam(exchange, name).map(Integer::parseInt).orElse(null);
+    }
+
+    private String getStringParam(final HttpServerExchange exchange, final String name)
+    {
+        return getFirstParam(exchange, name).orElse(null);
+    }
+
+    public Optional<String> getFirstParam(final HttpServerExchange exchange, final String name)
+    {
         final Map<String, Deque<String>> params = exchange.getQueryParameters();
-        return Optional.ofNullable(params.get(name)).map(Deque::getFirst).map(Integer::parseInt).orElse(null);
+        return Optional.ofNullable(params.get(name)).map(Deque::getFirst);
     }
 
     private Supplier<RuntimeException> missingParam(String name)

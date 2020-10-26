@@ -35,13 +35,13 @@ import com.ethlo.geodata.progress.StatefulProgressListener;
 import com.ethlo.geodata.util.MemoryUsageUtil;
 
 @SpringBootApplication
-public class RestGeodataApplication
+public class GeodataServer
 {
-    private static final Logger logger = LoggerFactory.getLogger(RestGeodataApplication.class);
+    private static final Logger logger = LoggerFactory.getLogger(GeodataServer.class);
 
     public static void main(String[] args)
     {
-        final ApplicationContext ctx = SpringApplication.run(RestGeodataApplication.class, args);
+        final ApplicationContext ctx = SpringApplication.run(GeodataServer.class, args);
 
         MemoryUsageUtil.dumpMemUsage("Initial");
 

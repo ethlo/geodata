@@ -29,11 +29,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.validation.Valid;
@@ -237,8 +240,10 @@ public class GeodataServiceImpl implements GeodataService
     private void loadCountries(final LoadProgressListener progressListener)
     {
         progressListener.begin("countries", null);
-        this.countries = new HashMap<>();
-        for (final Country country : countryDao.load())
+        this.countries = new LinkedHashMap<>();
+        final List<Country> countryList = countryDao.load();
+        countryList.sort(Comparator.comparing(Country::getName));
+        for (final Country country : countryList)
         {
             countries.put(country.getCountryCode(), country);
         }
@@ -310,7 +315,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public List<GeoLocation> findPath(final int id)
     {
-        return getPath(id).stream().skip(1).map(this::findById).collect(Collectors.toList());
+        return Lists.reverse(getPath(id).stream().skip(1).map(this::findById).collect(Collectors.toList())).stream().skip(1).collect(Collectors.toList());
     }
 
     @Override
@@ -345,7 +350,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<Country> findCountries(Pageable pageable)
     {
-        final List<Country> content = countries.values().stream().skip(pageable.getOffset()).limit(pageable.getPageSize()).collect(Collectors.toList());
+        final List<Country> content = countries.values().stream().filter(c -> nodes.containsKey(c.getId())).skip(pageable.getOffset()).limit(pageable.getPageSize()).collect(Collectors.toList());
         return new PageImpl<>(content, pageable, countries.size());
     }
 
@@ -442,19 +447,26 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public boolean isLocationInside(final int locationId, final int suspectedParentId)
     {
-        final List<Integer> path = getPath(locationId);
+        final Collection<Integer> path = getPath(locationId);
         return path.contains(suspectedParentId);
     }
 
-    private List<Integer> getPath(final int id)
+    private Collection<Integer> getPath(final int id)
     {
         Node node = this.nodes.get(id);
-        final List<Integer> path = new LinkedList<>();
+        final Set<Integer> path = new LinkedHashSet<>();
         while (node != null)
         {
-            path.add(node.getId());
-            final Integer parent = node.getParent();
-            node = parent != null ? nodes.get(parent) : null;
+            if (!path.add(node.getId()))
+            {
+                logger.warn("Circular reference for {}: {}", node.getId(), path);
+                node = null;
+            }
+            else
+            {
+                final Integer parent = node.getParent();
+                node = parent != null ? nodes.get(parent) : null;
+            }
         }
         return path;
     }

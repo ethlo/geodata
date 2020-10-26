@@ -117,13 +117,18 @@ public class V1ApiImpl implements V1ApiDelegate
 
     private V1Country transform(final Country c)
     {
+        final GeoLocation l = geodataService.findById(c.getId());
         return new V1Country()
                 .id(c.getId())
-                .name(c.getName());
-        // TODO:
-        //.featureCode(c.getFeatureCode())
-        //.coordinates(this.transform(c.getCoordinates()))
-        //.population(c.getPopulation());
+                .name(c.getName())
+                .languages(c.getLanguages())
+                .featureClass(l.getFeatureClass())
+                .featureCode(l.getFeatureCode())
+                .coordinates(Optional.ofNullable(l.getCoordinates()).map(this::transform).orElse(null))
+                .parentLocationId(l.getParentLocationId())
+                .population(l.getPopulation())
+                .timeZone(l.getTimeZone())
+                .path(transform(geodataService.findPath(l.getId())));
     }
 
     private V1Coordinates transform(final Coordinates coordinates)
@@ -190,6 +195,7 @@ public class V1ApiImpl implements V1ApiDelegate
                 .last(res.isLast())
                 .number(res.getNumber())
                 .numberOfElements(res.getNumberOfElements())
+                .content(res.getContent())
                 .size(res.getSize())
                 .totalElements(res.getTotalElements())
                 .totalPages(res.getTotalPages());

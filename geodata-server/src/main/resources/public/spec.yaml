@@ -711,8 +711,8 @@ components:
           type: string
         coordinates:
           $ref: "#/components/schemas/Coordinates"
-        country:
-          $ref: "#/components/schemas/CountrySummary"
+        featureClass:
+          type: string
         featureCode:
           type: string
         languages:
@@ -725,6 +725,13 @@ components:
         population:
           type: integer
           format: int64
+        timeZone:
+          type: string
+        path:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeoLocationSummary'
+
     CountrySummary:
       type: object
       properties:
