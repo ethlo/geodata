@@ -18,7 +18,7 @@
 
         th, td {
             padding: 10px;
-            border-bottom:1px solid #ccc;
+            border-bottom: 1px solid #ccc;
         }
 
         html, body {
@@ -47,7 +47,7 @@
         }
 
         .data-table {
-            margin-top:1.5em;
+            margin-top: 1.5em;
         }
 
         .card {
@@ -68,8 +68,8 @@
         }
 
         .home-menu {
-            background: linear-gradient(0deg, rgba(20,20,20,1) 0%, rgba(56,70,80,1) 100%);
-            padding-bottom:0.8em
+            background: linear-gradient(0deg, rgba(20, 20, 20, 1) 0%, rgba(56, 70, 80, 1) 100%);
+            padding-bottom: 0.8em
         }
 
         .pure-menu.pure-menu-fixed {
@@ -151,9 +151,11 @@
                 border: none;
             }
         }
+
         .main-stop {
             stop-color: #f5f5f5;
         }
+
         .alt-stop {
             stop-color: #f5f5f5 /* #fe7902 rgb(150 207 36)*/;
         }
@@ -169,12 +171,14 @@
             <div class="svg-container">
                 <svg viewBox="0 0 100 200">
                     <style type="text/css">
-                        rect{fill:url(#gradient)}
+                        rect {
+                            fill: url(#gradient)
+                        }
                     </style>
                     <defs>
                         <linearGradient id="gradient">
-                            <stop class="main-stop" offset="0%" />
-                            <stop class="alt-stop" offset="100%" />
+                            <stop class="main-stop" offset="0%"/>
+                            <stop class="alt-stop" offset="100%"/>
                         </linearGradient>
                     </defs>
                     <g>
@@ -197,7 +201,7 @@
 
 <div class="content-wrapper">
     <div class="content">
-        <h2>Simple, fast and free geodata server for on-site deployment</h2>
+        <h2>Simple, fast and free geodata server for flexible deployment</h2>
         <p>
             Quick startup, low memory overhead and super-low response times.
         </p>
@@ -215,13 +219,13 @@
             <table class="data-table" style="width: 100%">
                 <thead>
                 <tr>
-                    <th style="text-align:left">Data</th>
+                    <th style="text-align:left">Source</th>
                     <th style="text-align: right">Count</th>
                     <th>Last updated</th>
                 </tr>
                 </thead>
                 <tr>
-                    <td>IP locations</td>
+                    <td>MaxMind GeoLite2 data</td>
                     <td class="numeric" data-count="ip"></td>
                     <td style="text-align: center">
                         <span data-lastmodified="ip"></span>
@@ -230,7 +234,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td>Locations</td>
+                    <td>Geonames.org data</td>
                     <td class="numeric" data-count="locations"></td>
                     <td style="text-align: center">
                         <span data-lastmodified="locations"></span>
@@ -252,7 +256,6 @@
             NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
             POSSIBILITY OF SUCH DAMAGE.
         </p>
-
     </div>
 </div>
 
