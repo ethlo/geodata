@@ -34,19 +34,22 @@ public class Country
     private final String countryCode;
     private final String continentCode;
     private final List<String> languages;
+    private final String phone;
 
     @JsonCreator
     public Country(@JsonProperty("id") final int id,
                    @JsonProperty("name") final String name,
                    @JsonProperty("country_code") final String countryCode,
                    @JsonProperty("continent") String continentCode,
-                   @JsonProperty("languages") List<String> languages)
+                   @JsonProperty("languages") List<String> languages,
+                   @JsonProperty("phone") final String phone)
     {
         this.id = id;
         this.name = name;
         this.countryCode = countryCode;
         this.continentCode = continentCode;
         this.languages = languages;
+        this.phone = phone;
     }
 
     public CountrySummary toSummary(String countryCode)
@@ -79,4 +82,8 @@ public class Country
         return languages;
     }
 
+    public String getPhone()
+    {
+        return phone;
+    }
 }

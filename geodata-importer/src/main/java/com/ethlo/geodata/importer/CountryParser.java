@@ -43,9 +43,10 @@ public class CountryParser
             final int id = Integer.parseInt(c.get("geonameid"));
             final String countryCode = c.get("iso");
             final String name = c.get("country");
+            final String phone = c.get("phone");
             final String continentCode = c.get("continent");
             final List<String> languages = new ArrayList<>(StringUtils.commaDelimitedListToSet(c.get("languages")));
-            final Country country = new Country(id, name, countryCode, continentCode, languages);
+            final Country country = new Country(id, name, countryCode, continentCode, languages, phone);
             countryMap.put(countryCode, country);
         }
         return countryMap;

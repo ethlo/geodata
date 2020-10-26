@@ -70,6 +70,13 @@ public class V1ApiImpl implements V1ApiDelegate
     }
 
     @Override
+    public ResponseEntity<V1Country> findCountryByPhone(final String phone)
+    {
+        final Country country = Optional.ofNullable(geodataService.findByPhoneNumber(phone)).orElseThrow(notNull("Unable to determine country by phone number " + phone));
+        return ResponseEntity.ok(transform(country));
+    }
+
+    @Override
     public ResponseEntity<V1GeoLocation> findByIp(final String ip)
     {
         return ResponseEntity.ok(Optional.ofNullable(geodataService.findByIp(InetUtil.inet(ip)))

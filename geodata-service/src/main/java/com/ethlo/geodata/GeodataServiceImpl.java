@@ -83,6 +83,9 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Lists;
+import com.google.i18n.phonenumbers.NumberParseException;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.google.i18n.phonenumbers.Phonenumber;
 import com.googlecode.concurrenttrees.radix.ConcurrentRadixTree;
 import com.googlecode.concurrenttrees.radix.RadixTree;
 import com.googlecode.concurrenttrees.radix.node.concrete.SmartArrayBasedNodeFactory;
@@ -398,12 +401,21 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Country findByPhoneNumber(String phoneNumber)
     {
-        // TODO: Support this?
         String stripped = phoneNumber.replaceAll("[^\\d.]", "");
         stripped = stripped.replaceFirst("^0+(?!$)", "");
 
-        //final List<Integer> countryIds = locationDao.findByPhoneNumber(stripped);
-        throw new UnsupportedOperationException("Not yet");
+        PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
+        try
+        {
+            // phone must begin with '+'
+            final Phonenumber.PhoneNumber numberProto = phoneUtil.parse("+" + stripped, null);
+            int countryCode = numberProto.getCountryCode();
+            return countries.values().stream().filter(c -> c.getPhone().equals(Integer.toString(countryCode))).findFirst().orElse(null);
+        }
+        catch (NumberParseException e)
+        {
+            return null;
+        }
     }
 
     @Override
