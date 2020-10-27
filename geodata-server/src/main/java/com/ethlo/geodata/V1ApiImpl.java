@@ -89,13 +89,7 @@ public class V1ApiImpl implements V1ApiDelegate
     public ResponseEntity<V1SliceGeoLocation> findByName(final String name, final Integer page, final Integer size)
     {
         final Slice<V1GeoLocation> slice = geodataService.findByName(name, Mapper.pageable(page, size)).map(mapper::transform);
-        return ResponseEntity.ok(new V1SliceGeoLocation()
-                .content(slice.getContent())
-                .first(slice.isFirst())
-                .last(slice.isLast())
-                .number(slice.getNumber())
-                .numberOfElements(slice.getNumberOfElements())
-                .size(slice.getSize()));
+        return ResponseEntity.ok(Mapper.toGeoLocationsSlice(slice));
     }
 
     @Override

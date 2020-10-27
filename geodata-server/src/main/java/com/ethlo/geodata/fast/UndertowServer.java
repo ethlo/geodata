@@ -28,6 +28,7 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.Collections;
 
+import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,10 +73,10 @@ public class UndertowServer
 
         final HttpHandler routes = new ServerHandler(geodataService, metaDao).handler();
 
-        final SimpleServer server = SimpleServer.simpleServer(routes, "0.0.0.0", 8080);
+        final SimpleServer server = SimpleServer.simpleServer(routes, "0.0.0.0", 6565);
         server.start();
 
-        logger.info("Startup completed in {}", Duration.between(MemoryUsageUtil.getJvmStartTime(), OffsetDateTime.now()));
+        logger.info("Startup completed in {}", DurationFormatUtils.formatDuration(Duration.between(MemoryUsageUtil.getJvmStartTime(), OffsetDateTime.now()).toMillis(), "ss.SSS 'seconds'"));
 
         logger.info("Triggering GC");
         // Attempt to force GC
@@ -85,6 +86,5 @@ public class UndertowServer
         }
 
         MemoryUsageUtil.dumpMemUsage("Ready");
-
     }
 }

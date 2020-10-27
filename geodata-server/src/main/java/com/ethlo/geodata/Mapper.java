@@ -10,12 +10,12 @@ package com.ethlo.geodata;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
@@ -42,6 +43,7 @@ import com.ethlo.geodata.rest.v1.model.V1GeoLocation;
 import com.ethlo.geodata.rest.v1.model.V1GeoLocationSummary;
 import com.ethlo.geodata.rest.v1.model.V1PageCountry;
 import com.ethlo.geodata.rest.v1.model.V1PageGeoLocation;
+import com.ethlo.geodata.rest.v1.model.V1SliceGeoLocation;
 
 public class Mapper
 {
@@ -70,6 +72,16 @@ public class Mapper
                 .totalPages(res.getTotalPages());
     }
 
+    public static V1SliceGeoLocation toGeoLocationsSlice(final Slice<V1GeoLocation> slice)
+    {
+        return new V1SliceGeoLocation()
+                .content(slice.getContent())
+                .first(slice.isFirst())
+                .last(slice.isLast())
+                .number(slice.getNumber())
+                .numberOfElements(slice.getNumberOfElements())
+                .size(slice.getSize());
+    }
 
     public V1GeoLocation transform(final GeoLocation l)
     {

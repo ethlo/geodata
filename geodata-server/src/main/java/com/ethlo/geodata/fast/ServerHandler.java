@@ -115,7 +115,12 @@ public class ServerHandler
                             .orElseThrow(notNull("No location found for IP address " + ip)));
                 })
 
-                .add(Methods.GET, "/v1/locations/name/{name}", exchange -> exchange.getResponseSender().send("findByName"))
+                .add(Methods.GET, "/v1/locations/name/{name}", exchange ->
+                {
+                    final String name = getStringParam(exchange, "name").orElseThrow(missingParam("name"));
+                    json(exchange, Mapper.toGeoLocationsSlice(geodataService.findByName(name, getPageable(exchange)).map(mapper::transform)));
+
+                })
 
                 .add(Methods.GET, "/v1/locations/{id}/children", exchange ->
                 {
@@ -184,12 +189,15 @@ public class ServerHandler
     private void json(final HttpServerExchange exchange, final Object obj) throws JsonProcessingException
     {
         exchange.getResponseHeaders().add(Headers.CONTENT_TYPE, "application/json");
-        final Boolean pretty = getBoolParam(exchange, "pretty").orElse(false);
+        final boolean pretty = getBooleanParam(exchange, "pretty").orElse(false);
         if (!pretty)
         {
             exchange.getResponseSender().send(JsonStream.serialize(obj));
         }
-        exchange.getResponseSender().send(ByteBuffer.wrap(JsonUtil.getMapper().writerWithDefaultPrettyPrinter().writeValueAsBytes(obj)));
+        else
+        {
+            exchange.getResponseSender().send(ByteBuffer.wrap(JsonUtil.getMapper().writerWithDefaultPrettyPrinter().writeValueAsBytes(obj)));
+        }
     }
 
     private Optional<Integer> getIntParam(final HttpServerExchange exchange, final String name)
@@ -197,7 +205,7 @@ public class ServerHandler
         return getFirstParam(exchange, name).map(Integer::parseInt);
     }
 
-    private Optional<Boolean> getBoolParam(final HttpServerExchange exchange, final String name)
+    private Optional<Boolean> getBooleanParam(final HttpServerExchange exchange, final String name)
     {
         return getFirstParam(exchange, name).map(Boolean::parseBoolean);
     }

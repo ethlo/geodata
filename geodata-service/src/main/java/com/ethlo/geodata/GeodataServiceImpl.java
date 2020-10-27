@@ -281,12 +281,14 @@ public class GeodataServiceImpl implements GeodataService
         logger.info("Loading search index");
         int count = 0;
         progressListener.begin("load_search_index");
-        final CloseableIterator<RawLocation> locationIter = locationDao.iterator();
-        while (locationIter.hasNext())
+        try (final CloseableIterator<RawLocation> locationIter = locationDao.iterator())
         {
-            final RawLocation location = locationIter.next();
-            addToSearchIndex(location);
-            progressListener.progress(count);
+            while (locationIter.hasNext())
+            {
+                final RawLocation location = locationIter.next();
+                addToSearchIndex(location);
+                progressListener.progress(count);
+            }
         }
         progressListener.end();
         logger.info("Search index loaded with {} entries", locationsByName.size());
