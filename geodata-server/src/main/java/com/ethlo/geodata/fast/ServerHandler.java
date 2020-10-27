@@ -22,42 +22,85 @@ package com.ethlo.geodata.fast;
  * #L%
  */
 
+import java.nio.ByteBuffer;
+import java.util.Date;
 import java.util.Deque;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 
+import com.ethlo.geodata.ApiError;
 import com.ethlo.geodata.GeodataService;
 import com.ethlo.geodata.Mapper;
+import com.ethlo.geodata.dao.MetaDao;
+import com.ethlo.geodata.util.InetUtil;
+import com.ethlo.geodata.util.JsonUtil;
+import com.ethlo.time.ITU;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.jsoniter.output.EncodingMode;
 import com.jsoniter.output.JsonStream;
+import com.jsoniter.spi.JsoniterSpi;
 import io.undertow.Handlers;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.server.RoutingHandler;
+import io.undertow.server.handlers.ExceptionHandler;
+import io.undertow.server.handlers.PathHandler;
+import io.undertow.server.handlers.resource.ClassPathResourceManager;
+import io.undertow.server.handlers.resource.ResourceHandler;
 import io.undertow.util.Headers;
 import io.undertow.util.Methods;
 
 public class ServerHandler
 {
+    private static final Logger logger = LoggerFactory.getLogger(ServerHandler.class);
     private final GeodataService geodataService;
+    private final MetaDao metaDao;
     private final Mapper mapper;
+    private final HttpHandler errorHandler = createErrorHandler();
 
-    public ServerHandler(final GeodataService geodataService)
+    public ServerHandler(final GeodataService geodataService, final MetaDao metaDao)
     {
         this.geodataService = geodataService;
         this.mapper = new Mapper(geodataService);
+        this.metaDao = metaDao;
 
-        JsonStream.setMode(EncodingMode.DYNAMIC_MODE);
+        configureJsoniter();
     }
 
-    public RoutingHandler handler()
+    private void configureJsoniter()
     {
-        return Handlers.routing()
+        JsonStream.setMode(EncodingMode.DYNAMIC_MODE);
+        JsoniterSpi.registerTypeEncoder(Date.class, (obj, stream) ->
+        {
+            stream.writeVal(ITU.formatUtc((Date) obj));
+        });
+    }
+
+    private HttpHandler createErrorHandler()
+    {
+        return exchange ->
+        {
+            final Throwable exc = exchange.getAttachment(ExceptionHandler.THROWABLE);
+            logger.info(exc.getMessage(), exc);
+            final ApiError error = new ApiError(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error");
+
+            json(exchange, error);
+        };
+    }
+
+    public HttpHandler handler()
+    {
+        final RoutingHandler routes = Handlers.routing()
+
+                // Source data information
+                .add(Methods.GET, "/v1/source", exchange -> json(exchange, metaDao.load()))
 
                 .add(Methods.GET, "/v1/locations/{id}/boundaries", exchange -> exchange.getResponseSender().send("findBoundariesAsGeoJson"))
 
@@ -65,13 +108,18 @@ public class ServerHandler
 
                 .add(Methods.GET, "/v1/locations/ids", exchange -> exchange.getResponseSender().send("findByIds"))
 
-                .add(Methods.GET, "/v1/locations/ip/{ip}", exchange -> exchange.getResponseSender().send("findByIp"))
+                .add(Methods.GET, "/v1/locations/ip/{ip}", exchange -> {
+                    final String ip = getStringParam(exchange, "ip").orElseThrow(missingParam("ip"));
+                    json(exchange, Optional.ofNullable(geodataService.findByIp(InetUtil.inet(ip)))
+                            .map(mapper::transform)
+                            .orElseThrow(notNull("No location found for IP address " + ip)));
+                })
 
                 .add(Methods.GET, "/v1/locations/name/{name}", exchange -> exchange.getResponseSender().send("findByName"))
 
                 .add(Methods.GET, "/v1/locations/{id}/children", exchange ->
                 {
-                    final int id = getIntParam(exchange, "id");
+                    final int id = getIntParam(exchange, "id").orElseThrow(missingParam("id"));
                     json(exchange, Mapper.toGeolocationPage(geodataService.findChildren(id, getPageable(exchange)).map(mapper::transform)));
                 })
 
@@ -89,7 +137,7 @@ public class ServerHandler
 
                 .add(Methods.GET, "/v1/locations/{id}", exchange ->
                 {
-                    final int id = getIntParam(exchange, "id");
+                    final int id = getIntParam(exchange, "id").orElseThrow(notNull("id"));
                     json(exchange, Optional.ofNullable(geodataService.findById(id)).map(mapper::transform).orElseThrow(notNull("No location with id " + id)));
                 })
 
@@ -122,22 +170,41 @@ public class ServerHandler
                         exchange.getResponseSender().send("outsideAll");
                     }
                 });
+
+        final PathHandler path = Handlers.path(routes)
+                .addPrefixPath("/swagger-ui", new ResourceHandler(new ClassPathResourceManager(getClass().getClassLoader(), "META-INF/resources/webjars/swagger-ui/3.35.2")))
+                .addExactPath("/spec.yaml", new ResourceHandler(new ClassPathResourceManager(getClass().getClassLoader(), "public/spec.yaml")))
+                .addExactPath("/", new ResourceHandler(new ClassPathResourceManager(getClass().getClassLoader(), "public/index.html")));
+
+
+        return Handlers.exceptionHandler(path)
+                .addExceptionHandler(Exception.class, errorHandler);
     }
 
     private void json(final HttpServerExchange exchange, final Object obj) throws JsonProcessingException
     {
         exchange.getResponseHeaders().add(Headers.CONTENT_TYPE, "application/json");
-        exchange.getResponseSender().send(JsonStream.serialize(obj));
+        final Boolean pretty = getBoolParam(exchange, "pretty").orElse(false);
+        if (!pretty)
+        {
+            exchange.getResponseSender().send(JsonStream.serialize(obj));
+        }
+        exchange.getResponseSender().send(ByteBuffer.wrap(JsonUtil.getMapper().writerWithDefaultPrettyPrinter().writeValueAsBytes(obj)));
     }
 
-    private Integer getIntParam(final HttpServerExchange exchange, final String name)
+    private Optional<Integer> getIntParam(final HttpServerExchange exchange, final String name)
     {
-        return getFirstParam(exchange, name).map(Integer::parseInt).orElse(null);
+        return getFirstParam(exchange, name).map(Integer::parseInt);
     }
 
-    private String getStringParam(final HttpServerExchange exchange, final String name)
+    private Optional<Boolean> getBoolParam(final HttpServerExchange exchange, final String name)
     {
-        return getFirstParam(exchange, name).orElse(null);
+        return getFirstParam(exchange, name).map(Boolean::parseBoolean);
+    }
+
+    private Optional<String> getStringParam(final HttpServerExchange exchange, final String name)
+    {
+        return getFirstParam(exchange, name);
     }
 
     public Optional<String> getFirstParam(final HttpServerExchange exchange, final String name)
@@ -153,9 +220,9 @@ public class ServerHandler
 
     private PageRequest getPageable(final HttpServerExchange exchange)
     {
-        final Integer page = getIntParam(exchange, "page");
-        final Integer size = getIntParam(exchange, "size");
-        return PageRequest.of(page != null ? page : 0, size != null && size > 0 & size <= 10_000 ? size : 25);
+        final int page = getIntParam(exchange, "page").orElse(0);
+        final int size = getIntParam(exchange, "size").orElse(25);
+        return PageRequest.of(page, size < 0 || size > 10_000 ? size : 25);
     }
 
     private Supplier<EmptyResultDataAccessException> notNull(String errorMessage)

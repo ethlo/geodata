@@ -34,9 +34,11 @@ import org.slf4j.LoggerFactory;
 import com.ethlo.geodata.GeodataServiceImpl;
 import com.ethlo.geodata.dao.CountryDao;
 import com.ethlo.geodata.dao.FeatureCodeDao;
+import com.ethlo.geodata.dao.FileMetaDao;
 import com.ethlo.geodata.dao.HierarchyDao;
 import com.ethlo.geodata.dao.IpDao;
 import com.ethlo.geodata.dao.LocationDao;
+import com.ethlo.geodata.dao.MetaDao;
 import com.ethlo.geodata.dao.TimeZoneDao;
 import com.ethlo.geodata.dao.file.FileCountryDao;
 import com.ethlo.geodata.dao.file.FileFeatureCodeDao;
@@ -46,8 +48,7 @@ import com.ethlo.geodata.dao.file.FileMmapLocationDao;
 import com.ethlo.geodata.dao.file.FileTimeZoneDao;
 import com.ethlo.geodata.progress.StatefulProgressListener;
 import com.ethlo.geodata.util.MemoryUsageUtil;
-import io.undertow.Undertow;
-import io.undertow.server.RoutingHandler;
+import io.undertow.server.HttpHandler;
 
 public class UndertowServer
 {
@@ -56,6 +57,7 @@ public class UndertowServer
     public static void main(String[] args)
     {
         final Path basePath = Paths.get("/tmp/geodata");
+        final MetaDao metaDao = new FileMetaDao(basePath);
         final LocationDao locationDao = new FileMmapLocationDao(basePath);
         final IpDao ipDao = new FileIpDao(basePath);
         final HierarchyDao hierarchyDao = new FileHierarchyDao(basePath);
@@ -65,10 +67,12 @@ public class UndertowServer
         final int boundaryQualityConstant = 200_000;
         final GeodataServiceImpl geodataService = new GeodataServiceImpl(locationDao, ipDao, hierarchyDao, featureCodeDao, timeZoneDao, countryDao, Collections.emptyList(), boundaryQualityConstant);
         final StatefulProgressListener progressListener = new StatefulProgressListener();
+
         geodataService.load(progressListener);
 
-        final RoutingHandler routes = new ServerHandler(geodataService).handler();
-        SimpleServer server = SimpleServer.simpleServer(routes);
+        final HttpHandler routes = new ServerHandler(geodataService, metaDao).handler();
+
+        final SimpleServer server = SimpleServer.simpleServer(routes, "0.0.0.0", 8080);
         server.start();
 
         logger.info("Startup completed in {}", Duration.between(MemoryUsageUtil.getJvmStartTime(), OffsetDateTime.now()));

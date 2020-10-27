@@ -191,7 +191,7 @@
 
         <ul class="pure-menu-list">
             <li class="pure-menu-item"><a href="#" class="pure-menu-link">Home</a></li>
-            <li class="pure-menu-item"><a href="/swagger-ui.html"
+            <li class="pure-menu-item"><a href="/swagger-ui/?url=/spec.yaml"
                                           class="pure-menu-link">API documentation</a></li>
             <li class="pure-menu-item"><a
                     href="https://github.com/ethlo/geodata" class="pure-menu-link">GitHub</a></li>
@@ -276,7 +276,7 @@
             var array = JSON.parse(xhr.responseText).data;
             array.forEach(function (o) {
                 console.log(o);
-                var name = o.dataType.toLowerCase();
+                var name = o.type.toLowerCase();
                 var ele = document.querySelector('td[data-count="' + name + '"]');
                 if (ele) ele.innerHTML = numberWithCommas(o.count);
 

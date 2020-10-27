@@ -22,6 +22,7 @@ package com.ethlo.geodata;
  * #L%
  */
 
+/*
 import java.time.Duration;
 import java.time.OffsetDateTime;
 
@@ -74,3 +75,5 @@ public class GeodataServer
         MemoryUsageUtil.dumpMemUsage("Ready");
     }
 }
+
+ */

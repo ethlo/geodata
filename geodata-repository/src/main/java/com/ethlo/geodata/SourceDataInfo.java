@@ -35,7 +35,7 @@ public class SourceDataInfo
     private final String type;
 
     @JsonCreator
-    public SourceDataInfo(@JsonProperty("dataType") String type, @JsonProperty("count") int count, @JsonProperty("lastModified") Date lastModified)
+    public SourceDataInfo(@JsonProperty("type") String type, @JsonProperty("count") int count, @JsonProperty("lastModified") Date lastModified)
     {
         this.type = type;
         this.count = count;
