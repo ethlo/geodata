@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 
 import com.ethlo.geodata.model.Continent;
@@ -44,6 +45,7 @@ import com.ethlo.geodata.rest.v1.model.V1GeoLocationSummary;
 import com.ethlo.geodata.rest.v1.model.V1PageCountry;
 import com.ethlo.geodata.rest.v1.model.V1PageGeoLocation;
 import com.ethlo.geodata.rest.v1.model.V1SliceGeoLocation;
+import io.undertow.server.HttpServerExchange;
 
 public class Mapper
 {

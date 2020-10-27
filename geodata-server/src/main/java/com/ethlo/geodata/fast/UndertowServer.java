@@ -27,12 +27,19 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.Function;
 
 import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.http.HttpStatus;
 
+import com.ethlo.geodata.ApiError;
 import com.ethlo.geodata.GeodataServiceImpl;
+import com.ethlo.geodata.dao.BoundaryDao;
 import com.ethlo.geodata.dao.CountryDao;
 import com.ethlo.geodata.dao.FeatureCodeDao;
 import com.ethlo.geodata.dao.FileMetaDao;
@@ -41,6 +48,7 @@ import com.ethlo.geodata.dao.IpDao;
 import com.ethlo.geodata.dao.LocationDao;
 import com.ethlo.geodata.dao.MetaDao;
 import com.ethlo.geodata.dao.TimeZoneDao;
+import com.ethlo.geodata.dao.file.FileBoundaryDao;
 import com.ethlo.geodata.dao.file.FileCountryDao;
 import com.ethlo.geodata.dao.file.FileFeatureCodeDao;
 import com.ethlo.geodata.dao.file.FileHierarchyDao;
@@ -65,13 +73,18 @@ public class UndertowServer
         final FeatureCodeDao featureCodeDao = new FileFeatureCodeDao(basePath);
         final TimeZoneDao timeZoneDao = new FileTimeZoneDao(basePath);
         final CountryDao countryDao = new FileCountryDao(basePath);
+        final BoundaryDao boundaryDao = new FileBoundaryDao(basePath);
         final int boundaryQualityConstant = 200_000;
-        final GeodataServiceImpl geodataService = new GeodataServiceImpl(locationDao, ipDao, hierarchyDao, featureCodeDao, timeZoneDao, countryDao, Collections.emptyList(), boundaryQualityConstant);
+        final GeodataServiceImpl geodataService = new GeodataServiceImpl(locationDao, ipDao, hierarchyDao, featureCodeDao, timeZoneDao, countryDao, boundaryDao, Collections.emptyList(), boundaryQualityConstant);
         final StatefulProgressListener progressListener = new StatefulProgressListener();
 
         geodataService.load(progressListener);
 
-        final HttpHandler routes = new ServerHandler(geodataService, metaDao).handler();
+        final Map<Class<? extends Throwable>, Function<Throwable, ApiError>> exceptionHandlers = new LinkedHashMap<>();
+        exceptionHandlers.put(EmptyResultDataAccessException.class, exc -> new ApiError(HttpStatus.NOT_FOUND, exc.getMessage()));
+        exceptionHandlers.put(MissingParameterException.class, exc -> new ApiError(HttpStatus.BAD_REQUEST, exc.getMessage()));
+        exceptionHandlers.put(Exception.class, exc -> new ApiError(HttpStatus.INTERNAL_SERVER_ERROR, "An internal error occurred"));
+        final HttpHandler routes = new ServerHandler(geodataService, metaDao).handler(exceptionHandlers);
 
         final SimpleServer server = SimpleServer.simpleServer(routes, "0.0.0.0", 6565);
         server.start();

@@ -43,6 +43,7 @@ import com.ethlo.geodata.SourceDataInfo;
 import com.ethlo.geodata.SourceDataInfoSet;
 import com.ethlo.geodata.dao.FileMetaDao;
 import com.ethlo.geodata.util.JsonUtil;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 @Service
 public class DataImporterService
@@ -101,7 +102,7 @@ public class DataImporterService
             logger.info("No data to update. Max data age {}", maxDataAge);
         }
 
-        /*final Date boundariesTimestamp = boundaryImporter.lastRemoteModified();
+        /*final Date boundariesTimestamp = geoFabrikBoundaryLoader.lastRemoteModified();
         if (boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)
         {
             boundaryImporter.purge();

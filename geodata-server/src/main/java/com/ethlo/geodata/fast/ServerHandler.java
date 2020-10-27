@@ -25,20 +25,27 @@ package com.ethlo.geodata.fast;
 import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Pageable;
+import org.springframework.util.StringUtils;
 
 import com.ethlo.geodata.ApiError;
 import com.ethlo.geodata.GeodataService;
 import com.ethlo.geodata.Mapper;
 import com.ethlo.geodata.dao.MetaDao;
+import com.ethlo.geodata.rest.v1.model.V1Continent;
+import com.ethlo.geodata.rest.v1.model.V1PageContinent;
 import com.ethlo.geodata.util.InetUtil;
 import com.ethlo.geodata.util.JsonUtil;
 import com.ethlo.time.ITU;
@@ -63,7 +70,6 @@ public class ServerHandler
     private final GeodataService geodataService;
     private final MetaDao metaDao;
     private final Mapper mapper;
-    private final HttpHandler errorHandler = createErrorHandler();
 
     public ServerHandler(final GeodataService geodataService, final MetaDao metaDao)
     {
@@ -83,33 +89,36 @@ public class ServerHandler
         });
     }
 
-    private HttpHandler createErrorHandler()
-    {
-        return exchange ->
-        {
-            final Throwable exc = exchange.getAttachment(ExceptionHandler.THROWABLE);
-            logger.info(exc.getMessage(), exc);
-            final ApiError error = new ApiError(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error");
-
-            json(exchange, error);
-        };
-    }
-
-    public HttpHandler handler()
+    public HttpHandler handler(Map<Class<? extends Throwable>, Function<Throwable, ApiError>> errorHandlers)
     {
         final RoutingHandler routes = Handlers.routing()
 
                 // Source data information
                 .add(Methods.GET, "/v1/source", exchange -> json(exchange, metaDao.load()))
 
-                .add(Methods.GET, "/v1/locations/{id}/boundaries", exchange -> exchange.getResponseSender().send("findBoundariesAsGeoJson"))
+                .add(Methods.GET, "/v1/locations/{id}/boundaries", exchange ->
+                {
+                    final int id = requireIntParam(exchange, "id");
+                    final byte[] boundary = Optional.ofNullable(geodataService.findBoundaries(id)).orElseThrow(notNull("No boundary for id " + id));
+                    exchange.getResponseHeaders().add(Headers.CONTENT_TYPE, "application/json");
+                    exchange.getResponseSender().send(ByteBuffer.wrap(boundary));
+                })
 
-                .add(Methods.GET, "/v1/locations/{id}/boundaries.wkb", exchange -> exchange.getResponseSender().send("findBoundariesAsWkb"))
+                .add(Methods.GET, "/v1/locations/{id}/boundaries.wkb", exchange -> {
+                    final int id = requireIntParam(exchange, "id");
+                    final byte[] boundary = Optional.ofNullable(geodataService.findBoundaries(id)).orElseThrow(notNull("No boundary for id " + id));
+                    // TODO: Convert data
+                    exchange.getResponseHeaders().add(Headers.CONTENT_TYPE, "application/wkb");
+                    exchange.getResponseSender().send(ByteBuffer.wrap(boundary));
+                })
 
-                .add(Methods.GET, "/v1/locations/ids", exchange -> exchange.getResponseSender().send("findByIds"))
+                .add(Methods.GET, "/v1/locations/ids/{ids}", exchange -> {
+                    final List<Integer> ids = getIntList(exchange, "ids").orElseThrow(missingParam("ids"));
+                    json(exchange, ids.stream().map(geodataService::findById).collect(Collectors.toList()));
+                })
 
                 .add(Methods.GET, "/v1/locations/ip/{ip}", exchange -> {
-                    final String ip = getStringParam(exchange, "ip").orElseThrow(missingParam("ip"));
+                    final String ip = requireStringParam(exchange, "ip");
                     json(exchange, Optional.ofNullable(geodataService.findByIp(InetUtil.inet(ip)))
                             .map(mapper::transform)
                             .orElseThrow(notNull("No location found for IP address " + ip)));
@@ -117,20 +126,75 @@ public class ServerHandler
 
                 .add(Methods.GET, "/v1/locations/name/{name}", exchange ->
                 {
-                    final String name = getStringParam(exchange, "name").orElseThrow(missingParam("name"));
+                    final String name = requireStringParam(exchange, "name");
                     json(exchange, Mapper.toGeoLocationsSlice(geodataService.findByName(name, getPageable(exchange)).map(mapper::transform)));
-
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}/children", exchange ->
                 {
-                    final int id = getIntParam(exchange, "id").orElseThrow(missingParam("id"));
+                    final int id = requireIntParam(exchange, "id");
                     json(exchange, Mapper.toGeolocationPage(geodataService.findChildren(id, getPageable(exchange)).map(mapper::transform)));
                 })
 
-                .add(Methods.GET, "/v1/continents/{continentCode}", exchange -> exchange.getResponseSender().send("findContinentByCode"))
+                .add(Methods.GET, "/v1/continents/{continentCode}", exchange ->
+                {
+                    final String continentCode = requireStringParam(exchange, "continentCode");
+                    json(exchange, Optional.ofNullable(geodataService.findContinent(continentCode)).map(mapper::transform).orElseThrow(notNull("No continent found for continent code " + continentCode)));
+                })
 
-                .add(Methods.GET, "/v1/countries", exchange -> exchange.getResponseSender().send("findCountries"))
+                .add(Methods.GET, "/v1/countries", exchange ->
+                {
+                    json(exchange, mapper.toCountryPage(geodataService.findCountries(pageable(exchange)).map(mapper::transform)));
+                })
+
+                .add(Methods.GET, "/v1/countries/{countryCode}/children", exchange ->
+                {
+                    final String countryCode = requireStringParam(exchange, "countryCode");
+                    json(exchange, Mapper.toGeolocationPage(geodataService.findChildren(countryCode, pageable(exchange)).map(mapper::transform)));
+                })
+
+                .add(Methods.GET, "/v1/locations/{id}", exchange ->
+                {
+                    final int id = requireIntParam(exchange, "id");
+                    json(exchange, Optional.ofNullable(geodataService.findById(id)).map(mapper::transform).orElseThrow(notNull("No location with id " + id)));
+                })
+
+                .add(Methods.GET, "/v1/locations/{id}/parent", exchange ->
+                {
+                    final int id = requireIntParam(exchange, "id");
+                    json(exchange, Optional.ofNullable(geodataService.findParent(id))
+                            .map(mapper::transform)
+                            .orElseThrow(notNull("No parent location found for id " + id)));
+                })
+
+
+                .add(Methods.GET, "/v1/locations/{id}/insideany/{ids}", exchange ->
+                {
+                    final int id = requireIntParam(exchange, "id");
+                    final List<Integer> ids = getIntList(exchange, "ids").orElseThrow(missingParam("ids"));
+                    json(exchange, geodataService.isInsideAny(ids, id));
+                })
+
+                .add(Methods.GET, "/v1/locations/{id}/contains/{child}", exchange ->
+                {
+                    final int id = requireIntParam(exchange, "id");
+                    final int child = requireIntParam(exchange, "child");
+                    json(exchange, geodataService.isLocationInside(child, id));
+                })
+
+                .add(Methods.GET, "/v1/continents", exchange ->
+                {
+                    final Page<V1Continent> page = geodataService.findContinents().map(mapper::transform);
+                    json(exchange, new V1PageContinent()
+                            .content(page.getContent())
+                            .first(page.isFirst())
+                            .last(page.isLast())
+                            .number(page.getNumber())
+                            .numberOfElements(page.getNumberOfElements())
+                            .size(page.getSize())
+                            .totalElements(page.getTotalElements())
+                            .totalPages(page.getTotalPages()));
+                })
 
                 .add(Methods.GET, "/v1/continents/{continent}/countries", exchange -> exchange.getResponseSender().send("findCountriesOnContinent"))
 
@@ -138,17 +202,7 @@ public class ServerHandler
 
                 .add(Methods.GET, "/v1/locations/phone/{phone}", exchange -> exchange.getResponseSender().send("findCountryByPhone"))
 
-                .add(Methods.GET, "/v1/countries/{countryCode}/children", exchange -> exchange.getResponseSender().send("findCountryChildren"))
-
-                .add(Methods.GET, "/v1/locations/{id}", exchange ->
-                {
-                    final int id = getIntParam(exchange, "id").orElseThrow(notNull("id"));
-                    json(exchange, Optional.ofNullable(geodataService.findById(id)).map(mapper::transform).orElseThrow(notNull("No location with id " + id)));
-                })
-
                 .add(Methods.GET, "/v1/locations/proximity", exchange -> exchange.getResponseSender().send("findNear"))
-
-                .add(Methods.GET, "/v1/locations/{id}/parent", exchange -> exchange.getResponseSender().send("findParentLocation"))
 
                 .add(Methods.GET, "/v1/locations/{id}/previewboundaries.wkb", exchange -> exchange.getResponseSender().send("findPreviewBoundaries"))
 
@@ -162,19 +216,7 @@ public class ServerHandler
 
                 .add(Methods.GET, "/v1/locations/contains", exchange -> exchange.getResponseSender().send("findWithin"))
 
-                .add(Methods.GET, "/v1/locations/{id}/insideany/{ids}", exchange -> exchange.getResponseSender().send("insideAny"))
-
-                .add(Methods.GET, "/v1/locations/{id}/contains/{child}", exchange -> exchange.getResponseSender().send("isLocationInside"))
-
-                .add(Methods.GET, "/v1/continents", exchange -> exchange.getResponseSender().send("listContinents"))
-
-                .add(Methods.GET, "/v1/locations/{id}/outsideall/{ids}", new HttpHandler()
-                {
-                    public void handleRequest(HttpServerExchange exchange) throws Exception
-                    {
-                        exchange.getResponseSender().send("outsideAll");
-                    }
-                });
+                .add(Methods.GET, "/v1/locations/{id}/outsideall/{ids}", exchange -> exchange.getResponseSender().send("outsideAll"));
 
         final PathHandler path = Handlers.path(routes)
                 .addPrefixPath("/swagger-ui", new ResourceHandler(new ClassPathResourceManager(getClass().getClassLoader(), "META-INF/resources/webjars/swagger-ui/3.35.2")))
@@ -182,8 +224,45 @@ public class ServerHandler
                 .addExactPath("/", new ResourceHandler(new ClassPathResourceManager(getClass().getClassLoader(), "public/index.html")));
 
 
-        return Handlers.exceptionHandler(path)
-                .addExceptionHandler(Exception.class, errorHandler);
+        final ExceptionHandler exceptionHandler = Handlers.exceptionHandler(path);
+
+        for (Map.Entry<Class<? extends Throwable>, Function<Throwable, ApiError>> e : errorHandlers.entrySet())
+        {
+            exceptionHandler.addExceptionHandler(e.getKey(), exchange ->
+            {
+                final Throwable exc = exchange.getAttachment(ExceptionHandler.THROWABLE);
+                final ApiError response = e.getValue().apply(exc);
+                exchange.setStatusCode(response.getCode());
+                json(exchange, response);
+            });
+        }
+
+        return exceptionHandler;
+    }
+
+    private Pageable pageable(final HttpServerExchange exchange)
+    {
+        final int page = getIntParam(exchange, "page").orElse(0);
+        final int size = getIntParam(exchange, "size").orElse(25);
+        return PageRequest.of(page, size);
+    }
+
+    private String requireStringParam(final HttpServerExchange exchange, final String name)
+    {
+        return getStringParam(exchange, name).orElseThrow(missingParam(name));
+    }
+
+    private Integer requireIntParam(final HttpServerExchange exchange, final String child)
+    {
+        return getIntParam(exchange, child).orElseThrow(missingParam(child));
+    }
+
+    private Optional<List<Integer>> getIntList(final HttpServerExchange exchange, final String name)
+    {
+        return getStringParam(exchange, name)
+                .map(StringUtils::commaDelimitedListToSet)
+                .map(c -> c.stream().map(Integer::parseInt)
+                        .collect(Collectors.toList()));
     }
 
     private void json(final HttpServerExchange exchange, final Object obj) throws JsonProcessingException
@@ -223,7 +302,7 @@ public class ServerHandler
 
     private Supplier<RuntimeException> missingParam(String name)
     {
-        return () -> new IllegalArgumentException("Missing parameter: " + name);
+        return () -> new MissingParameterException(name);
     }
 
     private PageRequest getPageable(final HttpServerExchange exchange)

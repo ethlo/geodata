@@ -22,7 +22,6 @@ package com.ethlo.geodata;
  * #L%
  */
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -48,22 +47,17 @@ public class ApiError
 
     public ApiError(HttpStatus status, String message, String error)
     {
-        this(status, message, Arrays.asList(error));
+        this(status, message, Collections.singletonList(error));
     }
 
     public ApiError(HttpStatus status, String message)
     {
-        this(status, message, Collections.emptyList());
+        this(status, message, (List<String>) null);
     }
 
     public int getCode()
     {
         return status.value();
-    }
-
-    public String getReasonPhrase()
-    {
-        return status.getReasonPhrase();
     }
 
     public String getMessage()
@@ -86,4 +80,5 @@ public class ApiError
     {
         return status;
     }
+
 }

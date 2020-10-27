@@ -60,6 +60,7 @@ import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
+import com.ethlo.geodata.dao.BoundaryDao;
 import com.ethlo.geodata.dao.CountryDao;
 import com.ethlo.geodata.dao.FeatureCodeDao;
 import com.ethlo.geodata.dao.HierarchyDao;
@@ -103,6 +104,7 @@ public class GeodataServiceImpl implements GeodataService
     private final FeatureCodeDao featureCodeDao;
     private final TimeZoneDao timeZoneDao;
     private final CountryDao countryDao;
+    private final BoundaryDao boundaryDao;
     private final List<String> additionalIndexedFeatures;
     private final int qualityConstant;
     // Loaded data
@@ -114,7 +116,7 @@ public class GeodataServiceImpl implements GeodataService
 
     public GeodataServiceImpl(final LocationDao locationDao, final IpDao ipDao, final HierarchyDao hierarchyDao,
                               final FeatureCodeDao featureCodeDao, final TimeZoneDao timeZoneDao, final CountryDao countryDao,
-                              @Value("${geodata.search.index-features}") final List<String> additionalIndexedFeatures,
+                              final BoundaryDao boundaryDao, @Value("${geodata.search.index-features}") final List<String> additionalIndexedFeatures,
                               @Value("${geodata.boundaries.quality}") final int qualityConstant)
     {
         this.locationDao = locationDao;
@@ -123,6 +125,7 @@ public class GeodataServiceImpl implements GeodataService
         this.featureCodeDao = featureCodeDao;
         this.timeZoneDao = timeZoneDao;
         this.countryDao = countryDao;
+        this.boundaryDao = boundaryDao;
         this.additionalIndexedFeatures = additionalIndexedFeatures;
         this.qualityConstant = qualityConstant;
     }
@@ -187,9 +190,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public byte[] findBoundaries(int id)
     {
-        // TODO: Bring back
-        throw new EmptyResultDataAccessException("No boundaries found for location " + id, 1);
-        //return boundaryDao.findById(id).orElseThrow(() -> new EmptyResultDataAccessException("No boundaries found for location " + id, 1));
+        return boundaryDao.findById(id).orElse(null);
     }
 
     @Override
@@ -468,6 +469,10 @@ public class GeodataServiceImpl implements GeodataService
     private Collection<Integer> getPath(final int id)
     {
         Node node = this.nodes.get(id);
+        if (node == null)
+        {
+            throw new EmptyResultDataAccessException("No location with id " + id, 1);
+        }
         final Set<Integer> path = new LinkedHashSet<>();
         while (node != null)
         {
