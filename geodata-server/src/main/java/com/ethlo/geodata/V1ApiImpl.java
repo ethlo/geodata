@@ -22,6 +22,7 @@ package com.ethlo.geodata;
  * #L%
  */
 
+/*
 
 import java.util.List;
 import java.util.Optional;
@@ -179,3 +180,5 @@ public class V1ApiImpl implements V1ApiDelegate
         return () -> new EmptyResultDataAccessException(errorMessage, 1);
     }
 }
+
+*/

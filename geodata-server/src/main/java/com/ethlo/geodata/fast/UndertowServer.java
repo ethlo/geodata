@@ -34,11 +34,9 @@ import java.util.function.Function;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.context.PropertyPlaceholderAutoConfiguration;
-import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
-import org.springframework.core.env.SystemEnvironmentPropertySource;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.http.HttpStatus;
 
 import com.ethlo.geodata.ApiError;
 import com.ethlo.geodata.GeodataServiceImpl;
@@ -62,16 +60,13 @@ import com.ethlo.geodata.progress.StatefulProgressListener;
 import com.ethlo.geodata.util.MemoryUsageUtil;
 import io.undertow.server.HttpHandler;
 
+@SpringBootApplication
 public class UndertowServer
 {
     private static final Logger logger = LoggerFactory.getLogger(UndertowServer.class);
 
-    public static void main(String[] args)
+    public UndertowServer()
     {
-        //final PropertySourcesPlaceholderConfigurer propertySourcesPlaceholderConfigurer = new PropertySourcesPlaceholderConfigurer();
-        //new SystemEnvironmentPropertySource("env", System.getenv())
-        //propertySourcesPlaceholderConfigurer.getAppliedPropertySources().
-
         final Path basePath = Paths.get("/tmp/geodata");
         final MetaDao metaDao = new FileMetaDao(basePath);
         final LocationDao locationDao = new FileMmapLocationDao(basePath);
@@ -88,9 +83,9 @@ public class UndertowServer
         geodataService.load(progressListener);
 
         final Map<Class<? extends Throwable>, Function<Throwable, ApiError>> exceptionHandlers = new LinkedHashMap<>();
-        exceptionHandlers.put(EmptyResultDataAccessException.class, exc -> new ApiError(HttpStatus.NOT_FOUND, exc.getMessage()));
-        exceptionHandlers.put(MissingParameterException.class, exc -> new ApiError(HttpStatus.BAD_REQUEST, exc.getMessage()));
-        exceptionHandlers.put(Exception.class, exc -> new ApiError(HttpStatus.INTERNAL_SERVER_ERROR, "An internal error occurred"));
+        exceptionHandlers.put(EmptyResultDataAccessException.class, exc -> new ApiError(404, exc.getMessage()));
+        exceptionHandlers.put(MissingParameterException.class, exc -> new ApiError(400, exc.getMessage()));
+        exceptionHandlers.put(Exception.class, exc -> new ApiError(500, "An internal error occurred"));
         final HttpHandler routes = new ServerHandler(geodataService, metaDao).handler(exceptionHandlers);
 
         final SimpleServer server = SimpleServer.simpleServer(routes, "0.0.0.0", 6565);
@@ -106,5 +101,10 @@ public class UndertowServer
         }
 
         MemoryUsageUtil.dumpMemUsage("Ready");
+    }
+
+    public static void main(String[] args)
+    {
+        SpringApplication.run(UndertowServer.class, args);
     }
 }

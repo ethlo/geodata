@@ -21,7 +21,7 @@ package com.ethlo.geodata;
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
  * #L%
  */
-
+/*
 import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
 import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Configuration;
@@ -43,3 +43,4 @@ public class WebSecurityCfg extends WebSecurityConfigurerAdapter
                 .antMatchers("/**").permitAll();
     }
 }
+*/

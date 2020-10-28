@@ -22,6 +22,7 @@ package com.ethlo.geodata;
  * #L%
  */
 
+/*
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -110,3 +111,4 @@ public class StartupFilter extends OncePerRequestFilter
         outputStream.close();
     }
 }
+*/

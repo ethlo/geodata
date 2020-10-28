@@ -22,6 +22,7 @@ package com.ethlo.geodata;
  * #L%
  */
 
+/*
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,12 +38,11 @@ public class InfoController
         this.metaDao = metaDao;
     }
 
-    /**
-     * Get data source information
-     */
     @GetMapping("/v1/source")
     public SourceDataInfoSet sourceData()
     {
         return metaDao.load();
     }
 }
+
+*/

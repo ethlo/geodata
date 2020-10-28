@@ -21,7 +21,7 @@ package com.ethlo.geodata;
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
  * #L%
  */
-
+/*
 import java.util.ArrayList;
 import java.util.List;
 
@@ -189,3 +189,4 @@ public class CustomRestExceptionHandler extends ResponseEntityExceptionHandler
     }
 
 }
+*/

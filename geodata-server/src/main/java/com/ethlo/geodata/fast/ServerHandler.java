@@ -74,7 +74,7 @@ import io.undertow.util.Methods;
 public class ServerHandler
 {
     private static final Logger logger = LoggerFactory.getLogger(ServerHandler.class);
-    
+
     private final GeodataService geodataService;
     private final MetaDao metaDao;
     private final Mapper mapper;
@@ -255,7 +255,7 @@ public class ServerHandler
             {
                 final Throwable exc = exchange.getAttachment(ExceptionHandler.THROWABLE);
                 final ApiError response = e.getValue().apply(exc);
-                exchange.setStatusCode(response.getCode());
+                exchange.setStatusCode(response.getStatus());
                 json(exchange, response);
             });
         }

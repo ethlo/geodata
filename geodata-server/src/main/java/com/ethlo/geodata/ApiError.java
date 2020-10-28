@@ -26,8 +26,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import org.springframework.http.HttpStatus;
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 public class ApiError
@@ -35,9 +33,9 @@ public class ApiError
     private final String message;
     private final List<String> details;
     private final Date timestamp;
-    private final HttpStatus status;
+    private final int status;
 
-    public ApiError(HttpStatus status, String message, List<String> details)
+    public ApiError(int status, String message, List<String> details)
     {
         this.status = status;
         this.message = message;
@@ -45,19 +43,14 @@ public class ApiError
         this.timestamp = new Date();
     }
 
-    public ApiError(HttpStatus status, String message, String error)
+    public ApiError(int status, String message, String error)
     {
         this(status, message, Collections.singletonList(error));
     }
 
-    public ApiError(HttpStatus status, String message)
+    public ApiError(int status, String message)
     {
         this(status, message, (List<String>) null);
-    }
-
-    public int getCode()
-    {
-        return status.value();
     }
 
     public String getMessage()
@@ -76,7 +69,7 @@ public class ApiError
     }
 
     @JsonIgnore
-    public HttpStatus getStatus()
+    public int getStatus()
     {
         return status;
     }
