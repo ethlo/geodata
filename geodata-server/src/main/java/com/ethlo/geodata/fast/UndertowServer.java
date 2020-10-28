@@ -34,6 +34,9 @@ import java.util.function.Function;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.context.PropertyPlaceholderAutoConfiguration;
+import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
+import org.springframework.core.env.SystemEnvironmentPropertySource;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 
@@ -65,6 +68,10 @@ public class UndertowServer
 
     public static void main(String[] args)
     {
+        //final PropertySourcesPlaceholderConfigurer propertySourcesPlaceholderConfigurer = new PropertySourcesPlaceholderConfigurer();
+        //new SystemEnvironmentPropertySource("env", System.getenv())
+        //propertySourcesPlaceholderConfigurer.getAppliedPropertySources().
+
         final Path basePath = Paths.get("/tmp/geodata");
         final MetaDao metaDao = new FileMetaDao(basePath);
         final LocationDao locationDao = new FileMmapLocationDao(basePath);

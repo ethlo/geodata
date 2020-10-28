@@ -22,7 +22,10 @@ package com.ethlo.geodata.fast;
  * #L%
  */
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Deque;
 import java.util.List;
@@ -32,6 +35,9 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.WKBWriter;
+import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -44,6 +50,7 @@ import com.ethlo.geodata.ApiError;
 import com.ethlo.geodata.GeodataService;
 import com.ethlo.geodata.Mapper;
 import com.ethlo.geodata.dao.MetaDao;
+import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.rest.v1.model.V1Continent;
 import com.ethlo.geodata.rest.v1.model.V1PageContinent;
 import com.ethlo.geodata.util.InetUtil;
@@ -67,6 +74,7 @@ import io.undertow.util.Methods;
 public class ServerHandler
 {
     private static final Logger logger = LoggerFactory.getLogger(ServerHandler.class);
+    
     private final GeodataService geodataService;
     private final MetaDao metaDao;
     private final Mapper mapper;
@@ -104,20 +112,24 @@ public class ServerHandler
                     exchange.getResponseSender().send(ByteBuffer.wrap(boundary));
                 })
 
-                .add(Methods.GET, "/v1/locations/{id}/boundaries.wkb", exchange -> {
+                .add(Methods.GET, "/v1/locations/{id}/boundaries.wkb", exchange ->
+                {
                     final int id = requireIntParam(exchange, "id");
                     final byte[] boundary = Optional.ofNullable(geodataService.findBoundaries(id)).orElseThrow(notNull("No boundary for id " + id));
-                    // TODO: Convert data
+                    final Geometry geom = new GeoJsonReader().read(new InputStreamReader(new ByteArrayInputStream(boundary), StandardCharsets.UTF_8));
+                    final byte[] wkb = new WKBWriter().write(geom);
                     exchange.getResponseHeaders().add(Headers.CONTENT_TYPE, "application/wkb");
-                    exchange.getResponseSender().send(ByteBuffer.wrap(boundary));
+                    exchange.getResponseSender().send(ByteBuffer.wrap(wkb));
                 })
 
-                .add(Methods.GET, "/v1/locations/ids/{ids}", exchange -> {
+                .add(Methods.GET, "/v1/locations/ids/{ids}", exchange ->
+                {
                     final List<Integer> ids = getIntList(exchange, "ids").orElseThrow(missingParam("ids"));
                     json(exchange, ids.stream().map(geodataService::findById).collect(Collectors.toList()));
                 })
 
-                .add(Methods.GET, "/v1/locations/ip/{ip}", exchange -> {
+                .add(Methods.GET, "/v1/locations/ip/{ip}", exchange ->
+                {
                     final String ip = requireStringParam(exchange, "ip");
                     json(exchange, Optional.ofNullable(geodataService.findByIp(InetUtil.inet(ip)))
                             .map(mapper::transform)
@@ -196,11 +208,22 @@ public class ServerHandler
                             .totalPages(page.getTotalPages()));
                 })
 
-                .add(Methods.GET, "/v1/continents/{continent}/countries", exchange -> exchange.getResponseSender().send("findCountriesOnContinent"))
+                .add(Methods.GET, "/v1/continents/{continent}/countries", exchange -> {
+                    final String continent = requireStringParam(exchange, "continent");
+                    json(exchange, mapper.toCountryPage(geodataService.findCountriesOnContinent(continent, pageable(exchange)).map(mapper::transform)));
+                })
 
-                .add(Methods.GET, "/v1/countries/{countryCode}", exchange -> exchange.getResponseSender().send("findCountryByCode"))
+                .add(Methods.GET, "/v1/countries/{countryCode}", exchange -> {
+                    final String countryCode = requireStringParam(exchange, "countryCode");
+                    json(exchange, Optional.ofNullable(geodataService.findCountryByCode(countryCode)).map(mapper::transform).orElseThrow(notNull("No such country code: " + countryCode)));
+                })
 
-                .add(Methods.GET, "/v1/locations/phone/{phone}", exchange -> exchange.getResponseSender().send("findCountryByPhone"))
+                .add(Methods.GET, "/v1/locations/phone/{phone}", exchange ->
+                {
+                    final String phone = requireStringParam(exchange, "phone");
+                    final Country country = Optional.ofNullable(geodataService.findByPhoneNumber(phone)).orElseThrow(notNull("Unable to determine country by phone number " + phone));
+                    json(exchange, mapper.transform(country));
+                })
 
                 .add(Methods.GET, "/v1/locations/proximity", exchange -> exchange.getResponseSender().send("findNear"))
 
