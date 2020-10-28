@@ -45,7 +45,6 @@ import com.github.davidmoten.rtree.RTree;
 import com.github.davidmoten.rtree.geometry.Geometries;
 import com.github.davidmoten.rtree.geometry.Geometry;
 import com.github.davidmoten.rtree.geometry.Point;
-import com.github.davidmoten.rtree.geometry.internal.PointDouble;
 import com.github.davidmoten.rtree.internal.EntryDefault;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Iterators;
@@ -167,7 +166,7 @@ public class RtreeRepository
         while (entryIterator.hasNext())
         {
             final Entry<RTreePayload, Geometry> entry = entryIterator.next();
-            final double distance = entry.geometry().distance(target) * EARTH;
+            final double distance = entry.geometry().distance(target);
             idAndDistance.put(entry.value().getId(), distance);
         }
         return idAndDistance;

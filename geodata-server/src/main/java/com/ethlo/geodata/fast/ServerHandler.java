@@ -38,8 +38,7 @@ import java.util.stream.Collectors;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.WKBWriter;
 import org.locationtech.jts.io.geojson.GeoJsonReader;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -50,8 +49,12 @@ import com.ethlo.geodata.ApiError;
 import com.ethlo.geodata.GeodataService;
 import com.ethlo.geodata.Mapper;
 import com.ethlo.geodata.dao.MetaDao;
+import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
+import com.ethlo.geodata.model.GeoLocationDistance;
+import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.rest.v1.model.V1Continent;
+import com.ethlo.geodata.rest.v1.model.V1GeoLocation;
 import com.ethlo.geodata.rest.v1.model.V1PageContinent;
 import com.ethlo.geodata.util.InetUtil;
 import com.ethlo.geodata.util.JsonUtil;
@@ -73,8 +76,6 @@ import io.undertow.util.Methods;
 
 public class ServerHandler
 {
-    private static final Logger logger = LoggerFactory.getLogger(ServerHandler.class);
-
     private final GeodataService geodataService;
     private final MetaDao metaDao;
     private final Mapper mapper;
@@ -92,9 +93,7 @@ public class ServerHandler
     {
         JsonStream.setMode(EncodingMode.DYNAMIC_MODE);
         JsoniterSpi.registerTypeEncoder(Date.class, (obj, stream) ->
-        {
-            stream.writeVal(ITU.formatUtc((Date) obj));
-        });
+                stream.writeVal(ITU.formatUtc((Date) obj)));
     }
 
     public HttpHandler handler(Map<Class<? extends Throwable>, Function<Throwable, ApiError>> errorHandlers)
@@ -155,9 +154,7 @@ public class ServerHandler
                 })
 
                 .add(Methods.GET, "/v1/countries", exchange ->
-                {
-                    json(exchange, mapper.toCountryPage(geodataService.findCountries(pageable(exchange)).map(mapper::transform)));
-                })
+                        json(exchange, mapper.toCountryPage(geodataService.findCountries(pageable(exchange)).map(mapper::transform))))
 
                 .add(Methods.GET, "/v1/countries/{countryCode}/children", exchange ->
                 {
@@ -178,7 +175,6 @@ public class ServerHandler
                             .map(mapper::transform)
                             .orElseThrow(notNull("No parent location found for id " + id)));
                 })
-
 
                 .add(Methods.GET, "/v1/locations/{id}/insideany/{ids}", exchange ->
                 {
@@ -208,12 +204,14 @@ public class ServerHandler
                             .totalPages(page.getTotalPages()));
                 })
 
-                .add(Methods.GET, "/v1/continents/{continent}/countries", exchange -> {
+                .add(Methods.GET, "/v1/continents/{continent}/countries", exchange ->
+                {
                     final String continent = requireStringParam(exchange, "continent");
                     json(exchange, mapper.toCountryPage(geodataService.findCountriesOnContinent(continent, pageable(exchange)).map(mapper::transform)));
                 })
 
-                .add(Methods.GET, "/v1/countries/{countryCode}", exchange -> {
+                .add(Methods.GET, "/v1/countries/{countryCode}", exchange ->
+                {
                     final String countryCode = requireStringParam(exchange, "countryCode");
                     json(exchange, Optional.ofNullable(geodataService.findCountryByCode(countryCode)).map(mapper::transform).orElseThrow(notNull("No such country code: " + countryCode)));
                 })
@@ -225,21 +223,48 @@ public class ServerHandler
                     json(exchange, mapper.transform(country));
                 })
 
-                .add(Methods.GET, "/v1/locations/proximity", exchange -> exchange.getResponseSender().send("findNear"))
+                .add(Methods.GET, "/v1/locations/proximity", exchange ->
+                {
+                    final Pageable pageable = pageable(exchange);
+                    final double lat = requireDoubleParam(exchange, "lat");
+                    final double lng = requireDoubleParam(exchange, "lng");
+                    final int maxDistance = getIntParam(exchange, "maxDistance").orElse(Integer.MAX_VALUE);
+                    final Page<GeoLocationDistance> locationAndDistance = geodataService.findNear(Coordinates.from(lat, lng), maxDistance, pageable);
+                    json(exchange, mapper.toGeolocationDistancePage(locationAndDistance));
+                })
 
-                .add(Methods.GET, "/v1/locations/{id}/previewboundaries.wkb", exchange -> exchange.getResponseSender().send("findPreviewBoundaries"))
+                .add(Methods.GET, "/v1/locations/coordinates", exchange ->
+                {
+                    final double lat = requireDoubleParam(exchange, "lat");
+                    final double lng = requireDoubleParam(exchange, "lng");
+                    final Coordinates coordinates = Coordinates.from(lat, lng);
+                    final int maxDistance = getIntParam(exchange, "maxDistance").orElse(Integer.MAX_VALUE);
+                    final V1GeoLocation location = Optional.ofNullable(geodataService.findByCoordinate(coordinates, maxDistance)).map(mapper::transform).orElseThrow(notNull("Unable to determine nearest location of " + lat + "," + lng));
+                    json(exchange, location);
+                })
 
-                .add(Methods.GET, "/v1/locations/{id}/previewboundaries", exchange -> exchange.getResponseSender().send("findPreviewBoundaries1"))
-
-                .add(Methods.GET, "/v1/locations/coordinates", exchange -> exchange.getResponseSender().send("findProximity"))
-
-                .add(Methods.GET, "/v1/locations/{id}/simpleboundaries.wkb", exchange -> exchange.getResponseSender().send("findSimpleBoundaries"))
-
-                .add(Methods.GET, "/v1/locations/{id}/simpleboundaries", exchange -> exchange.getResponseSender().send("findSimpleBoundaries1"))
+                .add(Methods.GET, "/v1/locations/{id}/previewboundaries", exchange ->
+                {
+                    final int id = requireIntParam(exchange, "id");
+                    final double minLng = requireDoubleParam(exchange, "minLng");
+                    final double maxLng = requireDoubleParam(exchange, "maxLng");
+                    final double minLat = requireDoubleParam(exchange, "minLat");
+                    final double maxLat = requireDoubleParam(exchange, "maxLat");
+                    final int width = requireIntParam(exchange, "width");
+                    final int height = requireIntParam(exchange, "height");
+                    final Geometry boundary = Optional.ofNullable(geodataService.findBoundaries(id, new View(minLng, maxLng, minLat, maxLat, width, height))).orElseThrow(notNull("No boundary found for location with id " + id));
+                    exchange.getResponseHeaders().add(Headers.CONTENT_TYPE, "application/json");
+                    exchange.getResponseSender().send(new GeoJsonWriter().write(boundary));
+                })
 
                 .add(Methods.GET, "/v1/locations/contains", exchange -> exchange.getResponseSender().send("findWithin"))
 
                 .add(Methods.GET, "/v1/locations/{id}/outsideall/{ids}", exchange -> exchange.getResponseSender().send("outsideAll"));
+
+        // TODO: Evaluate for removal
+        //.add(Methods.GET, "/v1/locations/{id}/previewboundaries.wkb", exchange -> exchange.getResponseSender().send("findPreviewBoundaries"))
+        //.add(Methods.GET, "/v1/locations/{id}/simpleboundaries.wkb", exchange -> exchange.getResponseSender().send("findSimpleBoundaries"))
+        //.add(Methods.GET, "/v1/locations/{id}/simpleboundaries", exchange -> exchange.getResponseSender().send("findSimpleBoundaries1"))
 
         final PathHandler path = Handlers.path(routes)
                 .addPrefixPath("/swagger-ui", new ResourceHandler(new ClassPathResourceManager(getClass().getClassLoader(), "META-INF/resources/webjars/swagger-ui/3.35.2")))
@@ -275,9 +300,19 @@ public class ServerHandler
         return getStringParam(exchange, name).orElseThrow(missingParam(name));
     }
 
-    private Integer requireIntParam(final HttpServerExchange exchange, final String child)
+    private Integer requireIntParam(final HttpServerExchange exchange, final String name)
     {
-        return getIntParam(exchange, child).orElseThrow(missingParam(child));
+        return getIntParam(exchange, name).orElseThrow(missingParam(name));
+    }
+
+    private double requireDoubleParam(final HttpServerExchange exchange, final String name)
+    {
+        return getDoubleParam(exchange, name).orElseThrow(missingParam(name));
+    }
+
+    private Optional<Double> getDoubleParam(final HttpServerExchange exchange, final String name)
+    {
+        return getFirstParam(exchange, name).map(Double::parseDouble);
     }
 
     private Optional<List<Integer>> getIntList(final HttpServerExchange exchange, final String name)

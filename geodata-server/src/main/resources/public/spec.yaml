@@ -489,7 +489,7 @@ paths:
   "/v1/locations/{id}/previewboundaries":
     get:
       summary: Return boundaries in GeoJson format simplified to a suitable resolution
-      operationId: findPreviewBoundaries1
+      operationId: findPreviewBoundariesgeoJson
       parameters:
         - name: id
           in: path

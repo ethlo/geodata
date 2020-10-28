@@ -46,13 +46,13 @@ public class FileMetaDao implements MetaDao
     @Override
     public SourceDataInfoSet load()
     {
-        return JsonUtil.read(metaFile.resolve(FILE), SourceDataInfoSet.class);
+        return JsonUtil.read(metaFile, SourceDataInfoSet.class);
     }
 
     @Override
     public void save(final SourceDataInfoSet dataInfoSet)
     {
-        JsonUtil.write(metaFile.resolve(FILE), dataInfoSet);
+        JsonUtil.write(metaFile, dataInfoSet);
     }
 
     @Override

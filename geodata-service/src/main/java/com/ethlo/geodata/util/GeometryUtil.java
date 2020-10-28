@@ -28,10 +28,11 @@ import java.util.List;
 
 import org.geotools.geometry.jts.GeometryClipper;
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.CoordinateXY;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Polygon;
 import org.springframework.util.Assert;
 
@@ -77,9 +78,9 @@ public class GeometryUtil
 
     public static Geometry simplify(Geometry full, double tolerance)
     {
-        if (full instanceof MultiPolygon)
+        if (full instanceof GeometryCollection)
         {
-            final MultiPolygon p = (MultiPolygon) full;
+            final GeometryCollection p = (GeometryCollection) full;
             final List<Geometry> res = new LinkedList<>();
             for (int i = 0; i < p.getNumGeometries(); i++)
             {
@@ -124,6 +125,13 @@ public class GeometryUtil
     public static Geometry clip(Envelope envelope, Geometry geometry)
     {
         final GeometryClipper clipper = new GeometryClipper(new Envelope(envelope.getMinX(), envelope.getMaxX(), envelope.getMinY(), envelope.getMaxY()));
-        return clipper.clipSafe(geometry, true, 0);
+        final Geometry simplified = clipper.clipSafe(geometry, true, 0);
+        final Coordinate[] coordinates = new Coordinate[simplified.getCoordinates().length];
+        final Coordinate[] sc = simplified.getCoordinates();
+        for (int i = 0; i < sc.length; i++)
+        {
+            coordinates[i] = new CoordinateXY(sc[i].x, sc[i].y);
+        }
+        return geometryFactory.createLineString(coordinates);
     }
 }

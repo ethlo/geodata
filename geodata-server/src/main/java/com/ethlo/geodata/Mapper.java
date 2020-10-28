@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 
 import com.ethlo.geodata.model.Continent;
@@ -36,16 +35,18 @@ import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.CountrySummary;
 import com.ethlo.geodata.model.GeoLocation;
+import com.ethlo.geodata.model.GeoLocationDistance;
 import com.ethlo.geodata.rest.v1.model.V1Continent;
 import com.ethlo.geodata.rest.v1.model.V1Coordinates;
 import com.ethlo.geodata.rest.v1.model.V1Country;
 import com.ethlo.geodata.rest.v1.model.V1CountrySummary;
 import com.ethlo.geodata.rest.v1.model.V1GeoLocation;
+import com.ethlo.geodata.rest.v1.model.V1GeoLocationDistance;
 import com.ethlo.geodata.rest.v1.model.V1GeoLocationSummary;
 import com.ethlo.geodata.rest.v1.model.V1PageCountry;
 import com.ethlo.geodata.rest.v1.model.V1PageGeoLocation;
+import com.ethlo.geodata.rest.v1.model.V1PageGeoLocationDistance;
 import com.ethlo.geodata.rest.v1.model.V1SliceGeoLocation;
-import io.undertow.server.HttpServerExchange;
 
 public class Mapper
 {
@@ -163,5 +164,21 @@ public class Mapper
                 .size(res.getSize())
                 .totalElements(res.getTotalElements())
                 .totalPages(res.getTotalPages());
+    }
+
+    public V1PageGeoLocationDistance toGeolocationDistancePage(final Page<GeoLocationDistance> locationAndDistance)
+    {
+        final List<V1GeoLocationDistance> content = locationAndDistance.getContent().stream()
+                .map(ld -> new V1GeoLocationDistance()
+                        .location(transform(ld.getLocation()))
+                        .distance(ld.getDistance())
+                ).collect(Collectors.toList());
+
+        return new V1PageGeoLocationDistance()
+                .first(locationAndDistance.isFirst())
+                .last(locationAndDistance.isLast())
+                .content(content)
+                .number(locationAndDistance.getNumber())
+                .numberOfElements(locationAndDistance.getNumberOfElements());
     }
 }

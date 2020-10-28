@@ -24,6 +24,7 @@ package com.ethlo.geodata.importer;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -35,6 +36,12 @@ import java.util.Map;
 import java.util.Objects;
 
 import javax.xml.stream.XMLStreamException;
+
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.OutputStreamOutStream;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKBWriter;
+import org.locationtech.jts.io.geojson.GeoJsonReader;
 
 import com.ethlo.geodata.util.JsonUtil;
 import com.ethlo.geodata.util.Kml2GeoJson;
@@ -56,59 +63,24 @@ public class GeoFabrikBoundaryLoader
         put("AN", "antarctica");
     }};
 
-    public static void main(String[] args) throws IOException
+    public static void main(String[] args) throws IOException, ParseException
     {
         final Path dir = Paths.get("/tmp/geodata/boundaries");
         final GeoFabrikBoundaryLoader loader = new GeoFabrikBoundaryLoader();
 
-        JsonUtil.write(dir.resolve("3144096.json"), loader.loadGeoJson("EU", "norway"));
-        JsonUtil.write(dir.resolve("2623032.json"), loader.loadGeoJson("EU", "denmark"));
+        importGeoJson(dir, loader, 3144096, "EU", "norway");
+        importGeoJson(dir, loader, 2623032, "EU", "denmark");
+    }
 
-        /*
-        final RtreeRepository boundaryRepository = new RtreeRepository(
-        });
-
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-        for (int i = 0; i < 1000; i++)
+    private static void importGeoJson(final Path dir, final GeoFabrikBoundaryLoader loader, final int id, final String continentCode, final String countryName) throws IOException, ParseException
+    {
+        final ObjectNode jsonNode = loader.loadGeoJson(continentCode, countryName);
+        final Geometry geometry = new GeoJsonReader().read(jsonNode.toPrettyString());
+        JsonUtil.write(dir.resolve(id + ".json"), jsonNode);
+        try (final OutputStream out = Files.newOutputStream(dir.resolve(id + ".wkb")))
         {
-            final double lat = 61;
-            final double lng = 10.7;
-
-            final Coordinates coordinate = Coordinates.from(lat, lng);
-
-            final Long hit = boundaryRepository.find(coordinate);
-
-            final Point point = geometryFactory.createPoint(new Coordinate(lng, lat));
-
-            final Path path = dir.resolve(hit + ".json");
-            System.out.println(path);
-            try (final Reader reader = Files.newBufferedReader(path))
-            {
-                final Geometry geom = new GeoJsonReader().read(reader);
-                if (geom instanceof GeometryCollection)
-                {
-                    final GeometryCollection coll = (GeometryCollection) geom;
-                    for (int num = 0; num < coll.getNumGeometries(); num++)
-                    {
-                        final Geometry geomElem = coll.getGeometryN(num);
-                        //System.out.println(geomElem);
-                        final boolean actualInside = geomElem.contains(point);
-                        //System.out.println(actual);
-                    }
-                }
-            }
-            catch (IOException exc)
-            {
-                throw new UncheckedIOException(exc);
-            }
-            catch (ParseException exc)
-            {
-                throw new UncheckedIOException(new IOException(exc.getMessage(), exc));
-            }
+            new WKBWriter(2).write(geometry, new OutputStreamOutStream(out));
         }
-        System.out.println(stopwatch);
-
-         */
     }
 
     public ObjectNode loadGeoJson(String continentCode, String countryName) throws IOException

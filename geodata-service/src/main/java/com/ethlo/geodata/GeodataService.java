@@ -28,6 +28,7 @@ import java.util.List;
 
 import javax.validation.Valid;
 
+import org.locationtech.jts.geom.Geometry;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -53,7 +54,7 @@ public interface GeodataService
 
     byte[] findBoundaries(int id, double maxTolerance);
 
-    byte[] findBoundaries(int id, View view);
+    Geometry findBoundaries(int id, View view);
 
     Page<GeoLocation> findChildren(int locationId, Pageable pageable);
 

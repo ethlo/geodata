@@ -40,7 +40,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
-import javax.validation.Valid;
 
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
@@ -531,34 +530,23 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public byte[] findBoundaries(final int id, @Valid View view)
+    public Geometry findBoundaries(final int id, View view)
     {
-        final byte[] fullWkb = this.findBoundaries(id);
+        final Optional<Geometry> fullGeometry = this.boundaryDao.findGeometryById(id);
 
-        if (fullWkb == null)
+        if (fullGeometry.isEmpty())
         {
             return null;
         }
 
-        final WKBReader reader = new WKBReader();
-        try
+        final Geometry full = fullGeometry.get();
+        Geometry simplified = GeometryUtil.simplify(full, view, qualityConstant);
+        final Geometry clipped = GeometryUtil.clip(new Envelope(view.getMinLng(), view.getMaxLng(), view.getMinLat(), view.getMaxLat()), simplified);
+        if (clipped != null)
         {
-            final Stopwatch stopwatch = Stopwatch.createStarted();
-            final Geometry full = reader.read(fullWkb);
-            Geometry simplified = GeometryUtil.simplify(full, view, qualityConstant);
-            final Geometry clipped = GeometryUtil.clip(new Envelope(view.getMinLng(), view.getMaxLng(), view.getMinLat(), view.getMaxLat()), simplified);
-            if (clipped != null)
-            {
-                simplified = clipped;
-            }
-
-            logger.debug("locationId: {}, original points: {}, remaining points: {}, ratio: {}, elapsed: {}", id, full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double) simplified.getNumPoints(), stopwatch);
-            return new WKBWriter().write(simplified);
+            return clipped;
         }
-        catch (ParseException exc)
-        {
-            throw new DataAccessResourceFailureException(exc.getMessage(), exc);
-        }
+        return simplified;
     }
 
     @Override

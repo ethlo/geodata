@@ -85,7 +85,11 @@ public class UndertowServer
         final Map<Class<? extends Throwable>, Function<Throwable, ApiError>> exceptionHandlers = new LinkedHashMap<>();
         exceptionHandlers.put(EmptyResultDataAccessException.class, exc -> new ApiError(404, exc.getMessage()));
         exceptionHandlers.put(MissingParameterException.class, exc -> new ApiError(400, exc.getMessage()));
-        exceptionHandlers.put(Exception.class, exc -> new ApiError(500, "An internal error occurred"));
+        exceptionHandlers.put(Exception.class, exc ->
+        {
+            logger.warn(exc.getMessage(), exc);
+            return new ApiError(500, "An internal error occurred");
+        });
         final HttpHandler routes = new ServerHandler(geodataService, metaDao).handler(exceptionHandlers);
 
         final SimpleServer server = SimpleServer.simpleServer(routes, "0.0.0.0", 6565);
