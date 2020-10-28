@@ -30,39 +30,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Date;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import javax.xml.stream.XMLStreamException;
 
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.GeometryCollection;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
-import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.geojson.GeoJsonReader;
-import org.springframework.util.Assert;
-
-import com.ethlo.geodata.dao.file.RtreeRepository;
-import com.ethlo.geodata.model.Coordinates;
-import com.ethlo.geodata.model.RTreePayload;
 import com.ethlo.geodata.util.JsonUtil;
 import com.ethlo.geodata.util.Kml2GeoJson;
 import com.ethlo.geodata.util.ResourceUtil;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.base.Stopwatch;
-import com.google.common.collect.AbstractIterator;
 
 public class GeoFabrikBoundaryLoader
 {
     private static final String BASE_URL = "http://download.geofabrik.de/";
-    private static final GeometryFactory geometryFactory = new GeometryFactory();
 
     private final Map<String, String> continents = new LinkedHashMap<>()
     {{
@@ -83,54 +64,8 @@ public class GeoFabrikBoundaryLoader
         JsonUtil.write(dir.resolve("3144096.json"), loader.loadGeoJson("EU", "norway"));
         JsonUtil.write(dir.resolve("2623032.json"), loader.loadGeoJson("EU", "denmark"));
 
-        final RtreeRepository boundaryRepository = new RtreeRepository(new AbstractIterator<>()
-        {
-            private final Iterator<Path> filenames = getFileNames().iterator();
-
-            private List<Path> getFileNames()
-            {
-                try (final Stream<Path> files = Files.list(dir))
-                {
-                    return files.filter(p -> p.getFileName().toString().endsWith(".json")).collect(Collectors.toList());
-                }
-                catch (IOException e)
-                {
-                    throw new UncheckedIOException(e);
-                }
-            }
-
-            @Override
-            protected RTreePayload computeNext()
-            {
-                if (filenames.hasNext())
-                {
-                    final Path path = filenames.next();
-                    try (final Reader reader = Files.newBufferedReader(path))
-                    {
-                        final int id = getIdFromFilename(path.getFileName());
-                        final Geometry geometry = new GeoJsonReader(geometryFactory).read(reader);
-                        return new RTreePayload(id, geometry.getArea(), geometry.getEnvelopeInternal());
-                    }
-                    catch (IOException exc)
-                    {
-                        throw new UncheckedIOException(exc);
-                    }
-                    catch (ParseException exc)
-                    {
-                        throw new UncheckedIOException(new IOException(exc.getMessage(), exc));
-                    }
-                }
-
-                return endOfData();
-            }
-
-            private int getIdFromFilename(final Path path)
-            {
-                final String filename = path.getFileName().toString();
-                final int dotIndex = filename.indexOf(".");
-                Assert.isTrue(dotIndex > -1, "A dot was expected in the filename " + filename);
-                return Integer.parseInt(filename.substring(0, dotIndex));
-            }
+        /*
+        final RtreeRepository boundaryRepository = new RtreeRepository(
         });
 
         final Stopwatch stopwatch = Stopwatch.createStarted();
@@ -172,6 +107,8 @@ public class GeoFabrikBoundaryLoader
             }
         }
         System.out.println(stopwatch);
+
+         */
     }
 
     public ObjectNode loadGeoJson(String continentCode, String countryName) throws IOException

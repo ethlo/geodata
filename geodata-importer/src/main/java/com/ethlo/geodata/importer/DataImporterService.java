@@ -82,6 +82,8 @@ public class DataImporterService
     @PostConstruct
     public void update() throws IOException
     {
+        Files.createDirectories(basePath);
+
         final AtomicBoolean updated = new AtomicBoolean();
         ifExpired(DataType.LOCATIONS, geonamesImporter.lastRemoteModified(), () ->
         {

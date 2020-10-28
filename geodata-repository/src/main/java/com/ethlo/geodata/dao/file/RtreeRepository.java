@@ -24,18 +24,19 @@ package com.ethlo.geodata.dao.file;
 
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import javax.annotation.Nonnull;
+import java.util.Map;
 
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Envelope;
+import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
 
+import com.ethlo.geodata.dao.BoundaryDao;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.RTreePayload;
 import com.github.davidmoten.guavamini.Lists;
@@ -44,8 +45,8 @@ import com.github.davidmoten.rtree.RTree;
 import com.github.davidmoten.rtree.geometry.Geometries;
 import com.github.davidmoten.rtree.geometry.Geometry;
 import com.github.davidmoten.rtree.geometry.Point;
+import com.github.davidmoten.rtree.geometry.internal.PointDouble;
 import com.github.davidmoten.rtree.internal.EntryDefault;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Iterators;
 import com.google.common.primitives.Ints;
@@ -53,12 +54,15 @@ import com.google.common.primitives.Ints;
 public class RtreeRepository
 {
     private static final Logger logger = LoggerFactory.getLogger(RtreeRepository.class);
+    private final BoundaryDao boundaryDao;
     private RTree<RTreePayload, Geometry> tree;
 
-    public RtreeRepository(Iterator<RTreePayload> entries)
+    public RtreeRepository(BoundaryDao boundaryDao)
     {
-        this.tree = RTree.create();
+        this.boundaryDao = boundaryDao;
 
+        this.tree = RTree.create();
+        final Iterator<RTreePayload> entries = boundaryDao.entries();
         while (entries.hasNext())
         {
             final RTreePayload entry = entries.next();
@@ -72,7 +76,7 @@ public class RtreeRepository
         return EntryDefault.entry(payload, Geometries.rectangle(env.getMinX(), env.getMinY(), env.getMaxX(), env.getMaxY()));
     }
 
-    public Long find(Coordinates coordinates)
+    public Integer find(Coordinates coordinates)
     {
         // Point to find
         final Point point = Geometries.point(coordinates.getLng(), coordinates.getLat());
@@ -88,11 +92,38 @@ public class RtreeRepository
         // Loop through candidates from smallest to largest and check actual polygon
         for (Entry<RTreePayload, Geometry> candidate : candidates)
         {
-            // TODO: Check boundary of candidate id
-            return candidate.value().getId();
+            if (isReallyInside(coordinates.getLat(), coordinates.getLng(), candidate.value().getId()))
+            {
+                return candidate.value().getId();
+            }
         }
 
         return null;
+    }
+
+    private boolean isReallyInside(double lat, double lng, final int id)
+    {
+        final org.locationtech.jts.geom.Point point = new GeometryFactory().createPoint(new Coordinate(lng, lat));
+
+        final org.locationtech.jts.geom.Geometry geom = boundaryDao.findGeometryById(id).orElseThrow();
+        if (geom instanceof GeometryCollection)
+        {
+            final GeometryCollection coll = (GeometryCollection) geom;
+            for (int num = 0; num < coll.getNumGeometries(); num++)
+            {
+                final org.locationtech.jts.geom.Geometry geomElem = coll.getGeometryN(num);
+                final boolean actualInside = geomElem.contains(point);
+                if (actualInside)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        else
+        {
+            return geom.contains(point);
+        }
     }
 
     public RtreeRepository add(RTreePayload payload)
@@ -106,14 +137,14 @@ public class RtreeRepository
         return tree.size();
     }
 
-    public Iterator<Long> findNear(Coordinates point, double maxDistanceInKilometers, Pageable pageable)
+    public Iterator<Integer> findNear(Coordinates point, double maxDistanceInKilometers, Pageable pageable)
     {
         final int max = Ints.saturatedCast(pageable.getOffset() + pageable.getPageSize());
         final Iterator<Entry<RTreePayload, Geometry>> e = tree.nearest(Geometries.point(point.getLng(), point.getLat()), maxDistanceInKilometers, max).toBlocking().getIterator();
-        final Iterator<Long> iter = new AbstractIterator<Long>()
+        final Iterator<Integer> iter = new AbstractIterator<>()
         {
             @Override
-            protected Long computeNext()
+            protected Integer computeNext()
             {
                 if (e.hasNext())
                 {
@@ -124,5 +155,21 @@ public class RtreeRepository
         };
         Iterators.advance(iter, Ints.saturatedCast(pageable.getOffset()));
         return iter;
+    }
+
+    public Map<Integer, Double> getNearest(final Coordinates point, final int maxDistanceInKilometers, final Pageable pageable)
+    {
+        final int max = Ints.saturatedCast(pageable.getOffset() + pageable.getPageSize());
+        final Point target = Geometries.point(point.getLng(), point.getLat());
+        final Iterator<Entry<RTreePayload, Geometry>> entryIterator = tree.nearest(target, maxDistanceInKilometers, max).toBlocking().getIterator();
+
+        final Map<Integer, Double> idAndDistance = new LinkedHashMap<>();
+        while (entryIterator.hasNext())
+        {
+            final Entry<RTreePayload, Geometry> entry = entryIterator.next();
+            final double distance = entry.geometry().distance(target) * EARTH;
+            idAndDistance.put(entry.value().getId(), distance);
+        }
+        return idAndDistance;
     }
 }

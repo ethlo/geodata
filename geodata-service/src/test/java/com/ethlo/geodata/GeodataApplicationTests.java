@@ -53,27 +53,28 @@ public class GeodataApplicationTests
     {
         assertThat(geodataService.findByIp(inet("77.88.103.250"))).isNotNull();
         assertThat(geodataService.findByIp(inet("103.199.40.241"))).isNotNull();
-        assertThat(geodataService.findByIp(inet("136.1.107.78"))).isNotNull();
+        assertThat(geodataService.findByIp(inet("110.1.107.78"))).isNotNull();
     }
 
     @Test
-    public void testFindLocationById()
+    public void testFindLocationByIdOfOsloNorway()
     {
-        assertThat(geodataService.findById(1581130)).isNotNull();
+        assertThat(geodataService.findById(3143242)).isNotNull();
     }
 
     @Test
     public void testQueryForNearestLocationByPoint()
     {
-        final Page<GeoLocationDistance> location = geodataService.findNear(Coordinates.from(10, 64), 100, PageRequest.of(0, 10));
+        final Page<GeoLocationDistance> location = geodataService.findNear(Coordinates.from(61, 10.5), 100, PageRequest.of(0, 10));
         assertThat(location).isNotNull();
     }
 
     @Test
-    public void testQueryForPointInsideArea()
+    public void testQueryForPointInsideNorwayReturnsNorway()
     {
-        final GeoLocation location = geodataService.findWithin(Coordinates.from(10, 64), 1_000);
+        final GeoLocation location = geodataService.findWithin(Coordinates.from(61, 10.7), 1_000);
         assertThat(location).isNotNull();
+        assertThat(location.getId()).isEqualTo(3144096);
     }
 
     @Test
@@ -122,16 +123,16 @@ public class GeodataApplicationTests
     }
 
     @Test
-    public void testListCountiesOfNorway()
+    public void testListChildrenOfNorway()
     {
-        final Page<GeoLocation> counties = geodataService.findChildren(3144096, PageRequest.of(0, 20));
-        assertThat(counties).hasSize(11);
+        final Page<GeoLocation> children = geodataService.findChildren(3144096, PageRequest.of(0, 20));
+        assertThat(children).hasSize(13);
     }
 
     @Test
     public void testListStatesOfUsa()
     {
-        final Page<GeoLocation> states = geodataService.findChildren(6252001, PageRequest.of(0, 100));
+        final Page<GeoLocation> states = geodataService.findChildren("US", PageRequest.of(0, 100));
         assertThat(states).hasSize(51);
     }
 
@@ -143,9 +144,9 @@ public class GeodataApplicationTests
     }
 
     @Test
-    public void testQueryForBoundaries()
+    public void testQueryForBoundariesOfNorway()
     {
-        final byte[] boundaries = geodataService.findBoundaries(7626836);
+        final byte[] boundaries = geodataService.findBoundaries(3144096);
         assertThat(boundaries).isNotNull();
     }
 }

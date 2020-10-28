@@ -29,4 +29,6 @@ public interface MetaDao
     SourceDataInfoSet load();
 
     void save(SourceDataInfoSet dataInfoSet);
+
+    void assertHasData();
 }

@@ -22,9 +22,18 @@ package com.ethlo.geodata.dao;
  * #L%
  */
 
+import java.util.Iterator;
 import java.util.Optional;
+
+import org.locationtech.jts.geom.Geometry;
+
+import com.ethlo.geodata.model.RTreePayload;
 
 public interface BoundaryDao
 {
-    Optional<byte[]> findById(int id);
+    Optional<byte[]> findGeoJsonById(int id);
+
+    Iterator<RTreePayload> entries();
+
+    Optional<Geometry> findGeometryById(int id);
 }

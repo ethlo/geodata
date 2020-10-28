@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import javax.annotation.PostConstruct;
 import javax.validation.Valid;
 
 import org.locationtech.jts.geom.Envelope;
@@ -66,7 +67,9 @@ import com.ethlo.geodata.dao.FeatureCodeDao;
 import com.ethlo.geodata.dao.HierarchyDao;
 import com.ethlo.geodata.dao.IpDao;
 import com.ethlo.geodata.dao.LocationDao;
+import com.ethlo.geodata.dao.MetaDao;
 import com.ethlo.geodata.dao.TimeZoneDao;
+import com.ethlo.geodata.dao.file.RtreeRepository;
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
@@ -76,6 +79,7 @@ import com.ethlo.geodata.model.GeoLocationDistance;
 import com.ethlo.geodata.model.MapFeature;
 import com.ethlo.geodata.model.RawLocation;
 import com.ethlo.geodata.model.View;
+import com.ethlo.geodata.progress.StatefulProgressListener;
 import com.ethlo.geodata.progress.StepProgressListener;
 import com.ethlo.geodata.util.GeometryUtil;
 import com.ethlo.geodata.util.MemoryUsageUtil;
@@ -105,8 +109,12 @@ public class GeodataServiceImpl implements GeodataService
     private final TimeZoneDao timeZoneDao;
     private final CountryDao countryDao;
     private final BoundaryDao boundaryDao;
+    private final MetaDao metaDao;
+    private final RtreeRepository rTree;
+
     private final List<String> additionalIndexedFeatures;
     private final int qualityConstant;
+
     // Loaded data
     private Map<Integer, Node> nodes = new Int2ObjectOpenHashMap<>();
     private BiMap<String, Integer> timezones;
@@ -116,7 +124,8 @@ public class GeodataServiceImpl implements GeodataService
 
     public GeodataServiceImpl(final LocationDao locationDao, final IpDao ipDao, final HierarchyDao hierarchyDao,
                               final FeatureCodeDao featureCodeDao, final TimeZoneDao timeZoneDao, final CountryDao countryDao,
-                              final BoundaryDao boundaryDao, @Value("${geodata.search.index-features}") final List<String> additionalIndexedFeatures,
+                              final BoundaryDao boundaryDao, final MetaDao metaDao,
+                              @Value("${geodata.search.index-features}") final List<String> additionalIndexedFeatures,
                               @Value("${geodata.boundaries.quality}") final int qualityConstant)
     {
         this.locationDao = locationDao;
@@ -126,6 +135,8 @@ public class GeodataServiceImpl implements GeodataService
         this.timeZoneDao = timeZoneDao;
         this.countryDao = countryDao;
         this.boundaryDao = boundaryDao;
+        this.metaDao = metaDao;
+        this.rTree = new RtreeRepository(boundaryDao);
         this.additionalIndexedFeatures = additionalIndexedFeatures;
         this.qualityConstant = qualityConstant;
     }
@@ -148,33 +159,17 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public GeoLocation findWithin(Coordinates point, int maxDistanceInKilometers)
+    public GeoLocation findWithin(Coordinates coordinate, int maxDistanceInKilometers)
     {
-        // Support this
-        int range = 25;
-        RawLocation location = null;
-        while (range <= maxDistanceInKilometers && location == null)
-        {
-            // Bring back
-            //location = reverseGeocodingDao.findContaining(point, range);
-            range *= 2;
-        }
-        if (location != null)
-        {
-            return populate(location);
-        }
-        throw new EmptyResultDataAccessException("Cannot find location for " + point, 1);
+        return Optional.ofNullable(rTree.find(coordinate)).map(this::findById).orElse(null);
     }
 
     @Override
     public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable)
     {
-        // TODO: Support this!
-        /*final Map<Integer, Double> locations = reverseGeocodingDao.findNearest(point, maxDistanceInKilometers, pageable);
+        final Map<Integer, Double> locations = rTree.getNearest(point, maxDistanceInKilometers, pageable);
         final List<GeoLocationDistance> content = locations.entrySet().stream().map(e -> new GeoLocationDistance().setLocation(findById(e.getKey())).setDistance(e.getValue())).collect(Collectors.toList());
-        return new PageImpl<>(content, pageable, metaService.getSourceDataInfo().get(GeonamesSource.LOCATION).getCount());
-        */
-        throw new UnsupportedOperationException("Not yet");
+        return new PageImpl<>(content, pageable, locations.size());
     }
 
     @Override
@@ -190,7 +185,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public byte[] findBoundaries(int id)
     {
-        return boundaryDao.findById(id).orElse(null);
+        return boundaryDao.findGeoJsonById(id).orElse(null);
     }
 
     @Override
@@ -211,9 +206,16 @@ public class GeodataServiceImpl implements GeodataService
         return new PageImpl<>(locations, pageable, total);
     }
 
-    @Override
+    @PostConstruct
+    public void load()
+    {
+        load(new StatefulProgressListener());
+    }
+
     public void load(LoadProgressListener progressListener)
     {
+        metaDao.assertHasData();
+
         progressListener.begin("feature_codes", 1);
         this.featureCodes = featureCodeDao.load();
 
@@ -380,9 +382,10 @@ public class GeodataServiceImpl implements GeodataService
         final List<Integer> childIds = Optional.ofNullable(nodes.get(id).getChildren()).orElse(Collections.emptyList());
 
         final List<GeoLocation> content = childIds.stream()
+                .map(this::doFindById)
+                .filter(l -> "ADM1".equals(l.getFeatureCode()))
                 .skip(pageable.getOffset())
                 .limit(pageable.getPageSize())
-                .map(this::doFindById)
                 .sorted(Comparator.comparing(GeoLocation::getName))
                 .collect(Collectors.toList());
         return new PageImpl<>(content, pageable, childIds.size());

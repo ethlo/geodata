@@ -77,7 +77,7 @@ public class UndertowServer
         final CountryDao countryDao = new FileCountryDao(basePath);
         final BoundaryDao boundaryDao = new FileBoundaryDao(basePath);
         final int boundaryQualityConstant = 200_000;
-        final GeodataServiceImpl geodataService = new GeodataServiceImpl(locationDao, ipDao, hierarchyDao, featureCodeDao, timeZoneDao, countryDao, boundaryDao, Collections.emptyList(), boundaryQualityConstant);
+        final GeodataServiceImpl geodataService = new GeodataServiceImpl(locationDao, ipDao, hierarchyDao, featureCodeDao, timeZoneDao, countryDao, boundaryDao, metaDao, Collections.emptyList(), boundaryQualityConstant);
         final StatefulProgressListener progressListener = new StatefulProgressListener();
 
         geodataService.load(progressListener);

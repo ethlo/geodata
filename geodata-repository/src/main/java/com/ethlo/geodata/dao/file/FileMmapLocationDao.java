@@ -10,19 +10,17 @@ package com.ethlo.geodata.dao.file;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
  * #L%
  */
-
-import static com.ethlo.geodata.dao.file.FileLocationDao.LOCATION_FILE;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
@@ -55,6 +53,9 @@ import it.unimi.dsi.fastutil.ints.Int2IntLinkedOpenHashMap;
 @Repository
 public class FileMmapLocationDao implements LocationDao
 {
+    public static final String LOCATION_DATA_FILE = "locations.data";
+    public static final String LOCATION_INDEX_FILE = "locations.index";
+
     private final Path basePath;
     private Map<Integer, Integer> indexMap;
     private Path indexPath;
@@ -76,7 +77,7 @@ public class FileMmapLocationDao implements LocationDao
     @Override
     public int load()
     {
-        this.indexPath = basePath.resolve(LOCATION_FILE + ".index");
+        this.indexPath = basePath.resolve(LOCATION_INDEX_FILE);
         indexMap = loadIndex();
         this.internalBuffer = openDataFile();
         return indexMap.size();
@@ -86,7 +87,7 @@ public class FileMmapLocationDao implements LocationDao
     {
         try
         {
-            final Path dataPath = basePath.resolve(LOCATION_FILE + ".raw");
+            final Path dataPath = basePath.resolve(LOCATION_DATA_FILE);
             try (final RandomAccessFile file = new RandomAccessFile(dataPath.toFile(), "r"); final FileChannel channel = file.getChannel())
             {
                 return channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size()).asReadOnlyBuffer();
