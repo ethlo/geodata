@@ -41,8 +41,10 @@ import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.util.StringUtils;
 
 import com.ethlo.geodata.ApiError;
@@ -138,13 +140,16 @@ public class ServerHandler
                 .add(Methods.GET, "/v1/locations/name/{name}", exchange ->
                 {
                     final String name = requireStringParam(exchange, "name");
-                    json(exchange, Mapper.toGeoLocationsSlice(geodataService.findByName(name, getPageable(exchange)).map(mapper::transform)));
+                    final Pageable pageable = getPageable(exchange);
+                    final Slice<V1GeoLocation> slice = geodataService.findByName(name, pageable).map(mapper::transform);
+                    final int total = slice.hasNext() ? slice.getContent().size() + 1 : slice.getContent().size();
+                    json(exchange, Mapper.toGeoLocationPage(new PageImpl<>(slice.getContent(), pageable, total)));
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}/children", exchange ->
                 {
                     final int id = requireIntParam(exchange, "id");
-                    json(exchange, Mapper.toGeolocationPage(geodataService.findChildren(id, getPageable(exchange)).map(mapper::transform)));
+                    json(exchange, Mapper.toGeoLocationPage(geodataService.findChildren(id, getPageable(exchange)).map(mapper::transform)));
                 })
 
                 .add(Methods.GET, "/v1/continents/{continentCode}", exchange ->
@@ -159,7 +164,7 @@ public class ServerHandler
                 .add(Methods.GET, "/v1/countries/{countryCode}/children", exchange ->
                 {
                     final String countryCode = requireStringParam(exchange, "countryCode");
-                    json(exchange, Mapper.toGeolocationPage(geodataService.findChildren(countryCode, pageable(exchange)).map(mapper::transform)));
+                    json(exchange, Mapper.toGeoLocationPage(geodataService.findChildren(countryCode, pageable(exchange)).map(mapper::transform)));
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}", exchange ->
@@ -367,7 +372,7 @@ public class ServerHandler
     {
         final int page = getIntParam(exchange, "page").orElse(0);
         final int size = getIntParam(exchange, "size").orElse(25);
-        return PageRequest.of(page, size < 0 || size > 10_000 ? size : 25);
+        return PageRequest.of(page, size > 0 && size <= 10_000 ? size : 25);
     }
 
     private Supplier<EmptyResultDataAccessException> notNull(String errorMessage)

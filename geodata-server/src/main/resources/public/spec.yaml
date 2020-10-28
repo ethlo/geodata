@@ -243,7 +243,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SliceGeoLocation"
+                $ref: "#/components/schemas/PageGeoLocation"
 
   "/v1/locations/phone/{phone}":
     get:

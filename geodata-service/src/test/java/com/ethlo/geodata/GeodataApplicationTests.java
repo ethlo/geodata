@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.locationtech.jts.geom.Geometry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
@@ -39,6 +40,7 @@ import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
+import com.ethlo.geodata.model.View;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -147,6 +149,13 @@ public class GeodataApplicationTests
     public void testQueryForBoundariesOfNorway()
     {
         final byte[] boundaries = geodataService.findBoundaries(3144096);
+        assertThat(boundaries).isNotNull();
+    }
+
+    @Test
+    public void testQueryForSimplifiedBoundariesOfNorway()
+    {
+        final Geometry boundaries = geodataService.findBoundaries(3144096, new View(6, 18, 50, 62, 640, 480));
         assertThat(boundaries).isNotNull();
     }
 }

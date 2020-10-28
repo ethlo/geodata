@@ -62,7 +62,7 @@ public class Mapper
         return PageRequest.of(page != null ? page : 0, size != null && size > 0 & size <= 10_000 ? size : 25);
     }
 
-    public static V1PageGeoLocation toGeolocationPage(final Page<V1GeoLocation> res)
+    public static V1PageGeoLocation toGeoLocationPage(final Page<V1GeoLocation> res)
     {
         return new V1PageGeoLocation()
                 .content(res.getContent())
@@ -75,7 +75,7 @@ public class Mapper
                 .totalPages(res.getTotalPages());
     }
 
-    public static V1SliceGeoLocation toGeoLocationsSlice(final Slice<V1GeoLocation> slice)
+    public static V1SliceGeoLocation toGeoLocationSlice(final Slice<V1GeoLocation> slice)
     {
         return new V1SliceGeoLocation()
                 .content(slice.getContent())
