@@ -49,6 +49,7 @@ import org.locationtech.jts.io.WKBWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
@@ -96,6 +97,7 @@ import com.googlecode.concurrenttrees.radix.node.concrete.SmartArrayBasedNodeFac
 import com.illucit.util.ASCIIUtils;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
+@Lazy
 @Service
 public class GeodataServiceImpl implements GeodataService
 {

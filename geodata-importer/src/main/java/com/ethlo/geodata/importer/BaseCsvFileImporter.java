@@ -45,6 +45,7 @@ import org.apache.commons.collections4.iterators.FilterIterator;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.util.StringUtils;
 
+import com.ethlo.geodata.dao.file.FileMmapLocationDao;
 import com.ethlo.geodata.model.CompactSerializable;
 import com.ethlo.geodata.util.CompressionUtil;
 import com.ethlo.geodata.util.ResourceUtil;
@@ -101,8 +102,8 @@ public abstract class BaseCsvFileImporter<T extends CompactSerializable> impleme
     {
         int count = 0;
 
-        final Path indexPath = getDataFilePath().getParent().resolve(getDataFilePath().getFileName() + ".index");
-        final Path uncompressedDataPath = getDataFilePath().getParent().resolve(getDataFilePath().getFileName() + ".raw");
+        final Path indexPath = getDataFilePath().getParent().resolve(FileMmapLocationDao.LOCATION_INDEX_FILE);
+        final Path uncompressedDataPath = getDataFilePath().getParent().resolve(FileMmapLocationDao.LOCATION_DATA_FILE);
 
         try (final OutputStream uncompressedIndex = Files.newOutputStream(indexPath))
         {

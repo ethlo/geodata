@@ -12,7 +12,7 @@
     <dependencies>
         <dependency>
             <groupId>com.ethlo.geodata</groupId>
-            <artifactId>geodata-common</artifactId>
+            <artifactId>geodata-repository</artifactId>
             <version>1.0.0-SNAPSHOT</version>
         </dependency>
         <dependency>
@@ -29,6 +29,22 @@
             <artifactId>commons-collections4</artifactId>
             <version>4.4</version>
             <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-shapefile</artifactId>
+            <version>24.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-geobuf</artifactId>
+            <version>24.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.geotools</groupId>
+                    <artifactId>gt-epsg-hsql</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
     <build>

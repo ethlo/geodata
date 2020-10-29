@@ -37,6 +37,7 @@ public class Continent extends GeoLocation
     {
         setCoordinates(location.getCoordinates());
         setCountry(location.getCountry());
+        setFeatureClass(location.getFeatureClass());
         setFeatureCode(location.getFeatureCode());
         setId(location.getId());
         setName(location.getName());

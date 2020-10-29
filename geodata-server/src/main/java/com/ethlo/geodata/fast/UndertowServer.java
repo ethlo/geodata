@@ -40,6 +40,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.ethlo.geodata.ApiError;
 import com.ethlo.geodata.GeodataServiceImpl;
+import com.ethlo.geodata.InvalidDataException;
 import com.ethlo.geodata.dao.BoundaryDao;
 import com.ethlo.geodata.dao.CountryDao;
 import com.ethlo.geodata.dao.FeatureCodeDao;
@@ -85,6 +86,7 @@ public class UndertowServer
         final Map<Class<? extends Throwable>, Function<Throwable, ApiError>> exceptionHandlers = new LinkedHashMap<>();
         exceptionHandlers.put(EmptyResultDataAccessException.class, exc -> new ApiError(404, exc.getMessage()));
         exceptionHandlers.put(MissingParameterException.class, exc -> new ApiError(400, exc.getMessage()));
+        exceptionHandlers.put(InvalidDataException.class, exc -> new ApiError(400, exc.getMessage()));
         exceptionHandlers.put(Exception.class, exc ->
         {
             logger.warn(exc.getMessage(), exc);
