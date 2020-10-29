@@ -49,6 +49,7 @@ import org.springframework.util.StringUtils;
 
 import com.ethlo.geodata.ApiError;
 import com.ethlo.geodata.GeodataService;
+import com.ethlo.geodata.InvalidDataException;
 import com.ethlo.geodata.Mapper;
 import com.ethlo.geodata.dao.MetaDao;
 import com.ethlo.geodata.model.Coordinates;
@@ -317,7 +318,7 @@ public class ServerHandler
 
     private Optional<Double> getDoubleParam(final HttpServerExchange exchange, final String name)
     {
-        return getFirstParam(exchange, name).map(Double::parseDouble);
+        return getFirstParam(exchange, name).map(this::parseDouble);
     }
 
     private Optional<List<Integer>> getIntList(final HttpServerExchange exchange, final String name)
@@ -344,7 +345,31 @@ public class ServerHandler
 
     private Optional<Integer> getIntParam(final HttpServerExchange exchange, final String name)
     {
-        return getFirstParam(exchange, name).map(Integer::parseInt);
+        return getFirstParam(exchange, name).map(this::parseInt);
+    }
+
+    private int parseInt(final String s)
+    {
+        try
+        {
+            return Integer.parseInt(s);
+        }
+        catch (NumberFormatException exc)
+        {
+            throw new InvalidDataException("Not an integer value: " + s);
+        }
+    }
+
+    private double parseDouble(final String s)
+    {
+        try
+        {
+            return Double.parseDouble(s);
+        }
+        catch (NumberFormatException exc)
+        {
+            throw new InvalidDataException("Not a decimal value: " + s);
+        }
     }
 
     private Optional<Boolean> getBooleanParam(final HttpServerExchange exchange, final String name)
