@@ -1,4 +1,4 @@
-package com.ethlo.geodata.fast;
+package com.ethlo.geodata;
 
 /*-
  * #%L
@@ -38,9 +38,6 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.dao.EmptyResultDataAccessException;
 
-import com.ethlo.geodata.ApiError;
-import com.ethlo.geodata.GeodataServiceImpl;
-import com.ethlo.geodata.InvalidDataException;
 import com.ethlo.geodata.dao.BoundaryDao;
 import com.ethlo.geodata.dao.CountryDao;
 import com.ethlo.geodata.dao.FeatureCodeDao;

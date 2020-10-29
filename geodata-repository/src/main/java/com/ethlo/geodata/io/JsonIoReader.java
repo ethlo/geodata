@@ -10,12 +10,12 @@ package com.ethlo.geodata.io;
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -39,8 +39,8 @@ public class JsonIoReader<T> extends JsonIo<T>
     {
         super(file, type);
     }
-    
-    public <S> CloseableIterator<S> iterator(Function<T,S> converter)
+
+    public <S> CloseableIterator<S> iterator(Function<T, S> converter)
     {
         final CloseableIterator<T> source = iterator();
         return wrap(new AbstractIterator<S>()
@@ -54,7 +54,7 @@ public class JsonIoReader<T> extends JsonIo<T>
                 }
                 return endOfData();
             }
-            
+
         }, source);
     }
 
@@ -91,11 +91,11 @@ public class JsonIoReader<T> extends JsonIo<T>
 
     public CloseableIterator<T> iterator()
     {
-        if (! file.exists())
+        if (!file.exists())
         {
             return empty();
         }
-        
+
         try
         {
             final FileLineIterator iter = new FileLineIterator(file);

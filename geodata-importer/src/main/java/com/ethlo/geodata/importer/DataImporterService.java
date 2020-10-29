@@ -43,7 +43,6 @@ import com.ethlo.geodata.SourceDataInfo;
 import com.ethlo.geodata.SourceDataInfoSet;
 import com.ethlo.geodata.dao.FileMetaDao;
 import com.ethlo.geodata.util.JsonUtil;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 @Service
 public class DataImporterService
