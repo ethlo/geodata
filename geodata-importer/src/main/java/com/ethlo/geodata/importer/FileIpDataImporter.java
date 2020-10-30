@@ -33,6 +33,8 @@ import java.nio.file.StandardCopyOption;
 import java.util.Date;
 import java.util.Map;
 
+import javax.validation.constraints.NotNull;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -50,7 +52,7 @@ public class FileIpDataImporter implements DataImporter
     private final String url;
 
     public FileIpDataImporter(
-            @Value("${geodata.geolite2.source.mmdb}") final String url,
+            @Value("${geodata.geolite2.source.mmdb}") @NotNull final String url,
             @Value("${geodata.base-path}") final Path basePath)
     {
         this.filePath = basePath.resolve(FileIpDao.IP_FILE);

@@ -57,7 +57,7 @@
                         <enabled>true</enabled>
                     </layers>
                     <image>
-                        <name>docker.io/ethlo/${project.artifactId}:${project.version}</name>
+                        <name>docker.io/ethlocom/geodata-importer:latest</name>
                     </image>
                 </configuration>
             </plugin>

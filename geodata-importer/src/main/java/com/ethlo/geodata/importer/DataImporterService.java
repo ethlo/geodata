@@ -27,11 +27,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Date;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import javax.annotation.PostConstruct;
+import javax.validation.constraints.NotNull;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,13 +56,13 @@ public class DataImporterService
     private final FileGeonamesImporter geonamesImporter;
     private final Path basePath;
 
-    public DataImporterService(@Value("${geodata.base-path}") final Path basePath,
-                               @Value("${geodata.max-data-age}") final Duration maxDataAge,
+    public DataImporterService(@Value("${geodata.base-path}") @NotNull final Path basePath,
+                               @Value("${geodata.max-data-age}") @NotNull final Duration maxDataAge,
                                FileIpDataImporter ipLookupImporter,
                                FileGeonamesImporter geonamesImporter)
     {
-        this.basePath = basePath;
-        this.maxDataAge = maxDataAge;
+        this.basePath = Objects.requireNonNull(basePath, "GEODATA_BASEPATH must be set");
+        this.maxDataAge = Objects.requireNonNull(maxDataAge, "GEODATA_MAXDATAAGE must be set");
         this.ipLookupImporter = ipLookupImporter;
         this.geonamesImporter = geonamesImporter;
     }
@@ -115,7 +117,9 @@ public class DataImporterService
 
     private void ifExpired(final String type, final Date sourceTimestamp, final Supplier<Integer> updater)
     {
+        logger.info("maxDataAge: {}", maxDataAge);
         final Optional<Date> localDataModifiedAt = getLastModified(type);
+        logger.info("local last modified: {}", localDataModifiedAt.orElse(null));
         if (localDataModifiedAt.isEmpty() || sourceTimestamp.getTime() > localDataModifiedAt.get().getTime() + maxDataAge.toMillis())
         {
             final int count = updater.get();
