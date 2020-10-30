@@ -1,60 +1,46 @@
-Geodata
-=========================
-[![Maven central](https://maven-badges.herokuapp.com/maven-central/com.ethlo.geodata/geodata/badge.svg)](http://repo1.maven.org/maven2/com/ethlo/geodata/)
-[![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
-[![Build Status](https://travis-ci.org/ethlo/geodata.svg?branch=master)](https://travis-ci.org/ethlo/geodata)
+# Geodata
 
-Simple library that imports and manages Geonames and Geo-Lite2 data using Open-Source software. Currently requiring MySQL 5.7+/MariaDB 10.1+. Support for download and import of data.
+![Splash info page](docs/img/splash.jpg?raw=true)
 
-### License note
-I would very much like to release this under an even less restrictive license, but since the project relies on JTS, I unfortunately cannot use Apache2 licensing.
+> :warning: Fast-moving active development!
 
-### Method overview
+Simple, fast and free geo-data server for flexible deployment. This service is intended for doing quick lookups, like:
+* IP-to-location
+* searching for a location by name
+* query if a location is a child, grand-child, etc of another location
+* Browse location hierarchy (starting from continents and moving down administrative locations)
+* etc, etc, and not map/GIS tool
+
+Quick startup, low memory overhead and super-fast response times utilizing 
+appropriate fit-for-purpose data-structures, and a highly optimized HTTP handler built on UnderTow allows hundreds of thousands of queries per second.
+
+For quick and easy distribution of data the system utilizes no database. Typical data imports are a few hundred mega bytes, 
+and require no further processing or data-loading before running on a server.
+
+The API is fully documented using Open API 3.x specification and allows for easy consumption from numerous platforms.
+![OpenAPI docs](docs/img/openapi.jpg?raw=true)
+
+## Usage guide
+### Import and process data
+You need to register for an account at MaxMind (free) for the GeoLite2 data
+
+```shell script
+docker run --rm -m1G --name geodata-importer -v ~/geodata:/tmp/geodata \
+--env GEODATA_GEOLITE2_LICENSE_KEY=<LICENSE_KEY> \
+--env GEODATA_MAXDATAAGE=P7D \
+ethlocom/geodata-importer:latest
 ```
-public interface GeodataService
-{
-    GeoLocation findByIp(String ip);
 
-    GeoLocation findById(long geoNameId);
+### Start the server
 
-    GeoLocation findWithin(@Valid Coordinates point, int maxDistanceInKilometers);
+Start the server and load the data from the import step. Listen on host port 6566. 
 
-    public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable);
-
-    byte[] findBoundaries(long id);
-    
-    byte[] findBoundaries(long id, double maxTolerance);
-    
-    byte[] findBoundaries(long id, View view);
-
-    Page<GeoLocation> findChildren(long locationId, Pageable pageable);
-
-    Page<Continent> findContinents();
-
-    Page<Country> findCountriesOnContinent(String continentCode, Pageable pageable);
-    
-    Page<Country> findCountries(Pageable pageable);
-
-    Country findCountryByCode(String countryCode);
-
-    Page<GeoLocation> findChildren(String countryCode, Pageable pageable);
-
-    Country findByPhonenumber(String phoneNumber);
-
-    GeoLocation findParent(long id);
-    
-    GeoLocation findbyCoordinate(Coordinates point, int distance); 
-
-    boolean isInsideAny(List<Long> locations, long location);
-
-    boolean isOutsideAll(List<Long> locations, long location);
-
-    boolean isLocationInside(long locationId, long suspectedParentId);
-
-    Continent findContinent(String continentCode);
-
-    List<GeoLocation> findByIds(Collection<Long> ids);
-    
-    Page<GeoLocation> findByName(String name, Pageable pageable);
-}
+```shell script
+docker run -d --rm -m1G -p 6566:6565 --name geodata-server -v ~/geodata:/tmp/geodata docker.io/ethlocom/geodata-server:latest \ 
+&& docker logs geodata-server
 ```
+
+## This service utilize data from:
+
+- Geonames.org - Free data is available under [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/) license
+- This product includes GeoLite2 data created by MaxMind, available from https://www.maxmind.com.
