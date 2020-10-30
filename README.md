@@ -16,7 +16,7 @@ Simple, fast and free geo-data server for flexible deployment. This service is i
 
 ### Performance
 Quick startup, low memory overhead and super-fast response times utilizing 
-appropriate fit-for-purpose data-structures, and a highly optimized HTTP handler built on UnderTow allows hundreds of thousands of queries per second.
+appropriate fit-for-purpose data-structures, and a highly optimized HTTP handler built on UnderTow. Depending on hardware you can expect tens-of-thousands to hundreds-of-thousands of requests per second.
 
 ### Ease-of-use
 For quick and easy distribution of data the system utilizes no database. Typical data imports are a few hundred mega bytes, 
@@ -42,8 +42,9 @@ ethlocom/geodata-importer:latest
 Start the server and load the data from the import step. Listen on host port 6566. 
 
 ```shell script
-docker run -d --rm -m1G -p 6566:6565 --name geodata-server -v ~/geodata:/tmp/geodata docker.io/ethlocom/geodata-server:latest \ 
-&& docker logs geodata-server
+docker run -d --rm -m1G -p 6566:6565 --name geodata-server -v ~/geodata:/tmp/geodata \ 
+docker.io/ethlocom/geodata-server:latest \ 
+&& docker logs -f geodata-server
 ```
 
 ## This service utilize data from:
