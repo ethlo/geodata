@@ -26,9 +26,12 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -36,6 +39,7 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.WKBWriter;
 import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.locationtech.jts.io.geojson.GeoJsonWriter;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -55,7 +59,6 @@ import io.undertow.server.HttpHandler;
 import io.undertow.server.RoutingHandler;
 import io.undertow.server.handlers.ExceptionHandler;
 import io.undertow.server.handlers.PathHandler;
-import io.undertow.server.handlers.resource.ClassPathResourceManager;
 import io.undertow.server.handlers.resource.ResourceHandler;
 import io.undertow.util.Headers;
 import io.undertow.util.Methods;
@@ -248,9 +251,21 @@ public class ServerHandler extends BaseServerHandler
 
         // Static content
         final PathHandler path = Handlers.path(routes)
-                .addPrefixPath("/swagger-ui", new ResourceHandler(new ClassPathResourceManager(getClass().getClassLoader(), "META-INF/resources/webjars/swagger-ui/3.35.2")))
-                .addExactPath("/spec.yaml", new ResourceHandler(new ClassPathResourceManager(getClass().getClassLoader(), "public/spec.yaml")))
-                .addExactPath("/", new ResourceHandler(new ClassPathResourceManager(getClass().getClassLoader(), "public/index.html")));
+                .addPrefixPath("/swagger-ui", new ResourceHandler(classpathResource("META-INF/resources/webjars/swagger-ui/3.35.2")))
+                .addExactPath("/spec.yaml", new ResourceHandler(classpathResource("public/spec.yaml")))
+                .addExactPath("/", new ResourceHandler(classpathResource("public/index.html")));
+
+        // Version info
+        final Map<String, Object> versionInfo = new LinkedHashMap();
+        path.addExactPath("/sysadmin/info", exchange->
+        {
+            final Properties gitProperties = new Properties();
+            gitProperties.load(new ClassPathResource("git.properties").getInputStream());
+            versionInfo.put("git", gitProperties);
+            json(exchange, versionInfo);
+        });
+        path.addExactPath("/sysadmin/health", exchange ->
+                json(exchange, Collections.singletonMap("status", "UP")));
 
         // Exception handlers
         final ExceptionHandler exceptionHandler = Handlers.exceptionHandler(path);
