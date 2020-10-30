@@ -95,7 +95,6 @@ public class NaturalEarthBoundaryProcessor
             output(dir, countryCode, geometry);
             System.out.println(countryCode + ": " + geometry.getCoordinates().length);
         }
-
     }
 
     private static void output(Path baseDir, final String countryCode, final Geometry geometry)

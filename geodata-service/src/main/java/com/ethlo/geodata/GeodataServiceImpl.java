@@ -28,15 +28,15 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Set;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
@@ -324,7 +324,13 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public List<GeoLocation> findPath(final int id)
     {
-        return Lists.reverse(getPath(id).stream().skip(1).map(this::findById).collect(Collectors.toList())).stream().skip(1).collect(Collectors.toList());
+        final Collection<Integer> ids = getPath(id);
+        final List<GeoLocation> path = new ArrayList<>(ids.size());
+        for (int i : ids)
+        {
+            path.add(findById(i));
+        }
+        return path;
     }
 
     @Override
@@ -477,7 +483,7 @@ public class GeodataServiceImpl implements GeodataService
         {
             throw new EmptyResultDataAccessException("No location with id " + id, 1);
         }
-        final Set<Integer> path = new LinkedHashSet<>();
+        final Deque<Integer> path = new LinkedBlockingDeque<>();
         while (node != null)
         {
             if (!path.add(node.getId()))
@@ -491,6 +497,8 @@ public class GeodataServiceImpl implements GeodataService
                 node = parent != null ? nodes.get(parent) : null;
             }
         }
+        path.removeFirst();
+        path.removeLast();
         return path;
     }
 
