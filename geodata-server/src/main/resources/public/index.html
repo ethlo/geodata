@@ -50,17 +50,6 @@
             margin-top: 1.5em;
         }
 
-        .card {
-            background: #4d606e;
-            width: 20em;
-            border: 1px solid #51697b;
-            padding: 1.3em;
-            box-shadow: 3px 3px 15px -4px #000000;
-            margin-top: 2em;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
         .home-menu {
             padding: 0.5em;
             text-align: center;
@@ -113,14 +102,6 @@
         /* We want to give the content area some more padding */
         .content {
             padding: 0.1em 1em 3em;
-        }
-
-
-        /* This is the class used for the footer */
-        .footer {
-            position: fixed;
-            bottom: 0;
-            width: 100%;
         }
 
         /*
@@ -279,20 +260,17 @@
     $(document).ready(function () {
 
         $.getJSON("/sysadmin/info", function (data) {
-            console.log(data);
             $("#version-info").html(data['git']['git.build.version'] + ' - ' + data['git']['git.commit.id.abbrev']);
         });
 
         $.getJSON('/v1/source', function (data) {
-            var array = data.data;
-            array.forEach(function (o) {
-                console.log(o);
+            data.data.forEach(function (o) {
                 var name = o.type.toLowerCase();
                 $('td[data-count="' + name + '"]').html(numberWithCommas(o.count));
                 $('span[data-lastmodified="' + name + '"]').html(new Date(o.lastModified).toLocaleString());
                 $('time[data-lastmodified="' + name + '"]').attr('datetime', o.lastModified);
             });
-
+            
             $("time.timeago").timeago();
         });
     });
