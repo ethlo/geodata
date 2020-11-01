@@ -22,8 +22,9 @@ package com.ethlo.geodata.dao.file;
  * #L%
  */
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.Reader;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,10 +34,9 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.geotools.data.geobuf.GeobufGeometry;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.Assert;
@@ -49,6 +49,8 @@ import com.google.common.collect.AbstractIterator;
 public class FileBoundaryDao implements BoundaryDao
 {
     private static final GeometryFactory geometryFactory = new GeometryFactory();
+    private static final GeobufGeometry geobufGeometry = new GeobufGeometry();
+
     private final Path basePath;
 
     public FileBoundaryDao(@Value("${geodata.base-path}") final Path basePath)
@@ -59,12 +61,12 @@ public class FileBoundaryDao implements BoundaryDao
     @Override
     public Optional<byte[]> findGeoJsonById(final int id)
     {
-        final Path file = basePath.resolve(id + ".json");
-        if (Files.exists(file))
+        final Path fileGeoJson = basePath.resolve(id + ".geojson");
+        if (Files.exists(fileGeoJson))
         {
             try
             {
-                return Optional.of(Files.readAllBytes(file));
+                return Optional.of(Files.readAllBytes(fileGeoJson));
             }
             catch (IOException exc)
             {
@@ -85,7 +87,7 @@ public class FileBoundaryDao implements BoundaryDao
             {
                 try (final Stream<Path> files = Files.list(basePath))
                 {
-                    return files.filter(p -> p.getFileName().toString().endsWith(".json")).collect(Collectors.toList());
+                    return files.filter(p -> p.getFileName().toString().endsWith(".geobuf")).collect(Collectors.toList());
                 }
                 catch (IOException e)
                 {
@@ -99,19 +101,15 @@ public class FileBoundaryDao implements BoundaryDao
                 if (filenames.hasNext())
                 {
                     final Path path = filenames.next();
-                    try (final Reader reader = Files.newBufferedReader(path))
+                    try (final InputStream in = new BufferedInputStream(Files.newInputStream(path)))
                     {
                         final int id = getIdFromFilename(path.getFileName());
-                        final Geometry geometry = new GeoJsonReader(geometryFactory).read(reader);
+                        final Geometry geometry = geobufGeometry.decode(in);
                         return new RTreePayload(id, geometry.getArea(), geometry.getEnvelopeInternal());
                     }
                     catch (IOException exc)
                     {
                         throw new UncheckedIOException(exc);
-                    }
-                    catch (ParseException exc)
-                    {
-                        throw new UncheckedIOException(new IOException(exc.getMessage(), exc));
                     }
                 }
 
@@ -131,20 +129,16 @@ public class FileBoundaryDao implements BoundaryDao
     @Override
     public Optional<Geometry> findGeometryById(final int id)
     {
-        final Path file = basePath.resolve(id + ".json");
+        final Path file = basePath.resolve(id + ".geobuf");
         if (Files.exists(file))
         {
-            try (Reader reader = Files.newBufferedReader(file))
+            try (InputStream reader = new BufferedInputStream(Files.newInputStream(file)))
             {
-                return Optional.ofNullable(new GeoJsonReader().read(reader));
+                return Optional.ofNullable(geobufGeometry.decode(reader));
             }
             catch (IOException exc)
             {
                 throw new UncheckedIOException(exc);
-            }
-            catch (ParseException e)
-            {
-                throw new UncheckedIOException(new IOException(e));
             }
         }
         return Optional.empty();

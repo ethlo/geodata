@@ -32,8 +32,11 @@ import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -53,6 +56,7 @@ import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.opengis.feature.simple.SimpleFeature;
 
+import com.ethlo.geodata.model.CompactSerializable;
 import com.ethlo.geodata.util.JsonUtil;
 import com.ethlo.geodata.util.Kml2GeoJson;
 import com.ethlo.geodata.util.ResourceUtil;
@@ -75,6 +79,19 @@ public class NaturalEarthBoundaryProcessor
 
     public static void main(String[] args) throws IOException, ParseException
     {
+        final List<String> countryColumns = Arrays.asList("iso", "iso3", "iso_numeric", "fips", "country", "capital", "area", "population", "continent", "tld", "currency_Code", "currency_name", "phone", "postal_code_format", "postal_code_regex", "languages", "geonameid");
+        final String geoNamesCountryInfoUrl = "http://download.geonames.org/export/dump/countryInfo.txt";
+        final Map<String, Integer> isoToId = new HashMap<>();
+        new BaseCsvFileImporter<>(Paths.get("/tmp/geodata"), "boundaries", geoNamesCountryInfoUrl, countryColumns, true, 1)
+        {
+            @Override
+            protected CompactSerializable processLine(final Map<String, String> next)
+            {
+                isoToId.put(next.get("iso"), Integer.parseInt(next.get("geonameid")));
+                return null;
+            }
+        }.importData();
+
         //final String countriesUrl = "https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/cultural/ne_10m_admin_0_countries_lakes.zip|ne_10m_admin_0_countries_lakes.shp";
         final Path dir = Paths.get("/tmp/geodata/boundaries");
         final NaturalEarthBoundaryProcessor loader = new NaturalEarthBoundaryProcessor();
@@ -92,8 +109,16 @@ public class NaturalEarthBoundaryProcessor
             final SimpleFeature sf = simpleFeatureIterator.next();
             final String countryCode = (String) sf.getAttribute("ISO_A2");
             final Geometry geometry = (Geometry) sf.getDefaultGeometry();
-            output(dir, countryCode, geometry);
-            System.out.println(countryCode + ": " + geometry.getCoordinates().length);
+            final Integer id = isoToId.get(countryCode);
+            if (id != null)
+            {
+                output(dir, id + "", geometry);
+                System.out.println(countryCode + ": " + geometry.getCoordinates().length);
+            }
+            else
+            {
+                System.out.println("No id for " + countryCode);
+            }
         }
     }
 

@@ -22,9 +22,13 @@ package com.ethlo.geodata.util;
  * #L%
  */
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
+import java.util.stream.Collectors;
 
 import org.geotools.geometry.jts.GeometryClipper;
 import org.locationtech.jts.geom.Coordinate;
@@ -126,6 +130,10 @@ public class GeometryUtil
     {
         final GeometryClipper clipper = new GeometryClipper(new Envelope(envelope.getMinX(), envelope.getMaxX(), envelope.getMinY(), envelope.getMaxY()));
         final Geometry simplified = clipper.clipSafe(geometry, true, 0);
+        if (simplified == null)
+        {
+            return null;
+        }
         final Coordinate[] coordinates = new Coordinate[simplified.getCoordinates().length];
         final Coordinate[] sc = simplified.getCoordinates();
         for (int i = 0; i < sc.length; i++)
@@ -133,5 +141,53 @@ public class GeometryUtil
             coordinates[i] = new CoordinateXY(sc[i].x, sc[i].y);
         }
         return geometryFactory.createLineString(coordinates);
+    }
+
+    public static Collection<Geometry> split(Geometry g, int maxSize, int maxPieces)
+    {
+        if (maxSize < 1000)
+        {
+            throw new IllegalArgumentException("maxSize should be greater than or equal to 1000");
+        }
+        if (maxPieces <= 1)
+        {
+            throw new IllegalArgumentException("maxPieces should be greater than 1");
+        }
+        final List<Geometry> answer = new ArrayList<>();
+        final Queue<Geometry> queue = new LinkedList<Geometry>();
+        queue.add(g);
+        while (!queue.isEmpty())
+        {
+            Geometry geom = queue.remove();
+            if (size(geom) > maxSize)
+            {
+                queue.addAll(subdivide(geom));
+            }
+            else
+            {
+                answer.add(geom);
+            }
+            if (queue.size() + answer.size() > maxPieces)
+            {
+                throw new IllegalArgumentException("Exceeded maximum number of allowed subdivisions. Giving up. Consider \n" +
+                        "increasing the maxSize and re-running");
+            }
+        }
+        return answer;
+    }
+
+    private static int size(final Geometry geom)
+    {
+        return geom.getCoordinates().length;
+    }
+
+    private static List<Geometry> subdivide(final Geometry geom)
+    {
+        final Envelope bb = geom.getEnvelopeInternal();
+        return Arrays.stream(new Envelope[]{new Envelope(bb.getMinX(), bb.centre().x, bb.getMinY(), bb.centre().y),
+                new Envelope(bb.centre().x, bb.getMaxX(), bb.getMinY(), bb.centre().y),
+                new Envelope(bb.getMinX(), bb.centre().x, bb.centre().y, bb.getMaxY()),
+                new Envelope(bb.centre().x, bb.getMaxX(), bb.centre().y, bb.getMaxY())}).map(box -> clip(box, geom))
+                .collect(Collectors.toList());
     }
 }

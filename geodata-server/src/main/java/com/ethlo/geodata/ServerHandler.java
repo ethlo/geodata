@@ -240,7 +240,16 @@ public class ServerHandler extends BaseServerHandler
                     exchange.getResponseSender().send(new GeoJsonWriter().write(boundary));
                 })
 
-                .add(Methods.GET, "/v1/locations/contains", exchange -> exchange.getResponseSender().send("findWithin"))
+                .add(Methods.GET, "/v1/locations/contains", exchange ->
+                {
+                    final double lat = requireDoubleParam(exchange, "lat");
+                    final double lng = requireDoubleParam(exchange, "lng");
+                    final Coordinates coordinates = Coordinates.from(lat, lng);
+                    final int maxDistance = getIntParam(exchange, "maxDistance").orElse(Integer.MAX_VALUE);
+                    json(exchange, Optional.ofNullable(geodataService.findWithin(coordinates, maxDistance))
+                            .map(mapper::transform)
+                            .orElseThrow(notNull("No boundaries containing " + lat + "," + lng + " found")));
+                })
 
                 .add(Methods.GET, "/v1/locations/{id}/outsideall/{ids}", exchange -> exchange.getResponseSender().send("outsideAll"));
 
@@ -257,7 +266,7 @@ public class ServerHandler extends BaseServerHandler
 
         // Version info
         final Map<String, Object> versionInfo = new LinkedHashMap();
-        path.addExactPath("/sysadmin/info", exchange->
+        path.addExactPath("/sysadmin/info", exchange ->
         {
             final Properties gitProperties = new Properties();
             gitProperties.load(new ClassPathResource("git.properties").getInputStream());

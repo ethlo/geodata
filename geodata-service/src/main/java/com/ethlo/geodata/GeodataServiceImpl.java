@@ -114,7 +114,7 @@ public class GeodataServiceImpl implements GeodataService
     private final MetaDao metaDao;
     private final List<String> additionalIndexedFeatures;
     private final int qualityConstant;
-    private RtreeRepository rTree;
+    private RtreeRepository rtreeRepository;
     // Loaded data
     private Map<Integer, Node> nodes = new Int2ObjectOpenHashMap<>();
     private BiMap<String, Integer> timezones;
@@ -160,13 +160,13 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public GeoLocation findWithin(Coordinates coordinate, int maxDistanceInKilometers)
     {
-        return Optional.ofNullable(rTree.find(coordinate)).map(this::findById).orElse(null);
+        return Optional.ofNullable(rtreeRepository.find(coordinate)).map(this::findById).orElse(null);
     }
 
     @Override
     public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable)
     {
-        final Map<Integer, Double> locations = rTree.getNearest(point, maxDistanceInKilometers, pageable);
+        final Map<Integer, Double> locations = rtreeRepository.getNearest(point, maxDistanceInKilometers, pageable);
         final List<GeoLocationDistance> content = locations.entrySet().stream().map(e -> new GeoLocationDistance().setLocation(findById(e.getKey())).setDistance(e.getValue())).collect(Collectors.toList());
         return new PageImpl<>(content, pageable, locations.size());
     }
@@ -239,7 +239,7 @@ public class GeodataServiceImpl implements GeodataService
         final Set<Integer> featureCodesForProximity = featureCodes.entrySet().stream()
                 .filter(e -> GeoConstants.ADMINISTRATIVE_OR_ABOVE.contains(e.getValue().getKey()))
                 .map(Entry::getKey).collect(Collectors.toSet());
-        rTree = new RtreeRepository(locationDao, boundaryDao, featureCodesForProximity);
+        rtreeRepository = new RtreeRepository(locationDao, boundaryDao, featureCodesForProximity);
     }
 
     private void loadLocations(final LoadProgressListener progressListener)

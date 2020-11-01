@@ -112,34 +112,34 @@ public class RtreeRepository
         while (entries.hasNext())
         {
             final RTreePayload entry = entries.next();
-            tmp = tmp.add(pointEntry(entry));
+            tmp = tmp.add(envelopeEntry(entry));
         }
+        logger.info("Loaded {} boundaries", tmp.size());
         return tmp;
     }
 
-    private Entry<RTreePayload, Geometry> pointEntry(RTreePayload payload)
+    private Entry<RTreePayload, Geometry> envelopeEntry(RTreePayload payload)
     {
         final Envelope env = payload.getEnvelope();
-        return EntryDefault.entry(payload, Geometries.rectangle(env.getMinX(), env.getMinY(), env.getMaxX(), env.getMaxY()));
+        return EntryDefault.entry(payload, Geometries.rectangleGeographic(env.getMinX(), env.getMinY(), env.getMaxX(), env.getMaxY()));
     }
 
     public Integer find(Coordinates coordinates)
     {
         // Point to find
-        final Point point = Geometries.point(coordinates.getLng(), coordinates.getLat());
-        final Iterator<Entry<RTreePayload, Point>> iter = proximity.search(point).iterator();
-        final org.locationtech.jts.geom.Point target = new GeometryFactory().createPoint(new Coordinate(coordinates.getLng(), coordinates.getLat()));
+        final Point target = Geometries.pointGeographic(coordinates.getLng(), coordinates.getLat());
+        final Iterator<Entry<RTreePayload, Geometry>> iter = boundaryRTree.search(target).iterator();
 
         // The candidates are the ones that have a matching bounding-box, but it may still not be a real match
-        final List<Entry<RTreePayload, Point>> candidates = Lists.newArrayList(iter);
+        final List<Entry<RTreePayload, Geometry>> candidates = Lists.newArrayList(iter);
 
         // Sort by area, as we would like to find the smallest one that match
         candidates.sort(Comparator.comparingDouble(o -> o.value().getArea()));
 
         // Loop through candidates from smallest to largest and check actual polygon
-        for (Entry<RTreePayload, Point> candidate : candidates)
+        for (Entry<RTreePayload, Geometry> candidate : candidates)
         {
-            if (isReallyInside(coordinates.getLat(), coordinates.getLng(), candidate.value().getId()))
+            if (isReallyInside(coordinates, candidate.value().getId()))
             {
                 return candidate.value().getId();
             }
@@ -148,9 +148,9 @@ public class RtreeRepository
         return null;
     }
 
-    private boolean isReallyInside(double lat, double lng, final int id)
+    private boolean isReallyInside(Coordinates coordinate, final int id)
     {
-        final org.locationtech.jts.geom.Point point = new GeometryFactory().createPoint(new Coordinate(lng, lat));
+        final org.locationtech.jts.geom.Point point = new GeometryFactory().createPoint(new Coordinate(coordinate.getLng(), coordinate.getLat()));
 
         final org.locationtech.jts.geom.Geometry geom = boundaryDao.findGeometryById(id).orElseThrow();
         if (geom instanceof GeometryCollection)
