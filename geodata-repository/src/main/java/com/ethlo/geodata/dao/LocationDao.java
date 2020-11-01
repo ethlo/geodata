@@ -35,4 +35,6 @@ public interface LocationDao
     CloseableIterator<RawLocation> iterator();
 
     Optional<RawLocation> get(int id);
+
+    int size();
 }

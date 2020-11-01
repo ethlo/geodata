@@ -27,6 +27,8 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Envelope;
@@ -35,17 +37,23 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.util.CloseableIterator;
 
 import com.ethlo.geodata.dao.BoundaryDao;
+import com.ethlo.geodata.dao.LocationDao;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.RTreePayload;
+import com.ethlo.geodata.model.RawLocation;
+import com.github.davidmoten.grumpy.core.Position;
 import com.github.davidmoten.guavamini.Lists;
-import com.github.davidmoten.rtree.Entry;
-import com.github.davidmoten.rtree.RTree;
-import com.github.davidmoten.rtree.geometry.Geometries;
-import com.github.davidmoten.rtree.geometry.Geometry;
-import com.github.davidmoten.rtree.geometry.Point;
-import com.github.davidmoten.rtree.internal.EntryDefault;
+import com.github.davidmoten.rtree2.Entry;
+import com.github.davidmoten.rtree2.Iterables;
+import com.github.davidmoten.rtree2.RTree;
+import com.github.davidmoten.rtree2.geometry.Geometries;
+import com.github.davidmoten.rtree2.geometry.Geometry;
+import com.github.davidmoten.rtree2.geometry.Point;
+import com.github.davidmoten.rtree2.geometry.Rectangle;
+import com.github.davidmoten.rtree2.internal.EntryDefault;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Iterators;
 import com.google.common.primitives.Ints;
@@ -54,22 +62,59 @@ public class RtreeRepository
 {
     private static final Logger logger = LoggerFactory.getLogger(RtreeRepository.class);
     private final BoundaryDao boundaryDao;
-    private RTree<RTreePayload, Geometry> tree;
+    private final RTree<RTreePayload, Geometry> boundaryRTree;
+    private RTree<RTreePayload, Point> proximity;
 
-    public RtreeRepository(BoundaryDao boundaryDao)
+    public RtreeRepository(LocationDao locationDao, BoundaryDao boundaryDao, final Set<Integer> featureCodesIncluded)
     {
         this.boundaryDao = boundaryDao;
 
-        this.tree = RTree.create();
+        // Load proximity tree
+        this.proximity = RTree.star().create();
+        final int batchSize = 20_000;
+        try (final CloseableIterator<RawLocation> iter = locationDao.iterator())
+        {
+            List<Entry<RTreePayload, Point>> batch;
+            do
+            {
+                final Iterator<RawLocation> filtered = Iterators.filter(iter, l -> featureCodesIncluded.contains(l.getMapFeatureId()));
+                batch = Lists.newArrayList(Iterators.limit(new ConvertingIterator(filtered), batchSize));
+                proximity = proximity.add(batch);
+                logger.info("Loaded {}: {}", batchSize, proximity.size());
+            }
+            while (batch.size() == batchSize);
+        }
+
+        // Load boundaries
+        boundaryRTree = getBoundaryRTree(boundaryDao);
+    }
+
+    private static Rectangle createBounds(final Position from, final double distanceKm)
+    {
+        // this calculates a pretty accurate bounding box. Depending on the
+        // performance you require you wouldn't have to be this accurate because
+        // accuracy is enforced later
+        Position north = from.predict(distanceKm, 0);
+        Position south = from.predict(distanceKm, 180);
+        Position east = from.predict(distanceKm, 90);
+        Position west = from.predict(distanceKm, 270);
+
+        return Geometries.rectangle(west.getLon(), south.getLat(), east.getLon(), north.getLat());
+    }
+
+    private RTree<RTreePayload, Geometry> getBoundaryRTree(final BoundaryDao boundaryDao)
+    {
+        RTree<RTreePayload, Geometry> tmp = RTree.create();
         final Iterator<RTreePayload> entries = boundaryDao.entries();
         while (entries.hasNext())
         {
             final RTreePayload entry = entries.next();
-            tree = tree.add(entry(entry));
+            tmp = tmp.add(pointEntry(entry));
         }
+        return tmp;
     }
 
-    private Entry<RTreePayload, Geometry> entry(RTreePayload payload)
+    private Entry<RTreePayload, Geometry> pointEntry(RTreePayload payload)
     {
         final Envelope env = payload.getEnvelope();
         return EntryDefault.entry(payload, Geometries.rectangle(env.getMinX(), env.getMinY(), env.getMaxX(), env.getMaxY()));
@@ -79,17 +124,17 @@ public class RtreeRepository
     {
         // Point to find
         final Point point = Geometries.point(coordinates.getLng(), coordinates.getLat());
-        final Iterator<Entry<RTreePayload, Geometry>> iter = tree.search(point).toBlocking().getIterator();
+        final Iterator<Entry<RTreePayload, Point>> iter = proximity.search(point).iterator();
         final org.locationtech.jts.geom.Point target = new GeometryFactory().createPoint(new Coordinate(coordinates.getLng(), coordinates.getLat()));
 
         // The candidates are the ones that have a matching bounding-box, but it may still not be a real match
-        final List<Entry<RTreePayload, Geometry>> candidates = Lists.newArrayList(iter);
+        final List<Entry<RTreePayload, Point>> candidates = Lists.newArrayList(iter);
 
         // Sort by area, as we would like to find the smallest one that match
         candidates.sort(Comparator.comparingDouble(o -> o.value().getArea()));
 
         // Loop through candidates from smallest to largest and check actual polygon
-        for (Entry<RTreePayload, Geometry> candidate : candidates)
+        for (Entry<RTreePayload, Point> candidate : candidates)
         {
             if (isReallyInside(coordinates.getLat(), coordinates.getLng(), candidate.value().getId()))
             {
@@ -125,50 +170,77 @@ public class RtreeRepository
         }
     }
 
-    public RtreeRepository add(RTreePayload payload)
-    {
-        tree = tree.add(entry(payload));
-        return this;
-    }
-
     public int size()
     {
-        return tree.size();
-    }
-
-    public Iterator<Integer> findNear(Coordinates point, double maxDistanceInKilometers, Pageable pageable)
-    {
-        final int max = Ints.saturatedCast(pageable.getOffset() + pageable.getPageSize());
-        final Iterator<Entry<RTreePayload, Geometry>> e = tree.nearest(Geometries.point(point.getLng(), point.getLat()), maxDistanceInKilometers, max).toBlocking().getIterator();
-        final Iterator<Integer> iter = new AbstractIterator<>()
-        {
-            @Override
-            protected Integer computeNext()
-            {
-                if (e.hasNext())
-                {
-                    return e.next().value().getId();
-                }
-                return endOfData();
-            }
-        };
-        Iterators.advance(iter, Ints.saturatedCast(pageable.getOffset()));
-        return iter;
+        return proximity.size();
     }
 
     public Map<Integer, Double> getNearest(final Coordinates point, final int maxDistanceInKilometers, final Pageable pageable)
     {
-        final int max = Ints.saturatedCast(pageable.getOffset() + pageable.getPageSize());
-        final Point target = Geometries.point(point.getLng(), point.getLat());
-        final Iterator<Entry<RTreePayload, Geometry>> entryIterator = tree.nearest(target, maxDistanceInKilometers, max).toBlocking().getIterator();
+        final Position from = Position.create(point.getLat(), point.getLng());
+        Rectangle bounds = createBounds(from, maxDistanceInKilometers);
+
+        final Iterator<Entry<RTreePayload, Point>> entryIterator = Iterables.filter(proximity.search(bounds),
+                entry ->
+                {
+                    final Point p = entry.geometry();
+                    final Position position = Position.create(p.y(), p.x());
+                    return from.getDistanceToKm(position) < maxDistanceInKilometers;
+                }
+        ).iterator();
 
         final Map<Integer, Double> idAndDistance = new LinkedHashMap<>();
         while (entryIterator.hasNext())
         {
-            final Entry<RTreePayload, Geometry> entry = entryIterator.next();
-            final double distance = entry.geometry().distance(target);
+            final Entry<RTreePayload, Point> entry = entryIterator.next();
+            final double distance = from.getDistanceToKm(Position.create(entry.geometry().y(), entry.geometry().x()));
             idAndDistance.put(entry.value().getId(), distance);
         }
-        return idAndDistance;
+
+        Map<Integer, Double> sorted = idAndDistance.entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByValue())
+                .skip(Ints.saturatedCast(pageable.getOffset()))
+                .limit(pageable.getPageSize())
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
+        return sorted;
+    }
+
+    private static class ConvertingIterator extends AbstractIterator<Entry<RTreePayload, Point>>
+    {
+        private final Iterator<RawLocation> locations;
+
+        public ConvertingIterator(Iterator<RawLocation> locations)
+        {
+            this.locations = locations;
+        }
+
+        @Override
+        protected Entry<RTreePayload, Point> computeNext()
+        {
+            if (locations.hasNext())
+            {
+                final RawLocation location = locations.next();
+
+                final double lat = location.getCoordinates().getLat();
+                final double lng = location.getCoordinates().getLng();
+
+                return new Entry<>()
+                {
+                    @Override
+                    public RTreePayload value()
+                    {
+                        return new RTreePayload(location.getId(), 0, null);
+                    }
+
+                    @Override
+                    public Point geometry()
+                    {
+                        return Geometries.point(lng, lat);
+                    }
+                };
+            }
+            return endOfData();
+        }
     }
 }

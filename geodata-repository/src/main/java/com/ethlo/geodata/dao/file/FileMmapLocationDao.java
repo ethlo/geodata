@@ -150,6 +150,12 @@ public class FileMmapLocationDao implements LocationDao
         return Optional.ofNullable(indexMap.get(id)).map(this::readDataAtOffset);
     }
 
+    @Override
+    public int size()
+    {
+        return indexMap.size();
+    }
+
     private RawLocation readDataAtOffset(final Integer offset)
     {
         final ByteBuffer buffer = readOnlyBuffers.get();

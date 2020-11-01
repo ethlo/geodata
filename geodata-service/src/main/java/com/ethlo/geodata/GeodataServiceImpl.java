@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.stream.Collectors;
 
@@ -111,11 +112,9 @@ public class GeodataServiceImpl implements GeodataService
     private final CountryDao countryDao;
     private final BoundaryDao boundaryDao;
     private final MetaDao metaDao;
-    private final RtreeRepository rTree;
-
     private final List<String> additionalIndexedFeatures;
     private final int qualityConstant;
-
+    private RtreeRepository rTree;
     // Loaded data
     private Map<Integer, Node> nodes = new Int2ObjectOpenHashMap<>();
     private BiMap<String, Integer> timezones;
@@ -137,7 +136,6 @@ public class GeodataServiceImpl implements GeodataService
         this.countryDao = countryDao;
         this.boundaryDao = boundaryDao;
         this.metaDao = metaDao;
-        this.rTree = new RtreeRepository(boundaryDao);
         this.additionalIndexedFeatures = additionalIndexedFeatures;
         this.qualityConstant = qualityConstant;
     }
@@ -229,10 +227,19 @@ public class GeodataServiceImpl implements GeodataService
         chronograph.timed("Continents", () -> loadContinents(progressListener));
         chronograph.timed("SearchIndex", () -> loadSearchIndex(progressListener));
         chronograph.timed("Hierarchy", () -> loadHierarchy(progressListener));
+        chronograph.timed("Proximity", () -> loadProximityTree(progressListener));
 
         logger.info("Data loaded successfully");
 
         logger.info(chronograph.prettyPrint());
+    }
+
+    private void loadProximityTree(final LoadProgressListener progressListener)
+    {
+        final Set<Integer> featureCodesForProximity = featureCodes.entrySet().stream()
+                .filter(e -> GeoConstants.ADMINISTRATIVE_OR_ABOVE.contains(e.getValue().getKey()))
+                .map(Entry::getKey).collect(Collectors.toSet());
+        rTree = new RtreeRepository(locationDao, boundaryDao, featureCodesForProximity);
     }
 
     private void loadLocations(final LoadProgressListener progressListener)
