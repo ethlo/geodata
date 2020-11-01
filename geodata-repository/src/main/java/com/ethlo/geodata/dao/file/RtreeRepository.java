@@ -61,6 +61,9 @@ import com.google.common.primitives.Ints;
 public class RtreeRepository
 {
     private static final Logger logger = LoggerFactory.getLogger(RtreeRepository.class);
+
+    private static final int PROXIMITY_DISTANCE_SEARCH_INCREMENT_KM = 50;
+
     private final BoundaryDao boundaryDao;
     private final RTree<RTreePayload, Geometry> boundaryRTree;
     private RTree<RTreePayload, Point> proximity;
@@ -177,17 +180,41 @@ public class RtreeRepository
 
     public Map<Integer, Double> getNearest(final Coordinates point, final int maxDistanceInKilometers, final Pageable pageable)
     {
-        final Position from = Position.create(point.getLat(), point.getLng());
-        Rectangle bounds = createBounds(from, maxDistanceInKilometers);
+        final int max = Ints.saturatedCast((pageable.getOffset() + pageable.getPageSize()));
 
-        final Iterator<Entry<RTreePayload, Point>> entryIterator = Iterables.filter(proximity.search(bounds),
+        final LinkedHashMap<Integer, Double> idAndDistance = new LinkedHashMap<>();
+
+        for (int maxDistance = PROXIMITY_DISTANCE_SEARCH_INCREMENT_KM; maxDistance <= maxDistanceInKilometers; maxDistance += PROXIMITY_DISTANCE_SEARCH_INCREMENT_KM)
+        {
+            final Map<Integer, Double> found = doFindNearest(point, maxDistance, pageable, max * 2);
+            idAndDistance.putAll(found);
+            if (idAndDistance.size() >= max)
+            {
+                break;
+            }
+        }
+
+        return idAndDistance.entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByValue())
+                .skip(Ints.saturatedCast(pageable.getOffset()))
+                .limit(pageable.getPageSize())
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
+    }
+
+    private Map<Integer, Double> doFindNearest(final Coordinates point, final int maxDistanceInKilometers, final Pageable pageable, final int max)
+    {
+        final Position from = Position.create(point.getLat(), point.getLng());
+        final Rectangle bounds = createBounds(from, maxDistanceInKilometers);
+
+        final Iterator<Entry<RTreePayload, Point>> entryIterator = Iterators.limit(Iterables.filter(proximity.search(bounds),
                 entry ->
                 {
                     final Point p = entry.geometry();
                     final Position position = Position.create(p.y(), p.x());
                     return from.getDistanceToKm(position) < maxDistanceInKilometers;
                 }
-        ).iterator();
+        ).iterator(), max);
 
         final Map<Integer, Double> idAndDistance = new LinkedHashMap<>();
         while (entryIterator.hasNext())
@@ -197,13 +224,7 @@ public class RtreeRepository
             idAndDistance.put(entry.value().getId(), distance);
         }
 
-        Map<Integer, Double> sorted = idAndDistance.entrySet()
-                .stream()
-                .sorted(Map.Entry.comparingByValue())
-                .skip(Ints.saturatedCast(pageable.getOffset()))
-                .limit(pageable.getPageSize())
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
-        return sorted;
+        return idAndDistance;
     }
 
     private static class ConvertingIterator extends AbstractIterator<Entry<RTreePayload, Point>>
