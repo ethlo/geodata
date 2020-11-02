@@ -23,6 +23,7 @@ package com.ethlo.geodata;
  */
 
 import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -47,6 +48,7 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.io.WKBWriter;
+import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -184,7 +186,9 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public byte[] findBoundaries(int id)
     {
-        return boundaryDao.findGeoJsonById(id).orElse(null);
+        return boundaryDao.findGeometryById(id)
+                .map(g -> new GeoJsonWriter().write(g).getBytes(StandardCharsets.UTF_8))
+                .orElse(null);
     }
 
     @Override

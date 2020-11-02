@@ -162,7 +162,7 @@ public class FileBoundaryDao implements BoundaryDao
     @Override
     public Optional<Geometry> findGeometryById(final int id)
     {
-        final Path file = getSubDirectory(id).resolve(id + ".ego");
+        final Path file = getSubDirectory(id).resolve(Integer.toString(id)).resolve(id + ".ego");
         if (Files.exists(file))
         {
             try (final InputStream in = new BufferedInputStream(Files.newInputStream(file)))
