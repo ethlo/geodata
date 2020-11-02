@@ -22,10 +22,17 @@ package com.ethlo.geodata.importer;
  * #L%
  */
 
+import java.io.BufferedOutputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
@@ -47,14 +54,18 @@ import com.ethlo.geodata.dao.CountryDao;
 import com.ethlo.geodata.dao.FeatureCodeDao;
 import com.ethlo.geodata.dao.HierarchyDao;
 import com.ethlo.geodata.dao.TimeZoneDao;
+import com.ethlo.geodata.dao.file.FileMmapLocationDao;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.RawLocation;
+import com.ethlo.geodata.util.CompressionUtil;
 import com.ethlo.geodata.util.ResourceUtil;
+import com.google.common.io.CountingOutputStream;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
+@SuppressWarnings("UnstableApiUsage")
 @Component
-public class FileGeonamesImporter extends BaseCsvFileImporter<RawLocation>
+public class FileGeonamesImporter implements DataImporter
 {
     public static final List<String> HEADERS = Arrays.asList("geonameid", "name", "asciiname", "alternate_names", "lat", "lng", "feature_class",
             "feature_code", "country_code", "cc2", "adm1", "adm2", "adm3", "adm4",
@@ -72,6 +83,10 @@ public class FileGeonamesImporter extends BaseCsvFileImporter<RawLocation>
     private final TimeZoneDao timeZoneDao;
     private final HierarchyDao hierarchyDao;
     private final CountryDao countryDao;
+
+    private final Path basePath;
+    private final String url;
+
     private Map<Integer, String> alternateNames;
     private Map<String, Country> countries;
 
@@ -85,7 +100,8 @@ public class FileGeonamesImporter extends BaseCsvFileImporter<RawLocation>
                                 final HierarchyDao hierarchyDao,
                                 final CountryDao countryDao)
     {
-        super(basePath, DataType.LOCATIONS, geoNamesAllCountriesUrl, HEADERS, true, 0);
+        this.basePath = basePath;
+        this.url = geoNamesAllCountriesUrl;
 
         this.geoNamesAlternateNamesUrl = geoNamesAlternateNamesUrl;
         this.geoNamesCountryInfoUrl = geoNamesCountryInfoUrl;
@@ -99,13 +115,132 @@ public class FileGeonamesImporter extends BaseCsvFileImporter<RawLocation>
     }
 
     @Override
+    public void purgeData()
+    {
+        //throw new UnsupportedOperationException()
+    }
+
+    @Override
+    public int importData()
+    {
+        try
+        {
+            prepare();
+        }
+        catch (IOException e)
+        {
+            throw new UncheckedIOException(e);
+        }
+
+        Map.Entry<Date, File> fileData;
+        try
+        {
+            fileData = ResourceUtil.fetchResource(DataType.LOCATIONS, url);
+        }
+        catch (IOException exc)
+        {
+            throw new UncheckedIOException("Unable to download resource: " + url, exc);
+        }
+
+        try (final CloseableIterator<RawLocation> iter = new CsvFileIterator<>(fileData.getValue().toPath(), HEADERS, true, 0, this::processLine))
+        {
+            final int result = writeData(iter);
+            logger.info("Writing countries");
+            countryDao.save(countries.values());
+
+            logger.info("Writing timezones");
+            timeZoneDao.save(timezones);
+
+            logger.info("Writing feature codes");
+            featureCodeDao.save(featureCodes);
+
+            logger.info("Build hierarchy");
+            try (final CloseableIterator<Map<String, String>> iterator = new CsvFileIterator<>(fileData.getValue().toPath(), HEADERS, true, 0, i -> i))
+            {
+                final Iterator<Map<String, String>> filtered = new FilterIterator<>(iterator, e -> inclusions.contains(e.get("feature_class") + "." + e.get("feature_code")));
+                final Map<Integer, Integer> childToParent = HierachyBuilder.build(filtered, adminLevels, countries);
+                logger.info("Hierarchy nodes: {}", childToParent.size());
+                hierarchyDao.save(childToParent);
+            }
+
+            return result;
+        }
+        catch (IOException exc)
+        {
+            throw new UncheckedIOException(exc);
+        }
+    }
+
+    @Override
+    public Date lastRemoteModified() throws IOException
+    {
+        return ResourceUtil.getLastModified(url);
+    }
+
+    private int writeData(Iterator<RawLocation> data) throws IOException
+    {
+        int count = 0;
+
+        final Path indexPath = basePath.resolve(FileMmapLocationDao.LOCATION_INDEX_FILE);
+        final Path uncompressedDataPath = basePath.resolve(FileMmapLocationDao.LOCATION_DATA_FILE);
+
+        try (final OutputStream uncompressedIndex = Files.newOutputStream(indexPath))
+        {
+            // Write placeholder
+            uncompressedIndex.write(new byte[4]);
+        }
+
+        try (final DataOutputStream indexOut = new DataOutputStream(CompressionUtil.compress(new BufferedOutputStream(Files.newOutputStream(indexPath, StandardOpenOption.APPEND))));
+             final CountingOutputStream countingBytes = new CountingOutputStream(new BufferedOutputStream(Files.newOutputStream(uncompressedDataPath)));
+             final DataOutputStream uncompressedOut = new DataOutputStream(countingBytes))
+        {
+            while (data.hasNext())
+            {
+                final RawLocation d = data.next();
+
+                // Write raw data
+                final long startPos = countingBytes.getCount();
+                d.write(uncompressedOut);
+
+                // Write index in the raw file
+                indexOut.writeInt(d.getId());
+                indexOut.writeInt((int) startPos);
+
+                count++;
+            }
+        }
+
+        // Replace count
+        try (final RandomAccessFile raf = new RandomAccessFile(indexPath.toFile(), "rw");)
+        {
+            raf.seek(0);
+            raf.writeInt(count);
+        }
+
+        return count;
+    }
+
+
     protected void prepare() throws IOException
     {
         // Load countries
         logger.info("Loading countries");
         final Map.Entry<Date, File> countriesFile = ResourceUtil.fetchResource("countries", geoNamesCountryInfoUrl);
         final List<String> countryColumns = Arrays.asList("iso", "iso3", "iso_numeric", "fips", "country", "capital", "area", "population", "continent", "tld", "currency_Code", "currency_name", "phone", "postal_code_format", "postal_code_regex", "languages", "geonameid");
-        this.countries = CountryParser.build(rawIterator(countriesFile.getValue().toPath(), countryColumns));
+        countries = new HashMap<>();
+        try (final CloseableIterator<Country> iter = new CsvFileIterator<>(countriesFile.getValue().toPath(), countryColumns, true, 0, c ->
+        {
+            final int id = Integer.parseInt(c.get("geonameid"));
+            final String countryCode = c.get("iso");
+            final String name = c.get("country");
+            final String phone = c.get("phone");
+            final String continentCode = c.get("continent");
+            final List<String> languages = new ArrayList<>(StringUtils.commaDelimitedListToSet(c.get("languages")));
+            return new Country(id, name, countryCode, continentCode, languages, phone);
+        }))
+        {
+            iter.forEachRemaining(c -> countries.put(c.getCountryCode(), c));
+        }
 
         // Load proper names for language
         logger.info("Loading alternate names");
@@ -113,8 +248,7 @@ public class FileGeonamesImporter extends BaseCsvFileImporter<RawLocation>
         this.alternateNames = AlternateNamesFileReader.loadPreferredNames(alternateFile.getValue(), "EN");
     }
 
-    @Override
-    protected RawLocation processLine(final Map<String, String> line)
+    private RawLocation processLine(final Map<String, String> line)
     {
         final String featureClass = line.get("feature_class");
         final String featureCode = line.get("feature_code");
@@ -150,31 +284,5 @@ public class FileGeonamesImporter extends BaseCsvFileImporter<RawLocation>
         final String preferredName = alternateNames.get(id);
         final String actualName = preferredName != null ? preferredName : name;
         return new RawLocation(id, actualName, countryCode, Coordinates.from(lat, lng), featureCodes.get(featureKey), population, timezones.get(timezone), elevation);
-    }
-
-    @Override
-    protected void processing()
-    {
-        logger.info("Writing countries");
-        countryDao.save(countries.values());
-
-        logger.info("Writing timezones");
-        timeZoneDao.save(timezones);
-
-        logger.info("Writing feature codes");
-        featureCodeDao.save(featureCodes);
-
-        logger.info("Build hierarchy");
-        try (final CloseableIterator<Map<String, String>> iterator = rawIterator(getSourcePath(), HEADERS))
-        {
-            final Iterator<Map<String, String>> filtered = new FilterIterator<>(iterator, e -> inclusions.contains(e.get("feature_class") + "." + e.get("feature_code")));
-            final Map<Integer, Integer> childToParent = HierachyBuilder.build(filtered, adminLevels, countries);
-            logger.info("Hierarchy nodes: {}", childToParent.size());
-            hierarchyDao.save(childToParent);
-        }
-        catch (IOException exc)
-        {
-            throw new UncheckedIOException(exc);
-        }
     }
 }

@@ -43,9 +43,9 @@ import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.util.CloseableIterator;
 
 import com.ethlo.geodata.dao.file.FileBoundaryDao;
-import com.ethlo.geodata.model.CompactSerializable;
 import com.ethlo.geodata.util.Kml2GeoJson;
 import com.ethlo.geodata.util.ResourceUtil;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -67,22 +67,22 @@ public class GeoFabrikBoundaryLoader
     }};
     private final Path dir = Paths.get("/tmp/geodata/");
 
-    public GeoFabrikBoundaryLoader()
+    public GeoFabrikBoundaryLoader() throws IOException
     {
-        final List<String> countryColumns = Arrays.asList("iso", "iso3", "iso_numeric", "fips", "country", "capital", "area", "population", "continent", "tld", "currency_Code", "currency_name", "phone", "postal_code_format", "postal_code_regex", "languages", "geonameid");
+        final List<String> columns = Arrays.asList("iso", "iso3", "iso_numeric", "fips", "country", "capital", "area", "population", "continent", "tld", "currency_Code", "currency_name", "phone", "postal_code_format", "postal_code_regex", "languages", "geonameid");
         final String geoNamesCountryInfoUrl = "http://download.geonames.org/export/dump/countryInfo.txt";
-        new BaseCsvFileImporter<>(dir, "boundaries", geoNamesCountryInfoUrl, countryColumns, true, 0)
+        final Map.Entry<Date, File> result = ResourceUtil.fetchResource("country", geoNamesCountryInfoUrl);
+        try (final CloseableIterator<Map<String, String>> iter = new CsvFileIterator<>(result.getValue().toPath(), columns, true, 0, i -> i))
         {
-            @Override
-            protected CompactSerializable processLine(final Map<String, String> next)
+            while (iter.hasNext())
             {
+                final Map<String, String> next = iter.next();
                 final String name = next.get("country").toLowerCase();
                 final String continent = next.get("continent");
                 final int id = Integer.parseInt(next.get("geonameid"));
                 importGeoJson(id, continent, name);
-                return null;
             }
-        }.importData();
+        }
     }
 
     private void importGeoJson(final int id, final String continentCode, final String countryName)

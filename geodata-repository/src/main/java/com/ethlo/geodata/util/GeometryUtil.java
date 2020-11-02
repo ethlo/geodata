@@ -130,17 +130,32 @@ public class GeometryUtil
     public static Geometry clip(Envelope envelope, Geometry geometry)
     {
         final GeometryClipper clipper = new GeometryClipper(new Envelope(envelope.getMinX(), envelope.getMaxX(), envelope.getMinY(), envelope.getMaxY()));
-        final Geometry simplified = clipper.clipSafe(geometry, true, 0);
-        if (simplified == null)
+        final Geometry clipped = clipper.clipSafe(geometry, true, 0);
+        if (clipped == null)
         {
             return null;
         }
-        final Coordinate[] coordinates = new Coordinate[simplified.getCoordinates().length];
-        final Coordinate[] sc = simplified.getCoordinates();
+
+        if (clipped.isEmpty() || clipped.getNumPoints() < 2)
+        {
+            return null;
+        }
+
+        Coordinate[] coordinates = new Coordinate[clipped.getCoordinates().length];
+        final Coordinate[] sc = clipped.getCoordinates();
         for (int i = 0; i < sc.length; i++)
         {
             coordinates[i] = new CoordinateXY(sc[i].x, sc[i].y);
         }
+
+        // Ensure linear ring (same coordinate for first/last)
+        if (!coordinates[0].equals2D(coordinates[coordinates.length - 1]))
+        {
+            final Coordinate[] tmp = Arrays.copyOf(coordinates, coordinates.length + 1);
+            tmp[coordinates.length] = coordinates[0];
+            coordinates = tmp;
+        }
+
         return geometryFactory.createLineString(coordinates);
     }
 
@@ -171,10 +186,6 @@ public class GeometryUtil
                     answer.add(geom);
                 }
             }
-            else
-            {
-                //System.out.println("empty");
-            }
 
             if (queue.size() + answer.size() > maxPieces)
             {
@@ -196,7 +207,8 @@ public class GeometryUtil
         return Arrays.stream(new Envelope[]{new Envelope(bb.getMinX(), bb.centre().x, bb.getMinY(), bb.centre().y),
                 new Envelope(bb.centre().x, bb.getMaxX(), bb.getMinY(), bb.centre().y),
                 new Envelope(bb.getMinX(), bb.centre().x, bb.centre().y, bb.getMaxY()),
-                new Envelope(bb.centre().x, bb.getMaxX(), bb.centre().y, bb.getMaxY())}).map(box -> clip(box, geom))
+                new Envelope(bb.centre().x, bb.getMaxX(), bb.centre().y, bb.getMaxY())})
+                .map(box -> clip(box, geom))
                 .collect(Collectors.toList());
     }
 }

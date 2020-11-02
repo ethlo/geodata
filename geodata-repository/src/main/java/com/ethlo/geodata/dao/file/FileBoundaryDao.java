@@ -27,9 +27,7 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.Reader;
 import java.io.UncheckedIOException;
-import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.AbstractMap;
@@ -39,13 +37,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
+import org.apache.commons.lang3.StringUtils;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.geojson.GeoJsonReader;
-import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.Assert;
@@ -59,8 +54,12 @@ import com.google.common.collect.AbstractIterator;
 @Repository
 public class FileBoundaryDao implements BoundaryDao
 {
+    public static final int MAX_SIZE = 2_000;
+    public static final int MAX_PIECES = 10_000;
+
     public static final String CACHE_DIRECTORY_NAME = "cache";
     public static final String BOUNDARIES_DIRECTORY_NAME = "boundaries";
+
     private final BinaryBoundaryEncoder binaryEncoder = new BinaryBoundaryEncoder();
     private final Path boundaryPath;
     private final Path cachePath;
@@ -106,13 +105,15 @@ public class FileBoundaryDao implements BoundaryDao
 
             private List<Path> getFileNames()
             {
-                try (final Stream<Path> files = Files.list(cachePath))
+                try
                 {
-                    return files.filter(p ->
-                    {
-                        final String filename = p.getFileName().toString();
-                        return filename.contains("-") && filename.endsWith(".ego");
-                    }).collect(Collectors.toList());
+                    return Files.walk(cachePath)
+                            .filter(Files::isRegularFile)
+                            .filter(p ->
+                            {
+                                final String filename = p.getFileName().toString();
+                                return filename.contains("-") && filename.endsWith(".ego");
+                            }).collect(Collectors.toList());
                 }
                 catch (IOException e)
                 {
@@ -161,34 +162,25 @@ public class FileBoundaryDao implements BoundaryDao
     @Override
     public Optional<Geometry> findGeometryById(final int id)
     {
-        final Path file = cachePath.resolve(id + ".ego");
+        final Path file = getSubDirectory(id).resolve(id + ".ego");
         if (Files.exists(file))
         {
-            return loadGeoJson(file);
+            try (final InputStream in = new BufferedInputStream(Files.newInputStream(file)))
+            {
+                return Optional.of(new BinaryBoundaryEncoder().read(in));
+            }
+            catch (IOException e)
+            {
+                throw new UncheckedIOException(e);
+            }
         }
         return Optional.empty();
-    }
-
-    private Optional<Geometry> loadGeoJson(final Path file)
-    {
-        try (Reader reader = Files.newBufferedReader(file))
-        {
-            return Optional.ofNullable(new GeoJsonReader().read(reader));
-        }
-        catch (IOException exc)
-        {
-            throw new UncheckedIOException(exc);
-        }
-        catch (ParseException e)
-        {
-            throw new UncheckedIOException(new IOException(e));
-        }
     }
 
     @Override
     public Optional<Geometry> findGeometryById(final int id, final int subdivideIndex)
     {
-        final Path file = cachePath.resolve(id + "-" + subdivideIndex + ".ego");
+        final Path file = getSubDirectory(id).resolve(Integer.toString(id)).resolve(id + "-" + subdivideIndex + ".ego");
         try (final InputStream in = new BufferedInputStream(Files.newInputStream(file)))
         {
             return Optional.of(new BinaryBoundaryEncoder().read(in));
@@ -199,21 +191,28 @@ public class FileBoundaryDao implements BoundaryDao
         }
     }
 
+    @Override
     public void save(final int id, final Geometry geometry)
     {
-        final Collection<Geometry> split = GeometryUtil.split(id, geometry, 10_000, 10_000);
         final double totalArea = geometry.getArea();
+        outputFull(id, geometry);
+        outputTiles(id, geometry, totalArea);
+    }
+
+    private void outputTiles(final int id, final Geometry geometry, final double totalArea)
+    {
         int index = 0;
+        final Collection<Geometry> split = GeometryUtil.split(id, geometry, MAX_SIZE, MAX_PIECES);
         for (Geometry geom : split)
         {
             outputForLookup(id, index++, totalArea, geom);
         }
-        outputFull(id, geometry);
     }
 
     private void outputForLookup(final int id, final int index, final double totalArea, final Geometry geometry)
     {
-        try (final OutputStream out = new BufferedOutputStream(Files.newOutputStream(cachePath.resolve(id + "-" + index + ".ego"))))
+        final Path path = ensureDir(id);
+        try (final OutputStream out = new BufferedOutputStream(Files.newOutputStream(path.resolve(id + "-" + index + ".ego"))))
         {
             binaryEncoder.write(totalArea, geometry, out);
         }
@@ -223,14 +222,36 @@ public class FileBoundaryDao implements BoundaryDao
         }
     }
 
+    private Path ensureDir(final int id)
+    {
+        final Path subDir = getSubDirectory(id);
+        final Path path = subDir.resolve(Integer.toString(id));
+        try
+        {
+            Files.createDirectories(path);
+        }
+        catch (IOException e)
+        {
+            throw new UncheckedIOException(e);
+        }
+        return path;
+    }
+
+    private Path getSubDirectory(final int id)
+    {
+        final String fullId = StringUtils.leftPad(Integer.toString(id), 9, '0');
+        return cachePath.resolve(fullId.substring(0, 3)).resolve(fullId.substring(3, 6)).resolve(fullId.substring(6, 9));
+    }
+
     private void outputFull(final int id, final Geometry geometry)
     {
-        try (final OutputStream out = new BufferedOutputStream(Files.newOutputStream(cachePath.resolve(id + ".ego")));
-             final Writer writer = Files.newBufferedWriter(boundaryPath.resolve(id + ".geojson")))
+        final Path path = ensureDir(id);
+        try (final OutputStream out = new BufferedOutputStream(Files.newOutputStream(path.resolve(id + ".ego")))
+             //final Writer writer = Files.newBufferedWriter(boundaryPath.resolve(id + ".geojson"))
+        )
         {
             binaryEncoder.write(geometry.getArea(), geometry, out);
-
-            new GeoJsonWriter().write(geometry, writer);
+            //new GeoJsonWriter().write(geometry, writer);
         }
         catch (IOException e)
         {

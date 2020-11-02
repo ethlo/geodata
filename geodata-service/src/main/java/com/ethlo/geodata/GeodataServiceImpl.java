@@ -284,7 +284,6 @@ public class GeodataServiceImpl implements GeodataService
         progressListener.begin("join_admin_levels");
         joinHierarchyNodes(childToParent, progressListener::progress);
         progressListener.end();
-
     }
 
     private void loadSearchIndex(final LoadProgressListener progressListener)

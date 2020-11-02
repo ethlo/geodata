@@ -33,35 +33,45 @@ import java.util.Map;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.geojson.GeoJsonReader;
+import org.springframework.data.util.CloseableIterator;
 
+import com.ethlo.geodata.dao.BoundaryDao;
 import com.ethlo.geodata.dao.file.FileBoundaryDao;
-import com.ethlo.geodata.model.CompactSerializable;
 
 public class GeoNamesBoundaryLoader
 {
-    private final Path dir = Paths.get("/tmp/geodata/");
+    private static final Path input = Paths.get("/home/morten/Downloads/allshapes.txt");
+    private static final Path baseDirectory = Paths.get("/tmp/geodata/");
 
     public GeoNamesBoundaryLoader()
     {
-        final List<String> countryColumns = Arrays.asList("id", "json");
-        new BaseCsvFileImporter<>(dir, "boundaries", "file:///home/morten/Downloads/allshapes.txt", countryColumns, true, 1)
+        final List<String> columns = Arrays.asList("id", "json");
+        final BoundaryDao boundaryDao = new FileBoundaryDao(baseDirectory);
+        int processed = 0;
+        try (final CloseableIterator<Map<String, String>> iter = new CsvFileIterator<>(input, columns, true, 1, i -> i))
         {
-            @Override
-            protected CompactSerializable processLine(final Map<String, String> next)
+            while (iter.hasNext())
             {
+                final Map<String, String> next = iter.next();
                 final int id = Integer.parseInt(next.get("id"));
                 try
                 {
                     final Geometry geometry = new GeoJsonReader().read(next.get("json"));
-                    new FileBoundaryDao(dir).save(id, geometry);
+                    boundaryDao.save(id, geometry);
                 }
                 catch (ParseException e)
                 {
                     throw new UncheckedIOException(new IOException(e));
                 }
-                return null;
+
+                processed++;
+
+                if (processed % 1_000 == 0)
+                {
+                    System.out.println("Imported " + processed);
+                }
             }
-        }.importData();
+        }
     }
 
     public static void main(String[] args)
