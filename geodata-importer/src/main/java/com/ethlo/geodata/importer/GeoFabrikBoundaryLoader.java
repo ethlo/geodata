@@ -22,18 +22,14 @@ package com.ethlo.geodata.importer;
  * #L%
  */
 
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.Reader;
 import java.io.UncheckedIOException;
-import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -42,16 +38,14 @@ import java.util.Objects;
 
 import javax.xml.stream.XMLStreamException;
 
-import org.geotools.data.geobuf.GeobufGeometry;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.geojson.GeoJsonReader;
-import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.ethlo.geodata.dao.file.FileBoundaryDao;
 import com.ethlo.geodata.model.CompactSerializable;
-import com.ethlo.geodata.util.GeometryUtil;
 import com.ethlo.geodata.util.Kml2GeoJson;
 import com.ethlo.geodata.util.ResourceUtil;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -60,6 +54,7 @@ public class GeoFabrikBoundaryLoader
 {
     private static final String BASE_URL = "http://download.geofabrik.de/";
     private static final Logger logger = LoggerFactory.getLogger(GeoFabrikBoundaryLoader.class);
+
     private final Map<String, String> continents = new LinkedHashMap<>()
     {{
         put("AF", "africa");
@@ -70,7 +65,7 @@ public class GeoFabrikBoundaryLoader
         put("SA", "south-america");
         put("AN", "antarctica");
     }};
-    private final Path dir = Paths.get("/tmp/geodata/boundaries");
+    private final Path dir = Paths.get("/tmp/geodata/");
 
     public GeoFabrikBoundaryLoader()
     {
@@ -90,40 +85,13 @@ public class GeoFabrikBoundaryLoader
         }.importData();
     }
 
-    public static void main(String[] args)
-    {
-        new GeoFabrikBoundaryLoader();
-    }
-
-    private void output(final int id, final int index, final Geometry geometry)
-    {
-        final GeobufGeometry geobufGeometry = new GeobufGeometry();
-        final GeoJsonWriter geoJsonWriter = new GeoJsonWriter();
-        try (final OutputStream out = new BufferedOutputStream(Files.newOutputStream(dir.resolve(id + "-" + index + ".geobuf")));
-             final Writer jsonOut = Files.newBufferedWriter(dir.resolve(id + "-" + index + ".geojson")))
-        {
-            geobufGeometry.encode(geometry, out);
-            geoJsonWriter.write(geometry, jsonOut);
-        }
-        catch (IOException e)
-        {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     private void importGeoJson(final int id, final String continentCode, final String countryName)
     {
         try
         {
             final ObjectNode jsonNode = fetchGeoJsonFromServer(continentCode, countryName);
             final Geometry geometry = new GeoJsonReader().read(jsonNode.toPrettyString());
-            final Collection<Geometry> split = GeometryUtil.split(geometry, 1000, 1000);
-            logger.info("Split {} into {} tiles", id, split.size());
-            int index = 0;
-            for (Geometry geom : split)
-            {
-                output(id, index++, geom);
-            }
+            new FileBoundaryDao(dir).save(id, geometry);
         }
         catch (IOException exc)
         {

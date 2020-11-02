@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.stream.Collectors;
 
@@ -143,7 +144,7 @@ public class GeometryUtil
         return geometryFactory.createLineString(coordinates);
     }
 
-    public static Collection<Geometry> split(Geometry g, int maxSize, int maxPieces)
+    public static Collection<Geometry> split(final int id, Geometry g, int maxSize, int maxPieces)
     {
         if (maxSize < 1000)
         {
@@ -155,21 +156,29 @@ public class GeometryUtil
         }
         final List<Geometry> answer = new ArrayList<>();
         final Queue<Geometry> queue = new LinkedList<Geometry>();
-        queue.add(g);
+        queue.add(Objects.requireNonNull(g));
         while (!queue.isEmpty())
         {
             Geometry geom = queue.remove();
-            if (size(geom) > maxSize)
+            if (geom != null)
             {
-                queue.addAll(subdivide(geom));
+                if (size(geom) > maxSize)
+                {
+                    queue.addAll(subdivide(geom));
+                }
+                else
+                {
+                    answer.add(geom);
+                }
             }
             else
             {
-                answer.add(geom);
+                //System.out.println("empty");
             }
+
             if (queue.size() + answer.size() > maxPieces)
             {
-                throw new IllegalArgumentException("Exceeded maximum number of allowed subdivisions. Giving up. Consider \n" +
+                throw new IllegalArgumentException("Exceeded maximum number of allowed subdivisions for " + id + ". Giving up. Consider \n" +
                         "increasing the maxSize and re-running");
             }
         }
@@ -178,7 +187,7 @@ public class GeometryUtil
 
     private static int size(final Geometry geom)
     {
-        return geom.getCoordinates().length;
+        return geom.getNumPoints();
     }
 
     private static List<Geometry> subdivide(final Geometry geom)

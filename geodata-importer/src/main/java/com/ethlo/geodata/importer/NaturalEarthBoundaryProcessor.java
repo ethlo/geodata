@@ -77,6 +77,7 @@ public class NaturalEarthBoundaryProcessor
         put("AN", "antarctica");
     }};
 
+    /*
     public static void main(String[] args) throws IOException, ParseException
     {
         final List<String> countryColumns = Arrays.asList("iso", "iso3", "iso_numeric", "fips", "country", "capital", "area", "population", "continent", "tld", "currency_Code", "currency_name", "phone", "postal_code_format", "postal_code_regex", "languages", "geonameid");
@@ -121,6 +122,7 @@ public class NaturalEarthBoundaryProcessor
             }
         }
     }
+     */
 
     private static void output(Path baseDir, final String countryCode, final Geometry geometry)
     {

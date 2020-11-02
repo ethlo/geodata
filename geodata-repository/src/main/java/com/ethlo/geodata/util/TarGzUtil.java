@@ -24,9 +24,6 @@ package com.ethlo.geodata.util;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.AbstractMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -50,23 +47,5 @@ public class TarGzUtil
                 }
             }
         }
-    }
-
-    public static void main(String[] args) throws IOException
-    {
-        TarGzUtil.extract(Files.newInputStream(Paths.get("/home/morten/Downloads/GeoLite2-City_20201020.tar.gz")), (e) ->
-        {
-            if (e.getKey().getName().endsWith("GeoLite2-City.mmdb"))
-            {
-                try
-                {
-                    Files.copy(e.getValue(), Paths.get("/tmp/geodata/test.mmdb"));
-                }
-                catch (IOException exc)
-                {
-                    throw new UncheckedIOException(exc);
-                }
-            }
-        });
     }
 }

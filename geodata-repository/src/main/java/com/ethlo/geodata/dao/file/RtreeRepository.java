@@ -27,6 +27,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -89,7 +90,7 @@ public class RtreeRepository
         }
 
         // Load boundaries
-        boundaryRTree = getBoundaryRTree(boundaryDao);
+        boundaryRTree = getBoundaryRTree(locationDao, boundaryDao);
     }
 
     private static Rectangle createBounds(final Position from, final double distanceKm)
@@ -105,14 +106,22 @@ public class RtreeRepository
         return Geometries.rectangle(west.getLon(), south.getLat(), east.getLon(), north.getLat());
     }
 
-    private RTree<RTreePayload, Geometry> getBoundaryRTree(final BoundaryDao boundaryDao)
+    private RTree<RTreePayload, Geometry> getBoundaryRTree(final LocationDao locationDao, final BoundaryDao boundaryDao)
     {
         RTree<RTreePayload, Geometry> tmp = RTree.create();
         final Iterator<RTreePayload> entries = boundaryDao.entries();
         while (entries.hasNext())
         {
             final RTreePayload entry = entries.next();
-            tmp = tmp.add(envelopeEntry(entry));
+            final Optional<RawLocation> location = locationDao.get(entry.getId());
+            if (location.isPresent())
+            {
+                tmp = tmp.add(envelopeEntry(entry));
+                if (tmp.size() % 10_000 == 0)
+                {
+                    logger.info("boundary tree size: {}", tmp.size());
+                }
+            }
         }
         logger.info("Loaded {} boundaries", tmp.size());
         return tmp;
@@ -139,7 +148,7 @@ public class RtreeRepository
         // Loop through candidates from smallest to largest and check actual polygon
         for (Entry<RTreePayload, Geometry> candidate : candidates)
         {
-            if (isReallyInside(coordinates, candidate.value().getId()))
+            if (isReallyInside(coordinates, candidate.value().getId(), candidate.value().getSubdivideIndex()))
             {
                 return candidate.value().getId();
             }
@@ -148,11 +157,11 @@ public class RtreeRepository
         return null;
     }
 
-    private boolean isReallyInside(Coordinates coordinate, final int id)
+    private boolean isReallyInside(Coordinates coordinate, final int id, final int subdivideIndex)
     {
         final org.locationtech.jts.geom.Point point = new GeometryFactory().createPoint(new Coordinate(coordinate.getLng(), coordinate.getLat()));
 
-        final org.locationtech.jts.geom.Geometry geom = boundaryDao.findGeometryById(id).orElseThrow();
+        final org.locationtech.jts.geom.Geometry geom = boundaryDao.findGeometryById(id, subdivideIndex).orElseThrow();
         if (geom instanceof GeometryCollection)
         {
             final GeometryCollection coll = (GeometryCollection) geom;
@@ -251,7 +260,8 @@ public class RtreeRepository
                     @Override
                     public RTreePayload value()
                     {
-                        return new RTreePayload(location.getId(), 0, null);
+                        // TODO: Just use an integer as payload
+                        return new RTreePayload(location.getId(), 0, 0, null);
                     }
 
                     @Override

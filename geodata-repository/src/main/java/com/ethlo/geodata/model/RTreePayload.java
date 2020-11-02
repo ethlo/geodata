@@ -29,10 +29,12 @@ public class RTreePayload
     private final int id;
     private final double area;
     private final Envelope envelope;
+    private final int subdivideIndex;
 
-    public RTreePayload(int id, double area, Envelope envelope)
+    public RTreePayload(int id, int subdivideIndex, double area, Envelope envelope)
     {
         this.id = id;
+        this.subdivideIndex = subdivideIndex;
         this.area = area;
         this.envelope = envelope;
     }
@@ -40,6 +42,11 @@ public class RTreePayload
     public int getId()
     {
         return id;
+    }
+
+    public int getSubdivideIndex()
+    {
+        return subdivideIndex;
     }
 
     public double getArea()

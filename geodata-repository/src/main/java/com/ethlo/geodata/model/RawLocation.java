@@ -43,7 +43,7 @@ public class RawLocation implements com.ethlo.geodata.model.CompactSerializable
     {
     }
 
-    public RawLocation(final int id, final String name, final String countryCode, final com.ethlo.geodata.model.Coordinates coordinates, final int mapFeatureId, final long population, final int timeZoneId)
+    public RawLocation(final int id, final String name, final String countryCode, final com.ethlo.geodata.model.Coordinates coordinates, final int mapFeatureId, final long population, final int timeZoneId, final int elevation)
     {
         this.id = id;
         this.name = name;
@@ -53,6 +53,7 @@ public class RawLocation implements com.ethlo.geodata.model.CompactSerializable
         this.mapFeatureId = mapFeatureId;
         this.population = population;
         this.timeZoneId = timeZoneId;
+        this.elevation = elevation;
     }
 
     public int getId()
@@ -123,6 +124,7 @@ public class RawLocation implements com.ethlo.geodata.model.CompactSerializable
         out.writeInt(mapFeatureId);
         out.writeLong(population);
         out.writeInt(timeZoneId);
+        out.writeInt(elevation);
     }
 
     @Override
@@ -137,5 +139,11 @@ public class RawLocation implements com.ethlo.geodata.model.CompactSerializable
         mapFeatureId = in.readInt();
         population = in.readLong();
         timeZoneId = in.readInt();
+        elevation = in.readInt();
+    }
+
+    public int getElevation()
+    {
+        return elevation;
     }
 }

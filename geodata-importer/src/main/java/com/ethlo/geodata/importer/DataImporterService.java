@@ -50,7 +50,6 @@ import com.ethlo.geodata.util.JsonUtil;
 public class DataImporterService
 {
     private static final Logger logger = LoggerFactory.getLogger(DataImporterService.class);
-    private final GeoFabrikBoundaryLoader geoFabrikBoundaryLoader = new GeoFabrikBoundaryLoader();
     private final Duration maxDataAge;
     private final FileIpDataImporter ipLookupImporter;
     private final FileGeonamesImporter geonamesImporter;

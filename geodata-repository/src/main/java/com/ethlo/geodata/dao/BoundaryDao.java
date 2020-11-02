@@ -36,4 +36,6 @@ public interface BoundaryDao
     Iterator<RTreePayload> entries();
 
     Optional<Geometry> findGeometryById(int id);
+
+    Optional<Geometry> findGeometryById(int id, int subdivideIndex);
 }

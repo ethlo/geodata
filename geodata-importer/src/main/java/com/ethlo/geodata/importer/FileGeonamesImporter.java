@@ -138,6 +138,8 @@ public class FileGeonamesImporter extends BaseCsvFileImporter<RawLocation>
         final double lat = Double.parseDouble(line.get("lat"));
         final double lng = Double.parseDouble(line.get("lng"));
         final long population = Long.parseLong(line.get("population"));
+        final String strElevation = line.get("elevation");
+        final int elevation = !StringUtils.isEmpty(strElevation) ? Integer.parseInt(strElevation) : Integer.MIN_VALUE;
 
         if (adm1 != null || adm2 != null || adm3 != null || adm4 != null)
         {
@@ -147,7 +149,7 @@ public class FileGeonamesImporter extends BaseCsvFileImporter<RawLocation>
 
         final String preferredName = alternateNames.get(id);
         final String actualName = preferredName != null ? preferredName : name;
-        return new RawLocation(id, actualName, countryCode, Coordinates.from(lat, lng), featureCodes.get(featureKey), population, timezones.get(timezone));
+        return new RawLocation(id, actualName, countryCode, Coordinates.from(lat, lng), featureCodes.get(featureKey), population, timezones.get(timezone), elevation);
     }
 
     @Override
