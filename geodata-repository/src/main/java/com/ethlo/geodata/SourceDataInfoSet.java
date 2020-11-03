@@ -26,6 +26,8 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
+import org.springframework.util.StringUtils;
+
 public class SourceDataInfoSet
 {
     private Set<SourceDataInfo> data = new HashSet<>();
@@ -51,5 +53,11 @@ public class SourceDataInfoSet
     {
         this.data = data;
         return this;
+    }
+
+    @Override
+    public String toString()
+    {
+        return "\n" + StringUtils.collectionToDelimitedString(data, "\n");
     }
 }

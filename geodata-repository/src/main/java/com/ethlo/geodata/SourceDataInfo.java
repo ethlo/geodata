@@ -71,4 +71,12 @@ public class SourceDataInfo
     {
         return Objects.hash(type);
     }
+
+    @Override
+    public String toString()
+    {
+        return "type=" + type +
+                ", count=" + count +
+                ", lastModified=" + lastModified;
+    }
 }

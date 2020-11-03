@@ -218,6 +218,8 @@ public class GeodataServiceImpl implements GeodataService
     public void load(LoadProgressListener progressListener)
     {
         metaDao.assertHasData();
+        final SourceDataInfoSet sourceDataInfo = metaDao.load();
+        logger.info("{}", sourceDataInfo);
 
         progressListener.begin("feature_codes", 1);
         this.featureCodes = featureCodeDao.load();
@@ -242,7 +244,8 @@ public class GeodataServiceImpl implements GeodataService
     {
         final Set<Integer> featureCodesForProximity = featureCodes.entrySet().stream()
                 .filter(e -> GeoConstants.ADMINISTRATIVE_OR_ABOVE.contains(e.getValue().getKey()))
-                .map(Entry::getKey).collect(Collectors.toSet());
+                .map(Entry::getKey)
+                .collect(Collectors.toSet());
         rtreeRepository = new RtreeRepository(locationDao, boundaryDao, featureCodesForProximity);
     }
 

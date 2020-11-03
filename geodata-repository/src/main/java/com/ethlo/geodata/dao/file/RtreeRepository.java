@@ -27,6 +27,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -67,7 +68,7 @@ public class RtreeRepository
 
     private final BoundaryDao boundaryDao;
     private final RTree<RTreePayload, Geometry> boundaryRTree;
-    private RTree<RTreePayload, Point> proximity;
+    private RTree<Integer, Point> proximity;
 
     public RtreeRepository(LocationDao locationDao, BoundaryDao boundaryDao, final Set<Integer> featureCodesIncluded)
     {
@@ -78,19 +79,20 @@ public class RtreeRepository
         final int batchSize = 20_000;
         try (final CloseableIterator<RawLocation> iter = locationDao.iterator())
         {
-            List<Entry<RTreePayload, Point>> batch;
+            List<Entry<Integer, Point>> batch;
             do
             {
-                final Iterator<RawLocation> filtered = Iterators.filter(iter, l -> featureCodesIncluded.contains(l.getMapFeatureId()));
+                final Iterator<RawLocation> filtered = Iterators.filter(iter, l -> featureCodesIncluded.contains(Objects.requireNonNull(l).getMapFeatureId()));
                 batch = Lists.newArrayList(Iterators.limit(new ConvertingIterator(filtered), batchSize));
                 proximity = proximity.add(batch);
-                logger.info("Loaded {}: {}", batchSize, proximity.size());
             }
             while (batch.size() == batchSize);
+            logger.info("Loaded {} location points", proximity.size());
         }
 
         // Load boundaries
         boundaryRTree = getBoundaryRTree(locationDao, boundaryDao);
+        logger.info("Loaded {} location MBRs", proximity.size());
     }
 
     private static Rectangle createBounds(final Position from, final double distanceKm)
@@ -119,7 +121,7 @@ public class RtreeRepository
                 tmp = tmp.add(envelopeEntry(entry));
                 if (tmp.size() % 10_000 == 0)
                 {
-                    logger.info("boundary tree size: {}", tmp.size());
+                    logger.debug("boundary tree size: {}", tmp.size());
                 }
             }
         }
@@ -195,7 +197,7 @@ public class RtreeRepository
 
         for (int maxDistance = PROXIMITY_DISTANCE_SEARCH_INCREMENT_KM; maxDistance <= maxDistanceInKilometers; maxDistance += PROXIMITY_DISTANCE_SEARCH_INCREMENT_KM)
         {
-            final Map<Integer, Double> found = doFindNearest(point, maxDistance, pageable, max * 2);
+            final Map<Integer, Double> found = doFindNearest(point, maxDistance, max * 2);
             idAndDistance.putAll(found);
             if (idAndDistance.size() >= max)
             {
@@ -211,12 +213,12 @@ public class RtreeRepository
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
     }
 
-    private Map<Integer, Double> doFindNearest(final Coordinates point, final int maxDistanceInKilometers, final Pageable pageable, final int max)
+    private Map<Integer, Double> doFindNearest(final Coordinates point, final int maxDistanceInKilometers, final int max)
     {
         final Position from = Position.create(point.getLat(), point.getLng());
         final Rectangle bounds = createBounds(from, maxDistanceInKilometers);
 
-        final Iterator<Entry<RTreePayload, Point>> entryIterator = Iterators.limit(Iterables.filter(proximity.search(bounds),
+        final Iterator<Entry<Integer, Point>> entryIterator = Iterators.limit(Iterables.filter(proximity.search(bounds),
                 entry ->
                 {
                     final Point p = entry.geometry();
@@ -228,15 +230,15 @@ public class RtreeRepository
         final Map<Integer, Double> idAndDistance = new LinkedHashMap<>();
         while (entryIterator.hasNext())
         {
-            final Entry<RTreePayload, Point> entry = entryIterator.next();
+            final Entry<Integer, Point> entry = entryIterator.next();
             final double distance = from.getDistanceToKm(Position.create(entry.geometry().y(), entry.geometry().x()));
-            idAndDistance.put(entry.value().getId(), distance);
+            idAndDistance.put(entry.value(), distance);
         }
 
         return idAndDistance;
     }
 
-    private static class ConvertingIterator extends AbstractIterator<Entry<RTreePayload, Point>>
+    private static class ConvertingIterator extends AbstractIterator<Entry<Integer, Point>>
     {
         private final Iterator<RawLocation> locations;
 
@@ -246,7 +248,7 @@ public class RtreeRepository
         }
 
         @Override
-        protected Entry<RTreePayload, Point> computeNext()
+        protected Entry<Integer, Point> computeNext()
         {
             if (locations.hasNext())
             {
@@ -258,10 +260,9 @@ public class RtreeRepository
                 return new Entry<>()
                 {
                     @Override
-                    public RTreePayload value()
+                    public Integer value()
                     {
-                        // TODO: Just use an integer as payload
-                        return new RTreePayload(location.getId(), 0, 0, null);
+                        return location.getId();
                     }
 
                     @Override

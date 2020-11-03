@@ -33,10 +33,8 @@ import java.nio.file.Path;
 import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.locationtech.jts.geom.Envelope;
@@ -79,54 +77,31 @@ public class FileBoundaryDao implements BoundaryDao
     }
 
     @Override
-    public Optional<byte[]> findGeoJsonById(final int id)
-    {
-        final Path fileGeoJson = boundaryPath.resolve(id + ".geojson");
-        if (Files.exists(fileGeoJson))
-        {
-            try
-            {
-                return Optional.of(Files.readAllBytes(fileGeoJson));
-            }
-            catch (IOException exc)
-            {
-                throw new UncheckedIOException(exc);
-            }
-        }
-        return Optional.empty();
-    }
-
-    @Override
     public Iterator<RTreePayload> entries()
     {
+        Iterator<Path> files;
+        try
+        {
+            files = Files.walk(cachePath)
+                    .filter(p ->
+                    {
+                        final String filename = p.getFileName().toString();
+                        return filename.contains("-") && filename.endsWith(".ego");
+                    }).iterator();
+        }
+        catch (IOException e)
+        {
+            throw new UncheckedIOException(e);
+        }
+
         return new AbstractIterator<>()
         {
-            private final Iterator<Path> filenames = getFileNames().iterator();
-
-            private List<Path> getFileNames()
-            {
-                try
-                {
-                    return Files.walk(cachePath)
-                            .filter(Files::isRegularFile)
-                            .filter(p ->
-                            {
-                                final String filename = p.getFileName().toString();
-                                return filename.contains("-") && filename.endsWith(".ego");
-                            }).collect(Collectors.toList());
-                }
-                catch (IOException e)
-                {
-                    throw new UncheckedIOException(e);
-                }
-            }
-
             @Override
             protected RTreePayload computeNext()
             {
-                if (filenames.hasNext())
+                if (files.hasNext())
                 {
-                    final Path path = filenames.next();
+                    final Path path = files.next();
                     final Map.Entry<Integer, Integer> idAndSubdivideIndex = getIdAndSubdivideIndexFromFilename(path.getFileName());
                     final Map.Entry<Double, Envelope> envelopeAndTotalArea = loadEnvelopeAndTotalArea(path);
                     return new RTreePayload(idAndSubdivideIndex.getKey(), idAndSubdivideIndex.getValue(), envelopeAndTotalArea.getKey(), envelopeAndTotalArea.getValue());

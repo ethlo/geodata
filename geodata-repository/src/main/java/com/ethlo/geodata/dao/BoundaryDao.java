@@ -31,8 +31,6 @@ import com.ethlo.geodata.model.RTreePayload;
 
 public interface BoundaryDao
 {
-    Optional<byte[]> findGeoJsonById(int id);
-
     Iterator<RTreePayload> entries();
 
     Optional<Geometry> findGeometryById(int id);
