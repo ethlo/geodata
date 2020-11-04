@@ -27,7 +27,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Objects;
 
-public class RawLocation implements com.ethlo.geodata.model.CompactSerializable
+public class RawLocation implements CompactSerializable, IntIdentifiable
 {
     private int id;
     private String name;

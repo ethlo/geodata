@@ -229,11 +229,11 @@ public class GeodataServiceImpl implements GeodataService
 
         final Chronograph chronograph = Chronograph.create();
         chronograph.timed("Locations", () -> loadLocations(progressListener));
+        chronograph.timed("Proximity", () -> loadProximityTree(progressListener));
         chronograph.timed("Countries", () -> loadCountries(progressListener));
         chronograph.timed("Continents", () -> loadContinents(progressListener));
         chronograph.timed("SearchIndex", () -> loadSearchIndex(progressListener));
         chronograph.timed("Hierarchy", () -> loadHierarchy(progressListener));
-        chronograph.timed("Proximity", () -> loadProximityTree(progressListener));
 
         logger.info("Data loaded successfully");
 

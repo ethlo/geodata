@@ -36,6 +36,4 @@ public interface BoundaryDao
     Optional<Geometry> findGeometryById(int id);
 
     Optional<Geometry> findGeometryById(int id, int subdivideIndex);
-
-    void save(int id, Geometry geometry);
 }

@@ -92,7 +92,7 @@ public class RtreeRepository
 
         // Load boundaries
         boundaryRTree = getBoundaryRTree(locationDao, boundaryDao);
-        logger.info("Loaded {} location MBRs", proximity.size());
+        logger.info("Loaded {} location bounding boxes", boundaryRTree.size());
     }
 
     private static Rectangle createBounds(final Position from, final double distanceKm)
@@ -119,7 +119,7 @@ public class RtreeRepository
             if (location.isPresent())
             {
                 tmp = tmp.add(envelopeEntry(entry));
-                if (tmp.size() % 10_000 == 0)
+                if (tmp.size() % 1000 == 0)
                 {
                     logger.debug("boundary tree size: {}", tmp.size());
                 }

@@ -22,16 +22,11 @@ package com.ethlo.geodata.importer;
  * #L%
  */
 
-import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.RandomAccessFile;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -54,16 +49,12 @@ import com.ethlo.geodata.dao.CountryDao;
 import com.ethlo.geodata.dao.FeatureCodeDao;
 import com.ethlo.geodata.dao.HierarchyDao;
 import com.ethlo.geodata.dao.TimeZoneDao;
-import com.ethlo.geodata.dao.file.FileMmapLocationDao;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.RawLocation;
-import com.ethlo.geodata.util.CompressionUtil;
 import com.ethlo.geodata.util.ResourceUtil;
-import com.google.common.io.CountingOutputStream;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
-@SuppressWarnings("UnstableApiUsage")
 @Component
 public class FileGeonamesImporter implements DataImporter
 {
@@ -84,8 +75,8 @@ public class FileGeonamesImporter implements DataImporter
     private final HierarchyDao hierarchyDao;
     private final CountryDao countryDao;
 
-    private final Path basePath;
     private final String url;
+    private final BinaryIndexedFileWriter<RawLocation> locationWriter;
 
     private Map<Integer, String> alternateNames;
     private Map<String, Country> countries;
@@ -100,9 +91,16 @@ public class FileGeonamesImporter implements DataImporter
                                 final HierarchyDao hierarchyDao,
                                 final CountryDao countryDao)
     {
-        this.basePath = basePath;
-        this.url = geoNamesAllCountriesUrl;
+        this.locationWriter = new BinaryIndexedFileWriter<>(basePath, "locations")
+        {
+            @Override
+            protected void write(final RawLocation data, final DataOutputStream out) throws IOException
+            {
+                data.write(out);
+            }
+        };
 
+        this.url = geoNamesAllCountriesUrl;
         this.geoNamesAlternateNamesUrl = geoNamesAlternateNamesUrl;
         this.geoNamesCountryInfoUrl = geoNamesCountryInfoUrl;
         this.inclusions = StringUtils.commaDelimitedListToSet(inclusionsCsv);
@@ -144,7 +142,8 @@ public class FileGeonamesImporter implements DataImporter
 
         try (final CloseableIterator<RawLocation> iter = new CsvFileIterator<>(fileData.getValue().toPath(), HEADERS, true, 0, this::processLine))
         {
-            final int result = writeData(iter);
+            final int result = locationWriter.writeData(iter);
+
             logger.info("Writing countries");
             countryDao.save(countries.values());
 
@@ -176,50 +175,6 @@ public class FileGeonamesImporter implements DataImporter
     {
         return ResourceUtil.getLastModified(url);
     }
-
-    private int writeData(Iterator<RawLocation> data) throws IOException
-    {
-        int count = 0;
-
-        final Path indexPath = basePath.resolve(FileMmapLocationDao.LOCATION_INDEX_FILE);
-        final Path uncompressedDataPath = basePath.resolve(FileMmapLocationDao.LOCATION_DATA_FILE);
-
-        try (final OutputStream uncompressedIndex = Files.newOutputStream(indexPath))
-        {
-            // Write placeholder
-            uncompressedIndex.write(new byte[4]);
-        }
-
-        try (final DataOutputStream indexOut = new DataOutputStream(CompressionUtil.compress(new BufferedOutputStream(Files.newOutputStream(indexPath, StandardOpenOption.APPEND))));
-             final CountingOutputStream countingBytes = new CountingOutputStream(new BufferedOutputStream(Files.newOutputStream(uncompressedDataPath)));
-             final DataOutputStream uncompressedOut = new DataOutputStream(countingBytes))
-        {
-            while (data.hasNext())
-            {
-                final RawLocation d = data.next();
-
-                // Write raw data
-                final long startPos = countingBytes.getCount();
-                d.write(uncompressedOut);
-
-                // Write index in the raw file
-                indexOut.writeInt(d.getId());
-                indexOut.writeInt((int) startPos);
-
-                count++;
-            }
-        }
-
-        // Replace count
-        try (final RandomAccessFile raf = new RandomAccessFile(indexPath.toFile(), "rw");)
-        {
-            raf.seek(0);
-            raf.writeInt(count);
-        }
-
-        return count;
-    }
-
 
     protected void prepare() throws IOException
     {

@@ -22,11 +22,13 @@ package com.ethlo.geodata.io;
  * #L%
  */
 
+import static org.springframework.util.Assert.isTrue;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,156 +42,78 @@ import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.LinearRing;
+import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.util.Assert;
 
+import com.ethlo.geodata.model.BoundaryData;
+import com.ethlo.geodata.model.BoundaryMetadata;
+
 public class BinaryBoundaryEncoder
 {
-    public static final int VERSION = 0x1;
+    public static final int SIZE_OF_COORDINATE = 8;
     private static final GeometryFactory factory = new GeometryFactory();
 
-    public void write(final double totalArea, Geometry geometry, DataOutputStream out) throws IOException
+    public static BoundaryData readGeometry(final DataInputStream in)
     {
-        writeVersion(out);
-        writeBoundingBox(geometry, out);
-        out.writeDouble(totalArea);
-        writeData(geometry, out);
-    }
-
-    private void writeData(final Geometry geometry, final DataOutputStream out) throws IOException
-    {
-        if (geometry instanceof GeometryCollection)
+        try
         {
-            final GeometryCollection collection = (GeometryCollection) geometry;
-            for (int i = 0; i < collection.getNumGeometries(); i++)
-            {
-                writeData(collection.getGeometryN(i), out);
-            }
+            return doRead(in);
         }
-        else if (geometry instanceof Polygon)
+        catch (IOException e)
         {
-            final Polygon poly = (Polygon) geometry;
-
-            // Always output the shell first, as that is what the holes are in (if any)
-            handleShell(poly, out);
-            handleHole(poly, out);
-        }
-        else if (geometry instanceof LineString)
-        {
-            writeCoordinates(false, geometry.getCoordinates(), out);
-        }
-        else
-        {
-            throw new IllegalArgumentException("Unhandled geometry type: " + geometry.getGeometryType());
+            throw new UncheckedIOException(e);
         }
     }
 
-    private void handleHole(final Polygon poly, DataOutputStream out) throws IOException
+    private static BoundaryData doRead(final DataInputStream in) throws IOException
     {
-        for (int i = 0; i < poly.getNumInteriorRing(); i++)
-        {
-            writeCoordinates(true, poly.getInteriorRingN(i).getCoordinates(), out);
-        }
-    }
-
-    private void handleShell(final Polygon poly, DataOutputStream out) throws IOException
-    {
-        writeCoordinates(false, poly.getExteriorRing().getCoordinates(), out);
-    }
-
-    private void writeCoordinates(final boolean hole, final Coordinate[] coordinates, final DataOutputStream out) throws IOException
-    {
-        out.writeByte(hole ? 0 : 1);
-        out.writeInt(coordinates.length);
-        for (Coordinate coord : coordinates)
-        {
-            out.writeFloat((float) coord.y);
-            out.writeFloat((float) coord.x);
-        }
-    }
-
-    private void writeBoundingBox(Geometry polygon, final DataOutputStream out) throws IOException
-    {
-        final Envelope bb = polygon.getEnvelopeInternal();
-        final float minLat = (float) bb.getMinY();
-        final float maxLat = (float) bb.getMaxY();
-        final float minLng = (float) bb.getMinX();
-        final float maxLng = (float) bb.getMaxX();
-        out.writeFloat(minLat);
-        out.writeFloat(maxLat);
-        out.writeFloat(minLng);
-        out.writeFloat(maxLng);
-    }
-
-    private void writeVersion(final DataOutputStream out) throws IOException
-    {
-        out.writeByte(VERSION);
-    }
-
-    public Geometry read(InputStream source) throws IOException
-    {
-        try (final DataInputStream in = new DataInputStream(source))
-        {
-            readVersion(in);
-            return readGeometry(in);
-        }
-    }
-
-    private void readVersion(final DataInputStream in) throws IOException
-    {
-        final byte version = in.readByte();
-        Assert.isTrue(version == VERSION);
-    }
-
-    private Geometry readGeometry(final DataInputStream in) throws IOException
-    {
+        final int id = in.readInt();
+        final int subDivideIndex = in.readInt();
         final Envelope bb = readBoundingBox(in);
-
         final double area = readArea(in);
+
+        final int numGeometries = in.readInt();
 
         final List<Polygon> coll = new ArrayList<>();
 
-        Map.Entry<Boolean, Coordinate[]> coordinates;
-        do
+        for (int numGeometry = 0; numGeometry < numGeometries; numGeometry++)
         {
-            coordinates = attemptReadingCoordinates(in);
-            if (coordinates != null && coordinates.getValue().length > 0)
+            final Map.Entry<Boolean, Coordinate[]> coordinates = readCoordinates(in);
+            final boolean isHole = coordinates.getKey();
+            if (!isHole)
             {
-                final boolean isHole = coordinates.getKey();
-                if (!isHole)
-                {
-                    coll.add(createPolygon((coordinates.getValue())));
-                }
-                else
-                {
-                    // This entry is a hole in the previous shell
-                    Assert.isTrue(!coll.isEmpty(), "Cannot have a hole without a previous shell");
-                    final Polygon previous = coll.get(coll.size() - 1);
-
-                    // Copy existing holes
-                    final LinearRing[] holes = new LinearRing[previous.getNumInteriorRing() + 1];
-                    for (int i = 0; i < holes.length - 1; i++)
-                    {
-                        holes[i] = previous.getInteriorRingN(i);
-                    }
-
-                    // Add new hole
-                    holes[holes.length - 1] = factory.createLinearRing(coordinates.getValue());
-
-                    // Return polygon with new hole
-                    factory.createPolygon(previous.getExteriorRing(), holes);
-                }
+                coll.add(createPolygon((coordinates.getValue())));
             }
-        } while (coordinates != null);
+            else
+            {
+                // This entry is a hole in the previous shell
+                Assert.isTrue(!coll.isEmpty(), "Cannot have a hole without a previous shell");
+                final Polygon previous = coll.get(coll.size() - 1);
+
+                // Copy existing holes
+                final LinearRing[] holes = new LinearRing[previous.getNumInteriorRing() + 1];
+                for (int i = 0; i < holes.length - 1; i++)
+                {
+                    holes[i] = previous.getInteriorRingN(i);
+                }
+
+                // Add new hole
+                holes[holes.length - 1] = factory.createLinearRing(coordinates.getValue());
+
+                // Return polygon with new hole
+                factory.createPolygon(previous.getExteriorRing(), holes);
+            }
+        }
 
         if (coll.size() > 1)
         {
-            return new GeometryCollection(coll.toArray(new Geometry[0]), factory);
+            return new BoundaryData(id, subDivideIndex, bb, area, new GeometryCollection(coll.toArray(new Geometry[0]), factory));
         }
-        return coll.get(0);
+        return new BoundaryData(id, subDivideIndex, bb, area, coll.get(0));
     }
 
-    private Polygon createPolygon(final Coordinate[] value)
+    private static Polygon createPolygon(final Coordinate[] value)
     {
         LinearRing ring = null;
         if (isClosed(value))
@@ -209,23 +133,14 @@ public class BinaryBoundaryEncoder
         return factory.createPolygon(ring, null);
     }
 
-    private boolean isClosed(final Coordinate[] value)
+    private static boolean isClosed(final Coordinate[] value)
     {
         return value[0].equals2D(value[value.length - 1]);
     }
 
-    private Map.Entry<Boolean, Coordinate[]> attemptReadingCoordinates(final DataInputStream in) throws IOException
+    private static Map.Entry<Boolean, Coordinate[]> readCoordinates(final DataInputStream in) throws IOException
     {
-        boolean isHole;
-        try
-        {
-            isHole = in.readByte() == 0;
-        }
-        catch (EOFException ignored)
-        {
-            return null;
-        }
-
+        boolean isHole = in.readByte() == 0;
         final int coordinateCount = in.readInt();
         final Coordinate[] coordinates = new Coordinate[coordinateCount];
         for (int i = 0; i < coordinateCount; i++)
@@ -234,11 +149,10 @@ public class BinaryBoundaryEncoder
             final float lng = in.readFloat();
             coordinates[i] = new CoordinateXY(lng, lat);
         }
-
         return new AbstractMap.SimpleEntry<>(isHole, coordinates);
     }
 
-    private Envelope readBoundingBox(final DataInputStream in) throws IOException
+    private static Envelope readBoundingBox(final DataInputStream in) throws IOException
     {
         final float minLat = in.readFloat();
         final float maxLat = in.readFloat();
@@ -247,24 +161,162 @@ public class BinaryBoundaryEncoder
         return new Envelope(minLng, maxLng, minLat, maxLat);
     }
 
-    public Envelope readEnvelope(final InputStream in) throws IOException
+    public static BoundaryMetadata readBoundaryMetadata(final DataInputStream in) throws IOException
     {
-        final DataInputStream din = new DataInputStream(in);
-        readVersion(din);
-        return readBoundingBox(din);
+        final int id = in.readInt();
+        isTrue(id > 0, "id must be a positive integer");
+        final int subDivideIndex = in.readInt();
+        isTrue(subDivideIndex >= 0, "subDivideIndex must be a non-negative integer");
+        final Envelope bb = readBoundingBox(in);
+        final double area = readArea(in);
+        skipGeometry(in);
+        return new BoundaryMetadata(id, subDivideIndex, bb, area);
     }
 
-    public Map.Entry<Double, Envelope> readEnvelopeAndTotalArea(final InputStream in) throws IOException
+    private static void skipGeometry(final DataInputStream in) throws IOException
     {
-        final DataInputStream din = new DataInputStream(in);
-        readVersion(din);
-        final Envelope bb = readBoundingBox(din);
-        final double area = readArea(din);
-        return new AbstractMap.SimpleEntry<>(area, bb);
+        final int numGeometries = in.readInt();
+        for (int i = 0; i < numGeometries; i++)
+        {
+            skipCoordinates(in);
+        }
     }
 
-    private double readArea(final DataInputStream din) throws IOException
+    private static void skipCoordinates(final DataInputStream in) throws IOException
+    {
+        final byte isHole = in.readByte();
+        isTrue(isHole == 0 || isHole == 1, "isHole should be 0 or 1");
+        final int pointCount = in.readInt();
+        final int skipBytes = SIZE_OF_COORDINATE * pointCount;
+        in.skipBytes(skipBytes);
+    }
+
+    private static double readArea(final DataInputStream din) throws IOException
     {
         return din.readDouble();
+    }
+
+    public static void write(BoundaryData data, DataOutputStream out) throws IOException
+    {
+        out.writeInt(data.getId());
+        out.writeInt(data.getSubDivideIndex());
+        writeBoundingBox(data.getMbr(), out);
+        out.writeDouble(data.getArea());
+        writeData(data.getGeometry(), out);
+    }
+
+    private static void writeData(final Geometry geometry, final DataOutputStream out) throws IOException
+    {
+        final int count = countCoordinateRings(geometry);
+        out.writeInt(count);
+        final int written = doWriteData(geometry, out);
+        isTrue(count == written, "Expected " + count + " but wrote " + written);
+    }
+
+    private static int countCoordinateRings(final Geometry geometry)
+    {
+        int count = 0;
+        if (geometry instanceof MultiPolygon)
+        {
+            final GeometryCollection collection = (GeometryCollection) geometry;
+            for (int i = 0; i < collection.getNumGeometries(); i++)
+            {
+                final Geometry g = collection.getGeometryN(i);
+                count += countCoordinateRings(g);
+            }
+        }
+        else if (geometry instanceof Polygon)
+        {
+            final Polygon poly = (Polygon) geometry;
+            count++; // Shell
+            count += poly.getNumInteriorRing(); // Potential holes
+        }
+        else if (geometry instanceof LineString)
+        {
+            count++;
+        }
+        else
+        {
+            throw new IllegalArgumentException("Unhandled geometry type: " + geometry.getGeometryType());
+        }
+        return count;
+    }
+
+    private static int doWriteData(final Geometry geometry, final DataOutputStream out) throws IOException
+    {
+        int written = 0;
+        if (geometry instanceof MultiPolygon)
+        {
+            final GeometryCollection collection = (GeometryCollection) geometry;
+            for (int i = 0; i < collection.getNumGeometries(); i++)
+            {
+                final Geometry g = collection.getGeometryN(i);
+                written += doWriteData(g, out);
+            }
+        }
+        else if (geometry instanceof Polygon)
+        {
+            final Polygon poly = (Polygon) geometry;
+
+            // Always output the shell first, as that is what the holes are in (if any)
+            handleShell(poly, out);
+            written++;
+            written += handleHole(poly, out);
+        }
+        else if (geometry instanceof LineString)
+        {
+            writeCoordinates(false, geometry.getCoordinates(), out);
+            written++;
+        }
+        else
+        {
+            throw new IllegalArgumentException("Unhandled geometry type: " + geometry.getGeometryType());
+        }
+        return written;
+    }
+
+    private static int handleHole(final Polygon poly, DataOutputStream out) throws IOException
+    {
+        for (int i = 0; i < poly.getNumInteriorRing(); i++)
+        {
+            writeCoordinates(true, poly.getInteriorRingN(i).getCoordinates(), out);
+        }
+        return poly.getNumInteriorRing();
+    }
+
+    private static void handleShell(final Polygon poly, DataOutputStream out) throws IOException
+    {
+        writeCoordinates(false, poly.getExteriorRing().getCoordinates(), out);
+    }
+
+    private static void writeCoordinates(final boolean hole, final Coordinate[] coordinates, final DataOutputStream out) throws IOException
+    {
+        out.writeByte(hole ? 0 : 1);
+        out.writeInt(coordinates.length);
+        for (Coordinate coord : coordinates)
+        {
+            out.writeFloat((float) coord.y);
+            out.writeFloat((float) coord.x);
+        }
+    }
+
+    private static void writeBoundingBox(Envelope bb, final DataOutputStream out) throws IOException
+    {
+        final float minLat = (float) bb.getMinY();
+        final float maxLat = (float) bb.getMaxY();
+        final float minLng = (float) bb.getMinX();
+        final float maxLng = (float) bb.getMaxX();
+        out.writeFloat(minLat);
+        out.writeFloat(maxLat);
+        out.writeFloat(minLng);
+        out.writeFloat(maxLng);
+    }
+
+    public BoundaryData read(InputStream source) throws IOException
+    {
+        try (final DataInputStream in = new DataInputStream(source))
+        {
+            return readGeometry(in);
+        }
     }
 }

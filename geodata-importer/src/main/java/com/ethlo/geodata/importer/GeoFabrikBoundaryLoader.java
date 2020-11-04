@@ -91,7 +91,8 @@ public class GeoFabrikBoundaryLoader
         {
             final ObjectNode jsonNode = fetchGeoJsonFromServer(continentCode, countryName);
             final Geometry geometry = new GeoJsonReader().read(jsonNode.toPrettyString());
-            new FileBoundaryDao(dir).save(id, geometry);
+            throw new UnsupportedOperationException();
+            //new FileBoundaryDao(dir).save(id, geometry);
         }
         catch (IOException exc)
         {
