@@ -24,6 +24,8 @@ package com.ethlo.geodata.dao.file;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.DataOutput;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -187,7 +189,7 @@ public class FileBoundaryDao implements BoundaryDao
     private void outputForLookup(final int id, final int index, final double totalArea, final Geometry geometry)
     {
         final Path path = ensureDir(id);
-        try (final OutputStream out = new BufferedOutputStream(Files.newOutputStream(path.resolve(id + "-" + index + ".ego"))))
+        try (final DataOutputStream out = new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(path.resolve(id + "-" + index + ".ego")))))
         {
             binaryEncoder.write(totalArea, geometry, out);
         }
@@ -221,7 +223,7 @@ public class FileBoundaryDao implements BoundaryDao
     private void outputFull(final int id, final Geometry geometry)
     {
         final Path path = ensureDir(id);
-        try (final OutputStream out = new BufferedOutputStream(Files.newOutputStream(path.resolve(id + ".ego")))
+        try (final DataOutputStream out = new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(path.resolve(id + ".ego"))))
              //final Writer writer = Files.newBufferedWriter(boundaryPath.resolve(id + ".geojson"))
         )
         {

@@ -35,7 +35,7 @@ import org.tukaani.xz.XZOutputStream;
 
 public class CompressionUtil
 {
-    private static final LZMA2Options options = new LZMA2Options();
+    public static final LZMA2Options options = new LZMA2Options();
 
     static
     {

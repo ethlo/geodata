@@ -27,7 +27,6 @@ import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,18 +46,14 @@ import org.locationtech.jts.util.Assert;
 public class BinaryBoundaryEncoder
 {
     public static final int VERSION = 0x1;
-    private static final int divider = 0xffffffff;
     private static final GeometryFactory factory = new GeometryFactory();
 
-    public void write(final double totalArea, Geometry geometry, OutputStream target) throws IOException
+    public void write(final double totalArea, Geometry geometry, DataOutputStream out) throws IOException
     {
-        try (final DataOutputStream out = new DataOutputStream(target))
-        {
-            writeVersion(out);
-            writeBoundingBox(geometry, out);
-            out.writeDouble(totalArea);
-            writeData(geometry, out);
-        }
+        writeVersion(out);
+        writeBoundingBox(geometry, out);
+        out.writeDouble(totalArea);
+        writeData(geometry, out);
     }
 
     private void writeData(final Geometry geometry, final DataOutputStream out) throws IOException
