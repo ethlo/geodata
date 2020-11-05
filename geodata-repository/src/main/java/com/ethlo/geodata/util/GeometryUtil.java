@@ -107,10 +107,16 @@ public class GeometryUtil
     private static Geometry simplifyPolygon(final Polygon polygon, double tolerance)
     {
         Assert.notNull(polygon, "polygon cannot be null");
+        final Coordinate[] shell = polygon.getExteriorRing().getCoordinates();
+        if (shell.length == 0)
+        {
+            return polygon;
+        }
 
         tolerance = JtsPointExtractor.MULTIPLIER * tolerance;
         final Simplify<Coordinate> simplify = new Simplify<>(new Coordinate[0], new JtsPointExtractor());
         final Coordinate[] result = simplify.simplify(polygon.getExteriorRing().getCoordinates(), tolerance, false);
+
         if (result.length < 4)
         {
             return EMPTY_GEOMETRY;
