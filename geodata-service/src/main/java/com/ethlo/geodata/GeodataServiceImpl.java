@@ -35,6 +35,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -549,13 +550,8 @@ public class GeodataServiceImpl implements GeodataService
     {
         return findBoundaries(id).map(full ->
         {
-            final Geometry simplified = GeometryUtil.simplify(full, view, qualityConstant);
-            final Geometry clipped = GeometryUtil.clip(new Envelope(view.getMinLng(), view.getMaxLng(), view.getMinLat(), view.getMaxLat()), simplified);
-            if (clipped != null)
-            {
-                return clipped;
-            }
-            return simplified;
+            final Geometry clipped = GeometryUtil.clip(new Envelope(view.getMinLng(), view.getMaxLng(), view.getMinLat(), view.getMaxLat()), full);
+            return GeometryUtil.simplify(Objects.requireNonNullElse(clipped, full), view, qualityConstant);
         });
     }
 

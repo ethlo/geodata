@@ -125,7 +125,6 @@ public class RtreeRepository
                 }
             }
         }
-        logger.info("Loaded {} boundaries", tmp.size());
         return tmp;
     }
 
