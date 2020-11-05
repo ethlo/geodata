@@ -504,7 +504,10 @@ public class GeodataServiceImpl implements GeodataService
             }
         }
         path.removeFirst();
-        path.removeLast();
+        if (!path.isEmpty())
+        {
+            path.removeLast();
+        }
         return path;
     }
 
