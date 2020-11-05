@@ -77,8 +77,8 @@ public class FileBoundaryDao extends BaseMmapDao implements BoundaryDao
                     throw new UncheckedIOException(exc);
                 }
             }
-            // TODO: We should really use the divided polygons for much faster lookup once we figure out a safe clipping algorithm
-        }, e -> e.getSubdivideIndex() == 0), in);
+            // We use the divided polygons for much faster lookup
+        }, e -> e.getSubdivideIndex() > 0), in);
     }
 
     @Override
@@ -93,8 +93,7 @@ public class FileBoundaryDao extends BaseMmapDao implements BoundaryDao
     @Override
     public Optional<Geometry> findGeometryById(final int id, final int subdivideIndex)
     {
-        // TODO: We need to load the one with the right sub index
-        return Optional.ofNullable(getOffset(id))
+        return Optional.ofNullable(getOffset(id, subdivideIndex))
                 .map(this::getInputStream)
                 .map(BinaryBoundaryEncoder::readGeometry)
                 .map(BoundaryData::getGeometry);

@@ -42,7 +42,6 @@ import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.LinearRing;
-import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.util.Assert;
 
@@ -216,7 +215,7 @@ public class BinaryBoundaryEncoder
     private static int countCoordinateRings(final Geometry geometry)
     {
         int count = 0;
-        if (geometry instanceof MultiPolygon)
+        if (geometry instanceof GeometryCollection)
         {
             final GeometryCollection collection = (GeometryCollection) geometry;
             for (int i = 0; i < collection.getNumGeometries(); i++)
@@ -245,7 +244,7 @@ public class BinaryBoundaryEncoder
     private static int doWriteData(final Geometry geometry, final DataOutputStream out) throws IOException
     {
         int written = 0;
-        if (geometry instanceof MultiPolygon)
+        if (geometry instanceof GeometryCollection)
         {
             final GeometryCollection collection = (GeometryCollection) geometry;
             for (int i = 0; i < collection.getNumGeometries(); i++)

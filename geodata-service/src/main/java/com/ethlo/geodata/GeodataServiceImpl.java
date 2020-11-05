@@ -23,7 +23,6 @@ package com.ethlo.geodata;
  */
 
 import java.net.InetAddress;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -45,15 +44,10 @@ import javax.annotation.PostConstruct;
 
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.WKBReader;
-import org.locationtech.jts.io.WKBWriter;
-import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -184,11 +178,9 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public byte[] findBoundaries(int id)
+    public Optional<Geometry> findBoundaries(int id)
     {
-        return boundaryDao.findGeometryById(id)
-                .map(g -> new GeoJsonWriter().write(g).getBytes(StandardCharsets.UTF_8))
-                .orElse(null);
+        return boundaryDao.findGeometryById(id);
     }
 
     @Override
@@ -553,48 +545,30 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public Geometry findBoundaries(final int id, View view)
+    public Optional<Geometry> findBoundaries(final int id, View view)
     {
-        final Optional<Geometry> fullGeometry = this.boundaryDao.findGeometryById(id);
-
-        if (fullGeometry.isEmpty())
+        return findBoundaries(id).map(full ->
         {
-            return null;
-        }
-
-        final Geometry full = fullGeometry.get();
-        Geometry simplified = GeometryUtil.simplify(full, view, qualityConstant);
-        final Geometry clipped = GeometryUtil.clip(new Envelope(view.getMinLng(), view.getMaxLng(), view.getMinLat(), view.getMaxLat()), simplified);
-        if (clipped != null)
-        {
-            return clipped;
-        }
-        return simplified;
+            final Geometry simplified = GeometryUtil.simplify(full, view, qualityConstant);
+            final Geometry clipped = GeometryUtil.clip(new Envelope(view.getMinLng(), view.getMaxLng(), view.getMinLat(), view.getMaxLat()), simplified);
+            if (clipped != null)
+            {
+                return clipped;
+            }
+            return simplified;
+        });
     }
 
     @Override
-    public byte[] findBoundaries(final int id, double maxTolerance)
+    public Optional<Geometry> findBoundaries(final int id, double maxTolerance)
     {
-        final byte[] fullWkb = this.findBoundaries(id);
-
-        if (fullWkb == null)
-        {
-            return null;
-        }
-
-        final WKBReader reader = new WKBReader();
-        try
+        return this.findBoundaries(id).map(full ->
         {
             final Stopwatch stopwatch = Stopwatch.createStarted();
-            final Geometry full = reader.read(fullWkb);
             final Geometry simplified = GeometryUtil.simplify(full, maxTolerance);
             logger.debug("locationId: {}, original points: {}, remaining points: {}, ratio: {}, elapsed: {}", id, full.getNumPoints(), simplified.getNumPoints(), full.getNumPoints() / (double) simplified.getNumPoints(), stopwatch);
-            return new WKBWriter().write(simplified);
-        }
-        catch (ParseException exc)
-        {
-            throw new DataAccessResourceFailureException(exc.getMessage(), exc);
-        }
+            return simplified;
+        });
     }
 
     @Override

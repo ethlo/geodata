@@ -22,10 +22,7 @@ package com.ethlo.geodata;
  * #L%
  */
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -37,7 +34,6 @@ import java.util.stream.Collectors;
 
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.WKBWriter;
-import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.domain.Page;
@@ -56,6 +52,7 @@ import com.ethlo.geodata.rest.v1.model.V1PageContinent;
 import com.ethlo.geodata.util.InetUtil;
 import io.undertow.Handlers;
 import io.undertow.server.HttpHandler;
+import io.undertow.server.HttpServerExchange;
 import io.undertow.server.RoutingHandler;
 import io.undertow.server.handlers.ExceptionHandler;
 import io.undertow.server.handlers.PathHandler;
@@ -86,19 +83,15 @@ public class ServerHandler extends BaseServerHandler
                 .add(Methods.GET, "/v1/locations/{id}/boundaries", exchange ->
                 {
                     final int id = requireIntParam(exchange, "id");
-                    final byte[] boundary = Optional.ofNullable(geodataService.findBoundaries(id)).orElseThrow(notNull("No boundary for id " + id));
-                    exchange.getResponseHeaders().add(Headers.CONTENT_TYPE, "application/json");
-                    exchange.getResponseSender().send(ByteBuffer.wrap(boundary));
+                    final Geometry boundary = geodataService.findBoundaries(id).orElseThrow(notNull("No boundary for id " + id));
+                    sendGeoJson(exchange, boundary);
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}/boundaries.wkb", exchange ->
                 {
                     final int id = requireIntParam(exchange, "id");
-                    final byte[] boundary = Optional.ofNullable(geodataService.findBoundaries(id)).orElseThrow(notNull("No boundary for id " + id));
-                    final Geometry geom = new GeoJsonReader().read(new InputStreamReader(new ByteArrayInputStream(boundary), StandardCharsets.UTF_8));
-                    final byte[] wkb = new WKBWriter().write(geom);
-                    exchange.getResponseHeaders().add(Headers.CONTENT_TYPE, "application/wkb");
-                    exchange.getResponseSender().send(ByteBuffer.wrap(wkb));
+                    final Geometry boundary = geodataService.findBoundaries(id).orElseThrow(notNull("No boundary for id " + id));
+                    sendWkb(exchange, boundary);
                 })
 
                 .add(Methods.GET, "/v1/locations/ids/{ids}", exchange ->
@@ -228,16 +221,14 @@ public class ServerHandler extends BaseServerHandler
 
                 .add(Methods.GET, "/v1/locations/{id}/previewboundaries", exchange ->
                 {
-                    final int id = requireIntParam(exchange, "id");
-                    final double minLng = requireDoubleParam(exchange, "minLng");
-                    final double maxLng = requireDoubleParam(exchange, "maxLng");
-                    final double minLat = requireDoubleParam(exchange, "minLat");
-                    final double maxLat = requireDoubleParam(exchange, "maxLat");
-                    final int width = requireIntParam(exchange, "width");
-                    final int height = requireIntParam(exchange, "height");
-                    final Geometry boundary = Optional.ofNullable(geodataService.findBoundaries(id, new View(minLng, maxLng, minLat, maxLat, width, height))).orElseThrow(notNull("No boundary found for location with id " + id));
-                    exchange.getResponseHeaders().add(Headers.CONTENT_TYPE, "application/json");
-                    exchange.getResponseSender().send(new GeoJsonWriter().write(boundary));
+                    final Geometry boundary = getPreviewGeometry(exchange);
+                    sendGeoJson(exchange, boundary);
+                })
+
+                .add(Methods.GET, "/v1/locations/{id}/previewboundaries.wkb", exchange ->
+                {
+                    final Geometry boundary = getPreviewGeometry(exchange);
+                    sendWkb(exchange, boundary);
                 })
 
                 .add(Methods.GET, "/v1/locations/contains", exchange ->
@@ -251,12 +242,24 @@ public class ServerHandler extends BaseServerHandler
                             .orElseThrow(notNull("No boundaries containing " + lat + "," + lng + " found")));
                 })
 
-                .add(Methods.GET, "/v1/locations/{id}/outsideall/{ids}", exchange -> exchange.getResponseSender().send("outsideAll"));
+                .add(Methods.GET, "/v1/locations/{id}/outsideall/{ids}", exchange ->
+                {
+                    final int id = requireIntParam(exchange, "id");
+                    final List<Integer> ids = getIntList(exchange, "ids").orElseThrow(missingParam("ids"));
+                    json(exchange, geodataService.isOutsideAll(ids, id));
+                })
 
-        // TODO: Evaluate for removal
-        //.add(Methods.GET, "/v1/locations/{id}/previewboundaries.wkb", exchange -> exchange.getResponseSender().send("findPreviewBoundaries"))
-        //.add(Methods.GET, "/v1/locations/{id}/simpleboundaries.wkb", exchange -> exchange.getResponseSender().send("findSimpleBoundaries"))
-        //.add(Methods.GET, "/v1/locations/{id}/simpleboundaries", exchange -> exchange.getResponseSender().send("findSimpleBoundaries1"))
+                .add(Methods.GET, "/v1/locations/{id}/simpleboundaries.wkb", exchange ->
+                {
+                    final Geometry boundary = getSimpleBoundary(exchange);
+                    sendWkb(exchange, boundary);
+                })
+
+                .add(Methods.GET, "/v1/locations/{id}/simpleboundaries", exchange ->
+                {
+                    final Geometry boundary = getSimpleBoundary(exchange);
+                    sendGeoJson(exchange, boundary);
+                });
 
         // Static content
         final PathHandler path = Handlers.path(routes)
@@ -265,7 +268,7 @@ public class ServerHandler extends BaseServerHandler
                 .addExactPath("/", new ResourceHandler(classpathResource("public/index.html")));
 
         // Version info
-        final Map<String, Object> versionInfo = new LinkedHashMap();
+        final Map<String, Object> versionInfo = new LinkedHashMap<>();
         path.addExactPath("/sysadmin/info", exchange ->
         {
             final Properties gitProperties = new Properties();
@@ -290,5 +293,36 @@ public class ServerHandler extends BaseServerHandler
         }
 
         return exceptionHandler;
+    }
+
+    private Geometry getSimpleBoundary(final HttpServerExchange exchange)
+    {
+        final int id = requireIntParam(exchange, "id");
+        final double maxTolerance = requireDoubleParam(exchange, "maxTolerance");
+        return geodataService.findBoundaries(id, maxTolerance).orElseThrow(notNull("No boundary found for location with id " + id));
+    }
+
+    private void sendGeoJson(final HttpServerExchange exchange, final Geometry boundary)
+    {
+        exchange.getResponseHeaders().add(Headers.CONTENT_TYPE, "application/json");
+        exchange.getResponseSender().send(new GeoJsonWriter().write(boundary));
+    }
+
+    private void sendWkb(final HttpServerExchange exchange, final Geometry boundary)
+    {
+        exchange.getResponseHeaders().add(Headers.CONTENT_TYPE, "application/octet-stream");
+        exchange.getResponseSender().send(ByteBuffer.wrap(new WKBWriter().write(boundary)));
+    }
+
+    private Geometry getPreviewGeometry(final HttpServerExchange exchange)
+    {
+        final int id = requireIntParam(exchange, "id");
+        final double minLng = requireDoubleParam(exchange, "minLng");
+        final double maxLng = requireDoubleParam(exchange, "maxLng");
+        final double minLat = requireDoubleParam(exchange, "minLat");
+        final double maxLat = requireDoubleParam(exchange, "maxLat");
+        final int width = requireIntParam(exchange, "width");
+        final int height = requireIntParam(exchange, "height");
+        return geodataService.findBoundaries(id, new View(minLng, maxLng, minLat, maxLat, width, height)).orElseThrow(notNull("No boundary found for location with id " + id));
     }
 }

@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
@@ -50,13 +51,14 @@ import com.ethlo.geodata.io.BinaryBoundaryEncoder;
 import com.ethlo.geodata.model.BoundaryData;
 import com.ethlo.geodata.model.MapFeature;
 import com.ethlo.geodata.model.RawLocation;
+import com.ethlo.geodata.util.GeometryUtil;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Iterators;
 
 public class GeoNamesBoundaryImporter
 {
     public static final int MAX_SIZE = 2_000;
-    public static final int MAX_PIECES = 10_000;
+    public static final int MAX_PIECES = 100_000;
 
     private static final Path input = Paths.get("/home/morten/Downloads/allshapes.txt");
     private static final Path baseDirectory = Paths.get("/tmp/geodata/");
@@ -100,7 +102,7 @@ public class GeoNamesBoundaryImporter
                 {
                     final MapFeature mapFeature = featureCodes.get(location.get().getMapFeatureId());
                     final String key = mapFeature.getKey();
-                    return GeoConstants.COUNTRY_LEVEL_FEATURES.contains(key) || key.equals("A.ADM") || key.equals("A.ADM2");
+                    return GeoConstants.ADMINISTRATIVE_OR_ABOVE.contains(key) && !key.equals("A.ADM3") && !key.equals("A.ADM4");
                 }
             });
 
@@ -132,12 +134,11 @@ public class GeoNamesBoundaryImporter
                         final double fullArea = full.getArea();
                         bufferList.add(full);
 
-                        // TODO: Sub-divide once safe
-                        /*final AtomicInteger index = new AtomicInteger(1);
+                        final AtomicInteger index = new AtomicInteger(1);
                         final List<BoundaryData> list = GeometryUtil.split(id, geometry, MAX_SIZE, MAX_PIECES).stream()
                                 .map(tileGeometry -> new BoundaryData(id, index.getAndIncrement(), tileGeometry.getEnvelopeInternal(), fullArea, tileGeometry))
                                 .collect(Collectors.toList());
-                        */
+                        bufferList.addAll(list);
 
                         buffer = bufferList.iterator();
                     }
@@ -160,9 +161,8 @@ public class GeoNamesBoundaryImporter
 
     public static void main(String[] args)
     {
-        final Path basePath = Paths.get("/tmp/geodata");
-        final FeatureCodeDao featureCodeDao = new FileFeatureCodeDao(basePath);
-        final LocationDao locationDao = new FileMmapLocationDao(basePath);
+        final FeatureCodeDao featureCodeDao = new FileFeatureCodeDao(baseDirectory);
+        final LocationDao locationDao = new FileMmapLocationDao(baseDirectory);
         locationDao.load();
         new GeoNamesBoundaryImporter(featureCodeDao.load(), locationDao);
     }

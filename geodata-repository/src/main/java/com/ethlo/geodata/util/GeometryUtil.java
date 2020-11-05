@@ -31,7 +31,6 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.stream.Collectors;
 
-import org.geotools.feature.collection.ClippingFeatureCollection;
 import org.geotools.geometry.jts.GeometryClipper;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.CoordinateXY;
@@ -39,6 +38,7 @@ import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LinearRing;
 import org.locationtech.jts.geom.Polygon;
 import org.springframework.util.Assert;
 
@@ -131,7 +131,7 @@ public class GeometryUtil
     public static Geometry clip(Envelope envelope, Geometry geometry)
     {
         final GeometryClipper clipper = new GeometryClipper(new Envelope(envelope.getMinX(), envelope.getMaxX(), envelope.getMinY(), envelope.getMaxY()));
-        final Geometry clipped = clipper.clipSafe(geometry, false, 0);
+        final Geometry clipped = clipper.clipSafe(geometry, true, 0);
         if (clipped == null)
         {
             return null;
@@ -142,11 +142,50 @@ public class GeometryUtil
             return null;
         }
 
-        Coordinate[] coordinates = new Coordinate[clipped.getCoordinates().length];
-        final Coordinate[] sc = clipped.getCoordinates();
-        for (int i = 0; i < sc.length; i++)
+        if (clipped instanceof Polygon)
         {
-            coordinates[i] = new CoordinateXY(sc[i].x, sc[i].y);
+            return cleanupPolygon(clipped);
+        }
+        else if (clipped instanceof GeometryCollection)
+        {
+            final List<Polygon> polygons = new LinkedList<>();
+            for (int i = 0; i < clipped.getNumGeometries(); i++)
+            {
+                polygons.add(cleanupPolygon(clipped.getGeometryN(i)));
+            }
+            return geometryFactory.createGeometryCollection(polygons.toArray(new Polygon[0]));
+        }
+        throw new UnsupportedOperationException("Unknown geometry: " + clipped.getGeometryType());
+    }
+
+    private static Polygon cleanupPolygon(final Geometry geometry)
+    {
+        final Coordinate[] coordinates = getCoordinates(geometry.getCoordinates());
+
+        final List<LinearRing> holes = new LinkedList<>();
+        if (geometry instanceof Polygon)
+        {
+            final Polygon p = (Polygon) geometry;
+            for (int i = 0; i < p.getNumInteriorRing(); i++)
+            {
+                holes.add(geometryFactory.createLinearRing(getCoordinates(p.getInteriorRingN(i).getCoordinates())));
+            }
+        }
+
+        return geometryFactory.createPolygon(geometryFactory.createLinearRing(coordinates), holes.toArray(new LinearRing[0]));
+    }
+
+    private static Coordinate[] getCoordinates(final Coordinate[] inputCoordinates)
+    {
+        if (inputCoordinates.length < 4)
+        {
+            return new Coordinate[0];
+        }
+
+        Coordinate[] coordinates = new Coordinate[inputCoordinates.length];
+        for (int i = 0; i < inputCoordinates.length; i++)
+        {
+            coordinates[i] = new CoordinateXY(inputCoordinates[i].x, inputCoordinates[i].y);
         }
 
         // Ensure linear ring (same coordinate for first/last)
@@ -156,8 +195,7 @@ public class GeometryUtil
             tmp[coordinates.length] = coordinates[0];
             coordinates = tmp;
         }
-
-        return geometryFactory.createLineString(coordinates);
+        return coordinates;
     }
 
     public static Collection<Geometry> split(final int id, Geometry g, int maxSize, int maxPieces)

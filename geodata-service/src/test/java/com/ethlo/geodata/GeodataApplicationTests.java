@@ -25,6 +25,8 @@ package com.ethlo.geodata;
 import static com.ethlo.geodata.util.InetUtil.inet;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Optional;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.locationtech.jts.geom.Geometry;
@@ -148,14 +150,14 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForBoundariesOfNorway()
     {
-        final byte[] boundaries = geodataService.findBoundaries(3144096);
-        assertThat(boundaries).isNotNull();
+        final Optional<Geometry> boundaries = geodataService.findBoundaries(3144096);
+        assertThat(boundaries).isNotEmpty();
     }
 
     @Test
     public void testQueryForSimplifiedBoundariesOfNorway()
     {
-        final Geometry boundaries = geodataService.findBoundaries(3144096, new View(6, 18, 50, 62, 640, 480));
-        assertThat(boundaries).isNotNull();
+        final Optional<Geometry> boundaries = geodataService.findBoundaries(3144096, new View(6, 18, 50, 62, 640, 480));
+        assertThat(boundaries).isNotEmpty();
     }
 }

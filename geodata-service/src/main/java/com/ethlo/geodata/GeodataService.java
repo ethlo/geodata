@@ -25,6 +25,7 @@ package com.ethlo.geodata;
 import java.net.InetAddress;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 import javax.validation.Valid;
 
@@ -50,11 +51,11 @@ public interface GeodataService
 
     Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable);
 
-    byte[] findBoundaries(int id);
+    Optional<Geometry> findBoundaries(int id);
 
-    byte[] findBoundaries(int id, double maxTolerance);
+    Optional<Geometry> findBoundaries(int id, double maxTolerance);
 
-    Geometry findBoundaries(int id, View view);
+    Optional<Geometry> findBoundaries(int id, View view);
 
     Page<GeoLocation> findChildren(int locationId, Pageable pageable);
 
