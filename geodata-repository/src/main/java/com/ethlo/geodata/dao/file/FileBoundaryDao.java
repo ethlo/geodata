@@ -77,7 +77,8 @@ public class FileBoundaryDao extends BaseMmapDao implements BoundaryDao
                     throw new UncheckedIOException(exc);
                 }
             }
-        }, e -> e.getSubdivideIndex() > 0), in);
+            // TODO: We should really use the divided polygons for much faster lookup once we figure out a safe clipping algorithm
+        }, e -> e.getSubdivideIndex() == 0), in);
     }
 
     @Override

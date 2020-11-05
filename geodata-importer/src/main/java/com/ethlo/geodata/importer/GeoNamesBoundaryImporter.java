@@ -30,11 +30,11 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
@@ -50,7 +50,6 @@ import com.ethlo.geodata.io.BinaryBoundaryEncoder;
 import com.ethlo.geodata.model.BoundaryData;
 import com.ethlo.geodata.model.MapFeature;
 import com.ethlo.geodata.model.RawLocation;
-import com.ethlo.geodata.util.GeometryUtil;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Iterators;
 
@@ -125,21 +124,22 @@ public class GeoNamesBoundaryImporter
                     final Map<String, String> next = filtered.next();
                     final int id = Integer.parseInt(next.get("id"));
 
+                    final List<BoundaryData> bufferList = new LinkedList<>();
                     try
                     {
                         final Geometry geometry = new GeoJsonReader().read(next.get("json"));
                         final BoundaryData full = new BoundaryData(id, 0, geometry.getEnvelopeInternal(), geometry.getArea(), geometry);
                         final double fullArea = full.getArea();
+                        bufferList.add(full);
 
-                        final AtomicInteger index = new AtomicInteger(1);
+                        // TODO: Sub-divide once safe
+                        /*final AtomicInteger index = new AtomicInteger(1);
                         final List<BoundaryData> list = GeometryUtil.split(id, geometry, MAX_SIZE, MAX_PIECES).stream()
                                 .map(tileGeometry -> new BoundaryData(id, index.getAndIncrement(), tileGeometry.getEnvelopeInternal(), fullArea, tileGeometry))
                                 .collect(Collectors.toList());
+                        */
 
-                        // Add full geometry first
-                        list.add(0, full);
-
-                        buffer = list.iterator();
+                        buffer = bufferList.iterator();
                     }
                     catch (ParseException e)
                     {

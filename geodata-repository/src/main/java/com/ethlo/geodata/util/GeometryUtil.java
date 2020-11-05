@@ -131,7 +131,7 @@ public class GeometryUtil
     public static Geometry clip(Envelope envelope, Geometry geometry)
     {
         final GeometryClipper clipper = new GeometryClipper(new Envelope(envelope.getMinX(), envelope.getMaxX(), envelope.getMinY(), envelope.getMaxY()));
-        final Geometry clipped = clipper.clip(geometry, true);
+        final Geometry clipped = clipper.clipSafe(geometry, false, 0);
         if (clipped == null)
         {
             return null;
