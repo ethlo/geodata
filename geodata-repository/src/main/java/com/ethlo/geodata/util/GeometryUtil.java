@@ -31,6 +31,7 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.stream.Collectors;
 
+import org.geotools.feature.collection.ClippingFeatureCollection;
 import org.geotools.geometry.jts.GeometryClipper;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.CoordinateXY;
@@ -130,7 +131,7 @@ public class GeometryUtil
     public static Geometry clip(Envelope envelope, Geometry geometry)
     {
         final GeometryClipper clipper = new GeometryClipper(new Envelope(envelope.getMinX(), envelope.getMaxX(), envelope.getMinY(), envelope.getMaxY()));
-        final Geometry clipped = clipper.clipSafe(geometry, true, 0);
+        final Geometry clipped = clipper.clip(geometry, true);
         if (clipped == null)
         {
             return null;
@@ -161,9 +162,9 @@ public class GeometryUtil
 
     public static Collection<Geometry> split(final int id, Geometry g, int maxSize, int maxPieces)
     {
-        if (maxSize < 1000)
+        if (maxSize < 10)
         {
-            throw new IllegalArgumentException("maxSize should be greater than or equal to 1000");
+            throw new IllegalArgumentException("maxSize should be greater than or equal to 10");
         }
         if (maxPieces <= 1)
         {
@@ -174,7 +175,7 @@ public class GeometryUtil
         queue.add(Objects.requireNonNull(g));
         while (!queue.isEmpty())
         {
-            Geometry geom = queue.remove();
+            final Geometry geom = queue.remove();
             if (geom != null)
             {
                 if (size(geom) > maxSize)
@@ -204,10 +205,12 @@ public class GeometryUtil
     private static List<Geometry> subdivide(final Geometry geom)
     {
         final Envelope bb = geom.getEnvelopeInternal();
-        return Arrays.stream(new Envelope[]{new Envelope(bb.getMinX(), bb.centre().x, bb.getMinY(), bb.centre().y),
-                new Envelope(bb.centre().x, bb.getMaxX(), bb.getMinY(), bb.centre().y),
-                new Envelope(bb.getMinX(), bb.centre().x, bb.centre().y, bb.getMaxY()),
-                new Envelope(bb.centre().x, bb.getMaxX(), bb.centre().y, bb.getMaxY())})
+        final Coordinate centre = bb.centre();
+        return Arrays.stream(new Envelope[]{
+                new Envelope(bb.getMinX(), centre.x, bb.getMinY(), centre.y),
+                new Envelope(centre.x, bb.getMaxX(), bb.getMinY(), centre.y),
+                new Envelope(bb.getMinX(), centre.x, centre.y, bb.getMaxY()),
+                new Envelope(centre.x, bb.getMaxX(), centre.y, bb.getMaxY())})
                 .map(box -> clip(box, geom))
                 .collect(Collectors.toList());
     }
