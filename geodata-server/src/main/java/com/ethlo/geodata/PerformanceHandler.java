@@ -18,29 +18,34 @@ import io.undertow.util.PathTemplateMatch;
 @SuppressWarnings("UnstableApiUsage")
 public class PerformanceHandler implements HttpHandler
 {
-    private static final ConcurrentHashMap<Thread, PerformanceTracker> perThreadPerformance = new ConcurrentHashMap<>();
-    private static final int historySize = 100;
+    private static final int PER_THREAD_HISTORY = 100;
+    private final ConcurrentHashMap<Thread, PerformanceTracker> perThreadPerformance = new ConcurrentHashMap<>();
     private final HttpHandler delegate;
 
     public PerformanceHandler(HttpHandler delegate)
     {
         final PathHandler pathHandler = Handlers.path(delegate);
-        pathHandler.addPrefixPath("/sysadmin/performance", exchange ->
-        {
-            BaseServerHandler.json(exchange, getPerformanceMap());
-        });
+        pathHandler.addPrefixPath("/sysadmin/performance", exchange -> BaseServerHandler.json(exchange, getPerformanceMap()));
         this.delegate = pathHandler;
     }
 
     private Map<String, Object> getPerformanceMap()
     {
-        final PerformanceTracker combined = new PerformanceTracker();
+        final PerformanceTracker combined = new PerformanceTracker(Integer.MAX_VALUE);
         final Map<String, Long> totalInvocations = new HashMap<>();
         for (final PerformanceTracker tracker : perThreadPerformance.values())
         {
             for (Map.Entry<String, EvictingQueue<Long>> entry : tracker.results.entrySet())
             {
-                combined.results.put(entry.getKey(), entry.getValue());
+                combined.results.compute(entry.getKey(), (k, v) ->
+                {
+                    if (v == null)
+                    {
+                        v = EvictingQueue.create(perThreadPerformance.size() * PER_THREAD_HISTORY);
+                    }
+                    v.addAll(entry.getValue());
+                    return v;
+                });
                 totalInvocations.compute(entry.getKey(), (k, v) ->
                 {
                     if (v == null)
@@ -90,13 +95,12 @@ public class PerformanceHandler implements HttpHandler
             {
                 if (v == null)
                 {
-                    v = new PerformanceTracker();
+                    v = new PerformanceTracker(PER_THREAD_HISTORY);
                 }
                 v.addResult(path.getMatchedTemplate(), elapsed);
                 return v;
             });
         }
-        //System.out.println(path.getMatchedTemplate() + ": " + ( / 1_000_000D));
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -104,6 +108,12 @@ public class PerformanceHandler implements HttpHandler
     {
         private final Map<String, EvictingQueue<Long>> results = new HashMap<>();
         private final Map<String, Long> totalInvocations = new HashMap<>();
+        private final int maxEntries;
+
+        public PerformanceTracker(final int maxEntries)
+        {
+            this.maxEntries = maxEntries;
+        }
 
         public void addResult(String path, long elapsed)
         {
@@ -121,7 +131,7 @@ public class PerformanceHandler implements HttpHandler
             {
                 if (v == null)
                 {
-                    v = EvictingQueue.create(historySize);
+                    v = EvictingQueue.create(maxEntries);
                 }
                 v.add(elapsed);
                 return v;
