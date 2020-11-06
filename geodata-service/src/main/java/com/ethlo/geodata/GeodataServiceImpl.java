@@ -80,7 +80,6 @@ import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.progress.StatefulProgressListener;
 import com.ethlo.geodata.progress.StepProgressListener;
 import com.ethlo.geodata.util.GeometryUtil;
-import com.ethlo.geodata.util.MemoryUsageUtil;
 import com.ethlo.time.Chronograph;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.BiMap;
@@ -248,7 +247,7 @@ public class GeodataServiceImpl implements GeodataService
         progressListener.begin("load_locations");
         final int locationCount = locationDao.load();
         logger.info("Loaded {} locations", locationCount);
-        MemoryUsageUtil.dumpMemUsage("After locations loaded");
+        //MemoryUsageUtil.dumpMemUsage("After locations loaded");
     }
 
     private void loadCountries(final LoadProgressListener progressListener)
@@ -279,7 +278,7 @@ public class GeodataServiceImpl implements GeodataService
         final Map<Integer, Integer> childToParent = hierarchyDao.load();
         logger.info("Loaded {} hierarchy references", childToParent.size());
         progressListener.end();
-        MemoryUsageUtil.dumpMemUsage("Location hierarchy loaded");
+        //MemoryUsageUtil.dumpMemUsage("Location hierarchy loaded");
 
         progressListener.begin("join_admin_levels");
         joinHierarchyNodes(childToParent, progressListener::progress);
@@ -302,7 +301,7 @@ public class GeodataServiceImpl implements GeodataService
         }
         progressListener.end();
         logger.info("Search index loaded with {} entries", locationsByName.size());
-        MemoryUsageUtil.dumpMemUsage("Search-index loaded");
+        //MemoryUsageUtil.dumpMemUsage("Search-index loaded");
     }
 
     private void addToSearchIndex(final RawLocation e)

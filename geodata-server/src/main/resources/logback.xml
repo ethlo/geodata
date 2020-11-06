@@ -9,8 +9,6 @@
 		</encoder>
 	</appender>
 
-	<logger name="cz.jirutka.spring.exhandler.handlers.RestExceptionHandler" level="debug" />
-	
 	<root level="info">
 		<appender-ref ref="stdout" />
 	</root>

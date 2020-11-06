@@ -22,6 +22,7 @@ package com.ethlo.geodata.util;
  * #L%
  */
 
+import java.lang.management.BufferPoolMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
@@ -29,13 +30,22 @@ import java.lang.management.RuntimeMXBean;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
+
 public class MemoryUsageUtil
 {
     private static final Logger logger = LoggerFactory.getLogger(MemoryUsageUtil.class);
+    private static final ObjectWriter jsonWriter = new ObjectMapper().writerWithDefaultPrettyPrinter();
 
     public static OffsetDateTime getJvmStartTime()
     {
@@ -51,25 +61,53 @@ public class MemoryUsageUtil
             return;
         }
 
-        final MemoryMXBean mbean = ManagementFactory.getMemoryMXBean();
-        final MemoryUsage mem = mbean.getHeapMemoryUsage();
-        logger.info("{}: used={} committed={} max={}",
-                description,
-                humanReadableByteCount(mem.getUsed(), false),
-                humanReadableByteCount(mem.getCommitted(), false),
-                humanReadableByteCount(mem.getMax(), false)
-        );
+        try
+        {
+            logger.info(description + "\n{}", jsonWriter.writeValueAsString(getInfoMap()));
+        }
+        catch (JsonProcessingException ignored)
+        {
+
+        }
     }
 
-    public static String humanReadableByteCount(long bytes, boolean si)
+    public static String humanReadableByteCount(long bytes)
     {
-        final int unit = si ? 1000 : 1024;
+        final int unit = 1024;
         if (bytes < unit)
         {
             return bytes + " B";
         }
         final int exp = (int) (Math.log(bytes) / Math.log(unit));
-        String pre = (si ? "kMGTPE" : "KMGTPE").charAt(exp - 1) + (si ? "" : "i");
+        String pre = ("KMGTPE").charAt(exp - 1) + "i";
         return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
+    }
+
+    public static Map<String, Object> getInfoMap()
+    {
+        final Map<String, Object> info = new LinkedHashMap<>();
+
+        final MemoryMXBean mbean = ManagementFactory.getMemoryMXBean();
+        final MemoryUsage mem = mbean.getHeapMemoryUsage();
+        final Map<String, Object> heap = new LinkedHashMap<>();
+        heap.put("used", humanReadableByteCount(mem.getUsed()));
+        heap.put("committed", humanReadableByteCount(mem.getCommitted()));
+        heap.put("max", humanReadableByteCount(mem.getMax()));
+        info.put("heap", heap);
+
+        final List<Map<String, Object>> bufferPools = new LinkedList<>();
+        final List<BufferPoolMXBean> pools = ManagementFactory.getPlatformMXBeans(BufferPoolMXBean.class);
+        for (BufferPoolMXBean pool : pools)
+        {
+            final Map<String, Object> poolInfo = new LinkedHashMap<>();
+            poolInfo.put("name", pool.getName());
+            poolInfo.put("count", pool.getCount());
+            poolInfo.put("used", humanReadableByteCount(pool.getMemoryUsed()));
+            poolInfo.put("capacity", humanReadableByteCount(pool.getTotalCapacity()));
+            bufferPools.add(poolInfo);
+        }
+        info.put("bufferPools", bufferPools);
+
+        return info;
     }
 }

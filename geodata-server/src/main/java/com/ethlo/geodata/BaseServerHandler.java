@@ -55,6 +55,31 @@ public class BaseServerHandler
                 stream.writeVal(ITU.formatUtc((Date) obj)));
     }
 
+    public static void json(final HttpServerExchange exchange, final Object obj) throws JsonProcessingException
+    {
+        exchange.getResponseHeaders().add(Headers.CONTENT_TYPE, "application/json");
+        final boolean pretty = getBooleanParam(exchange, "pretty").orElse(false);
+        if (!pretty)
+        {
+            exchange.getResponseSender().send(JsonStream.serialize(obj));
+        }
+        else
+        {
+            exchange.getResponseSender().send(ByteBuffer.wrap(JsonUtil.getMapper().writerWithDefaultPrettyPrinter().writeValueAsBytes(obj)));
+        }
+    }
+
+    protected static Optional<Boolean> getBooleanParam(final HttpServerExchange exchange, final String name)
+    {
+        return getFirstParam(exchange, name).map(Boolean::parseBoolean);
+    }
+
+    public static Optional<String> getFirstParam(final HttpServerExchange exchange, final String name)
+    {
+        final Map<String, Deque<String>> params = exchange.getQueryParameters();
+        return Optional.ofNullable(params.get(name)).map(Deque::getFirst);
+    }
+
     protected Pageable pageable(final HttpServerExchange exchange)
     {
         final int page = getIntParam(exchange, "page").orElse(0);
@@ -90,20 +115,6 @@ public class BaseServerHandler
                         .collect(Collectors.toList()));
     }
 
-    protected void json(final HttpServerExchange exchange, final Object obj) throws JsonProcessingException
-    {
-        exchange.getResponseHeaders().add(Headers.CONTENT_TYPE, "application/json");
-        final boolean pretty = getBooleanParam(exchange, "pretty").orElse(false);
-        if (!pretty)
-        {
-            exchange.getResponseSender().send(JsonStream.serialize(obj));
-        }
-        else
-        {
-            exchange.getResponseSender().send(ByteBuffer.wrap(JsonUtil.getMapper().writerWithDefaultPrettyPrinter().writeValueAsBytes(obj)));
-        }
-    }
-
     protected Optional<Integer> getIntParam(final HttpServerExchange exchange, final String name)
     {
         return getFirstParam(exchange, name).map(this::parseInt);
@@ -133,20 +144,9 @@ public class BaseServerHandler
         }
     }
 
-    protected Optional<Boolean> getBooleanParam(final HttpServerExchange exchange, final String name)
-    {
-        return getFirstParam(exchange, name).map(Boolean::parseBoolean);
-    }
-
     protected Optional<String> getStringParam(final HttpServerExchange exchange, final String name)
     {
         return getFirstParam(exchange, name);
-    }
-
-    public Optional<String> getFirstParam(final HttpServerExchange exchange, final String name)
-    {
-        final Map<String, Deque<String>> params = exchange.getQueryParameters();
-        return Optional.ofNullable(params.get(name)).map(Deque::getFirst);
     }
 
     protected Supplier<RuntimeException> missingParam(String name)

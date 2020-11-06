@@ -50,6 +50,7 @@ import com.ethlo.geodata.rest.v1.model.V1Continent;
 import com.ethlo.geodata.rest.v1.model.V1GeoLocation;
 import com.ethlo.geodata.rest.v1.model.V1PageContinent;
 import com.ethlo.geodata.util.InetUtil;
+import com.ethlo.geodata.util.MemoryUsageUtil;
 import io.undertow.Handlers;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
@@ -59,6 +60,7 @@ import io.undertow.server.handlers.PathHandler;
 import io.undertow.server.handlers.resource.ResourceHandler;
 import io.undertow.util.Headers;
 import io.undertow.util.Methods;
+import io.undertow.util.PathTemplateMatch;
 
 public class ServerHandler extends BaseServerHandler
 {
@@ -261,8 +263,11 @@ public class ServerHandler extends BaseServerHandler
                     sendGeoJson(exchange, boundary);
                 });
 
+        // Performance logging handler
+        final HttpHandler performanceHandler = new PerformanceHandler(routes);
+
         // Static content
-        final PathHandler path = Handlers.path(routes)
+        final PathHandler path = Handlers.path(performanceHandler)
                 .addPrefixPath("/swagger-ui", new ResourceHandler(classpathResource("META-INF/resources/webjars/swagger-ui/3.35.2")))
                 .addExactPath("/spec.yaml", new ResourceHandler(classpathResource("public/spec.yaml")))
                 .addExactPath("/", new ResourceHandler(classpathResource("public/index.html")));
@@ -276,8 +281,15 @@ public class ServerHandler extends BaseServerHandler
             versionInfo.put("git", gitProperties);
             json(exchange, versionInfo);
         });
+
+        // Health
         path.addExactPath("/sysadmin/health", exchange ->
                 json(exchange, Collections.singletonMap("status", "UP")));
+
+        // Memory
+        path.addExactPath("/sysadmin/memory", exchange ->
+                json(exchange, MemoryUsageUtil.getInfoMap()));
+
 
         // Exception handlers
         final ExceptionHandler exceptionHandler = Handlers.exceptionHandler(path);
