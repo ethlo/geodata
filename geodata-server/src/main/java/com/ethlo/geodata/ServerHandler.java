@@ -82,6 +82,12 @@ public class ServerHandler extends BaseServerHandler
                 // Source data information
                 .add(Methods.GET, "/v1/source", exchange -> json(exchange, metaDao.load()))
 
+                .add(Methods.GET, "/v1/locations/ids/{ids}", exchange ->
+                {
+                    final List<Integer> ids = getIntList(exchange, "ids").orElseThrow(missingParam("ids"));
+                    json(exchange, ids.stream().map(geodataService::findById).collect(Collectors.toList()));
+                })
+
                 .add(Methods.GET, "/v1/locations/{id}/boundaries", exchange ->
                 {
                     final int id = requireIntParam(exchange, "id");
@@ -94,12 +100,6 @@ public class ServerHandler extends BaseServerHandler
                     final int id = requireIntParam(exchange, "id");
                     final Geometry boundary = geodataService.findBoundaries(id).orElseThrow(notNull("No boundary for id " + id));
                     sendWkb(exchange, boundary);
-                })
-
-                .add(Methods.GET, "/v1/locations/ids/{ids}", exchange ->
-                {
-                    final List<Integer> ids = getIntList(exchange, "ids").orElseThrow(missingParam("ids"));
-                    json(exchange, ids.stream().map(geodataService::findById).collect(Collectors.toList()));
                 })
 
                 .add(Methods.GET, "/v1/locations/ip/{ip}", exchange ->
