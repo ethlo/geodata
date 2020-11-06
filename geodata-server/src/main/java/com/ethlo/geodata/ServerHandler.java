@@ -82,7 +82,7 @@ public class ServerHandler extends BaseServerHandler
                 // Source data information
                 .add(Methods.GET, "/v1/source", exchange -> json(exchange, metaDao.load()))
 
-                .add(Methods.GET, "/v1/locations/ids/{ids}", exchange ->
+                .add(Methods.GET, "/v1/locations/ids", exchange ->
                 {
                     final List<Integer> ids = getIntList(exchange, "ids").orElseThrow(missingParam("ids"));
                     json(exchange, ids.stream().map(geodataService::findById).collect(Collectors.toList()));
