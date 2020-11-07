@@ -30,6 +30,8 @@ import java.util.LongSummaryStatistics;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.ethlo.geodata.util.MemoryUsageUtil;
+import com.ethlo.time.ITU;
 import com.google.common.collect.EvictingQueue;
 import io.undertow.Handlers;
 import io.undertow.server.HttpHandler;
@@ -97,6 +99,7 @@ public class PerformanceHandler implements HttpHandler
             results.put(entry.getKey(), details);
         }
 
+        results.put("server_start_time", ITU.formatUtc(MemoryUsageUtil.getJvmStartTime()));
         return results;
     }
 

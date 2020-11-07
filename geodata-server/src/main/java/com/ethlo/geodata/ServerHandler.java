@@ -60,7 +60,6 @@ import io.undertow.server.handlers.PathHandler;
 import io.undertow.server.handlers.resource.ResourceHandler;
 import io.undertow.util.Headers;
 import io.undertow.util.Methods;
-import io.undertow.util.PathTemplateMatch;
 
 public class ServerHandler extends BaseServerHandler
 {
@@ -78,9 +77,6 @@ public class ServerHandler extends BaseServerHandler
     public HttpHandler handler(Map<Class<? extends Throwable>, Function<Throwable, ApiError>> errorHandlers)
     {
         final RoutingHandler routes = Handlers.routing()
-
-                // Source data information
-                .add(Methods.GET, "/v1/source", exchange -> json(exchange, metaDao.load()))
 
                 .add(Methods.GET, "/v1/locations/ids", exchange ->
                 {
@@ -271,6 +267,9 @@ public class ServerHandler extends BaseServerHandler
                 .addPrefixPath("/swagger-ui", new ResourceHandler(classpathResource("META-INF/resources/webjars/swagger-ui/3.35.2")))
                 .addExactPath("/spec.yaml", new ResourceHandler(classpathResource("public/spec.yaml")))
                 .addExactPath("/", new ResourceHandler(classpathResource("public/index.html")));
+
+        // Source data information
+        path.addExactPath("/sysadmin/source", exchange -> json(exchange, metaDao.load()));
 
         // Version info
         final Map<String, Object> versionInfo = new LinkedHashMap<>();
