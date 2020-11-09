@@ -29,6 +29,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.AbstractMap;
@@ -89,23 +90,23 @@ public class ResourceUtil
         return new UrlResource(urlParts[0]);
     }
 
-    public static Map.Entry<Date, File> fetchResource(String alias, String urlStr) throws IOException
+    public static Map.Entry<Date, File> fetchResource(String alias, Duration maxAge, String urlStr) throws IOException
     {
         final String[] urlParts = StringUtils.split(urlStr, "|");
         if (urlParts[0].endsWith("zip"))
         {
-            return fetchZip(alias, urlParts[0], urlParts[1]);
+            return fetchZip(alias, urlParts[0], maxAge, urlParts[1]);
         }
         else
         {
-            return fetch(alias, urlStr);
+            return fetch(alias, urlStr, maxAge);
         }
     }
 
-    private static Map.Entry<Date, File> fetchZip(String alias, String url, String zipEntry) throws IOException
+    private static Map.Entry<Date, File> fetchZip(String alias, String url, Duration maxAge, String zipEntry) throws IOException
     {
         final Resource resource = openConnection(url);
-        return downloadIfNewer(alias, resource, f ->
+        return downloadIfNewer(alias, resource, maxAge, f ->
         {
             final ZipInputStream zipIn = new ZipInputStream(resource.getInputStream());
             ZipEntry entry;
@@ -119,7 +120,7 @@ public class ResourceUtil
         });
     }
 
-    private static Entry<Date, File> downloadIfNewer(String alias, Resource remoteResource, CheckedFunction<InputStream, InputStream> fun) throws IOException
+    private static Entry<Date, File> downloadIfNewer(String alias, Resource remoteResource, Duration maxAge, CheckedFunction<InputStream, InputStream> fun) throws IOException
     {
         final File file = new File(tmpDir, alias + "_" + remoteResource.getURL().hashCode());
         final Date remoteLastModified = new Date(remoteResource.lastModified());
@@ -130,9 +131,9 @@ public class ResourceUtil
             return new AbstractMap.SimpleEntry<>(new Date(localLastModified), file);
         }
 
-        logger.info("Local file for " + "alias {}" + "\nPath: {}" + "\nExists: {}" + "\nLast-Modified: {}", alias, file.getAbsolutePath(), file.exists(), formatDate(localLastModified));
+        logger.info("Local file for " + "alias {}: Path: {}" + " - Exists: {}" + " - Last-Modified: {}", alias, file.getAbsolutePath(), file.exists(), formatDate(localLastModified));
 
-        if (remoteLastModified.getTime() > localLastModified)
+        if (remoteLastModified.getTime() > localLastModified + maxAge.toMillis())
         {
             logger.info("New file has last-modified value of {}", formatDate(remoteLastModified.getTime()));
             logger.info("Downloading new file from {}", remoteResource.getURL());
@@ -153,10 +154,10 @@ public class ResourceUtil
         return LocalDateTime.ofEpochSecond(timestamp / 1_000, 0, ZoneOffset.UTC);
     }
 
-    private static Entry<Date, File> fetch(String alias, String url) throws IOException
+    private static Entry<Date, File> fetch(String alias, String url, final Duration maxAge) throws IOException
     {
         final Resource resource = openConnection(url);
-        return downloadIfNewer(alias, resource, in -> in);
+        return downloadIfNewer(alias, resource, maxAge, in -> in);
     }
 
     @FunctionalInterface

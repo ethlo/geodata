@@ -30,6 +30,7 @@ import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Duration;
 import java.util.Date;
 import java.util.Map;
 
@@ -50,13 +51,16 @@ public class FileIpDataImporter implements DataImporter
 {
     private final Path filePath;
     private final String url;
+    private final Duration maxAge;
 
     public FileIpDataImporter(
             @Value("${geodata.geolite2.source.mmdb}") @NotNull final String url,
-            @Value("${geodata.base-path}") final Path basePath)
+            @Value("${geodata.base-path}") final Path basePath,
+            @Value("${geodata.max-data-age}") final Duration maxAge)
     {
         this.filePath = basePath.resolve(FileIpDao.IP_FILE);
         this.url = url;
+        this.maxAge = maxAge;
     }
 
     @Override
@@ -77,7 +81,7 @@ public class FileIpDataImporter implements DataImporter
     {
         try
         {
-            final Map.Entry<Date, File> entry = ResourceUtil.fetchResource(DataType.IP, url);
+            final Map.Entry<Date, File> entry = ResourceUtil.fetchResource(DataType.IP, maxAge, url);
             final Path tmp = filePath.getParent().resolve(FileIpDao.IP_FILE + ".tmp");
             TarGzUtil.extract(new BufferedInputStream(Files.newInputStream(entry.getValue().toPath())), (e) ->
             {

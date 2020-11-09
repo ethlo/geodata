@@ -1,4 +1,4 @@
-package com.ethlo.geodata.importer;
+package com.ethlo.geodata.importer.boundary;
 
 /*-
  * #%L
@@ -27,12 +27,9 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Arrays;
+import java.time.Duration;
 import java.util.Date;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -43,17 +40,15 @@ import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.util.CloseableIterator;
 
-import com.ethlo.geodata.dao.file.FileBoundaryDao;
 import com.ethlo.geodata.util.Kml2GeoJson;
 import com.ethlo.geodata.util.ResourceUtil;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-public class GeoFabrikBoundaryLoader
+public class GeoFabrikBoundaryImporter
 {
     private static final String BASE_URL = "http://download.geofabrik.de/";
-    private static final Logger logger = LoggerFactory.getLogger(GeoFabrikBoundaryLoader.class);
+    private static final Logger logger = LoggerFactory.getLogger(GeoFabrikBoundaryImporter.class);
 
     private final Map<String, String> continents = new LinkedHashMap<>()
     {{
@@ -65,25 +60,6 @@ public class GeoFabrikBoundaryLoader
         put("SA", "south-america");
         put("AN", "antarctica");
     }};
-    private final Path dir = Paths.get("/tmp/geodata/");
-
-    public GeoFabrikBoundaryLoader() throws IOException
-    {
-        final List<String> columns = Arrays.asList("iso", "iso3", "iso_numeric", "fips", "country", "capital", "area", "population", "continent", "tld", "currency_Code", "currency_name", "phone", "postal_code_format", "postal_code_regex", "languages", "geonameid");
-        final String geoNamesCountryInfoUrl = "http://download.geonames.org/export/dump/countryInfo.txt";
-        final Map.Entry<Date, File> result = ResourceUtil.fetchResource("country", geoNamesCountryInfoUrl);
-        try (final CloseableIterator<Map<String, String>> iter = new CsvFileIterator<>(result.getValue().toPath(), columns, true, 0, i -> i))
-        {
-            while (iter.hasNext())
-            {
-                final Map<String, String> next = iter.next();
-                final String name = next.get("country").toLowerCase();
-                final String continent = next.get("continent");
-                final int id = Integer.parseInt(next.get("geonameid"));
-                importGeoJson(id, continent, name);
-            }
-        }
-    }
 
     private void importGeoJson(final int id, final String continentCode, final String countryName)
     {
@@ -91,8 +67,6 @@ public class GeoFabrikBoundaryLoader
         {
             final ObjectNode jsonNode = fetchGeoJsonFromServer(continentCode, countryName);
             final Geometry geometry = new GeoJsonReader().read(jsonNode.toPrettyString());
-            throw new UnsupportedOperationException();
-            //new FileBoundaryDao(dir).save(id, geometry);
         }
         catch (IOException exc)
         {
@@ -108,7 +82,7 @@ public class GeoFabrikBoundaryLoader
     {
         final String continentName = Objects.requireNonNull(continents.get(continentCode.toUpperCase()), "No continent with code " + continentCode);
         final String url = BASE_URL + continentName + "/" + countryName + ".kml";
-        final Map.Entry<Date, File> file = ResourceUtil.fetchResource((continentName + "_" + countryName + ".kml").toLowerCase(), url);
+        final Map.Entry<Date, File> file = ResourceUtil.fetchResource((continentName + "_" + countryName + ".kml").toLowerCase(), Duration.ZERO, url);
         try (final Reader reader = Files.newBufferedReader(file.getValue().toPath()))
         {
             return Kml2GeoJson.parse(reader);

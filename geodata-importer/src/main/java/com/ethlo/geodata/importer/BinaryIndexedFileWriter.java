@@ -48,7 +48,7 @@ public abstract class BinaryIndexedFileWriter<T extends IntIdentifiable>
         this.alias = alias;
     }
 
-    protected int writeData(Iterator<T> data) throws IOException
+    public int writeData(Iterator<T> data) throws IOException
     {
         int count = 0;
 

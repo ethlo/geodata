@@ -56,7 +56,6 @@ import com.ethlo.geodata.dao.file.FileMmapLocationDao;
 import com.ethlo.geodata.dao.file.FileTimeZoneDao;
 import com.ethlo.geodata.progress.StatefulProgressListener;
 import com.ethlo.geodata.util.MemoryUsageUtil;
-import io.undertow.server.HttpHandler;
 
 @SpringBootApplication
 public class UndertowServer
@@ -65,6 +64,17 @@ public class UndertowServer
 
     public UndertowServer()
     {
+        final Map<Class<? extends Throwable>, Function<Throwable, ApiError>> exceptionHandlers = new LinkedHashMap<>();
+        exceptionHandlers.put(EmptyResultDataAccessException.class, exc -> new ApiError(404, exc.getMessage()));
+        exceptionHandlers.put(MissingParameterException.class, exc -> new ApiError(400, exc.getMessage()));
+        exceptionHandlers.put(InvalidDataException.class, exc -> new ApiError(400, exc.getMessage()));
+        exceptionHandlers.put(Exception.class, exc ->
+        {
+            logger.warn(exc.getMessage(), exc);
+            return new ApiError(500, "An internal error occurred");
+        });
+
+
         final Path basePath = Paths.get("/tmp/geodata");
         final MetaDao metaDao = new FileMetaDao(basePath);
         final LocationDao locationDao = new FileMmapLocationDao(basePath);
@@ -78,18 +88,7 @@ public class UndertowServer
         final GeodataServiceImpl geodataService = new GeodataServiceImpl(locationDao, ipDao, hierarchyDao, featureCodeDao, timeZoneDao, countryDao, boundaryDao, metaDao, Collections.emptyList(), boundaryQualityConstant);
         final StatefulProgressListener progressListener = new StatefulProgressListener();
 
-        geodataService.load(progressListener);
-
-        final Map<Class<? extends Throwable>, Function<Throwable, ApiError>> exceptionHandlers = new LinkedHashMap<>();
-        exceptionHandlers.put(EmptyResultDataAccessException.class, exc -> new ApiError(404, exc.getMessage()));
-        exceptionHandlers.put(MissingParameterException.class, exc -> new ApiError(400, exc.getMessage()));
-        exceptionHandlers.put(InvalidDataException.class, exc -> new ApiError(400, exc.getMessage()));
-        exceptionHandlers.put(Exception.class, exc ->
-        {
-            logger.warn(exc.getMessage(), exc);
-            return new ApiError(500, "An internal error occurred");
-        });
-        final HttpHandler routes = new ServerHandler(geodataService, metaDao).handler(exceptionHandlers);
+        final InitSuspendHandler routes = new InitSuspendHandler(new ServerHandler(geodataService, metaDao).handler(exceptionHandlers));
 
         final SimpleServer server = SimpleServer.simpleServer(routes, "0.0.0.0", 6565);
         server.start();
@@ -97,11 +96,10 @@ public class UndertowServer
         logger.info("Startup completed in {}", DurationFormatUtils.formatDuration(Duration.between(MemoryUsageUtil.getJvmStartTime(), OffsetDateTime.now()).toMillis(), "ss.SSS 'seconds'"));
 
         logger.info("Triggering GC");
-        // Attempt to force GC
-        for (int i = 0; i < 3; i++)
-        {
-            System.gc();
-        }
+        System.gc();
+
+        geodataService.load(progressListener);
+        routes.setReady(true);
 
         MemoryUsageUtil.dumpMemUsage("Ready");
     }

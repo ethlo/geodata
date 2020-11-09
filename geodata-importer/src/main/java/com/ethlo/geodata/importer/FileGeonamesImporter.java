@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -77,6 +78,7 @@ public class FileGeonamesImporter implements DataImporter
 
     private final String url;
     private final BinaryIndexedFileWriter<RawLocation> locationWriter;
+    private final Duration maxAge;
 
     private Map<Integer, String> alternateNames;
     private Map<String, Country> countries;
@@ -86,6 +88,7 @@ public class FileGeonamesImporter implements DataImporter
                                 @Value("${geodata.geonames.source.names}") final String geoNamesAllCountriesUrl,
                                 @Value("${geodata.geonames.features.included}") final String inclusionsCsv,
                                 @Value("${geodata.base-path}") final Path basePath,
+                                @Value("${geodata.max-data-age}") final Duration maxAge,
                                 final FeatureCodeDao featureCodeDao,
                                 final TimeZoneDao timeZoneDao,
                                 final HierarchyDao hierarchyDao,
@@ -101,6 +104,7 @@ public class FileGeonamesImporter implements DataImporter
         };
 
         this.url = geoNamesAllCountriesUrl;
+        this.maxAge = maxAge;
         this.geoNamesAlternateNamesUrl = geoNamesAlternateNamesUrl;
         this.geoNamesCountryInfoUrl = geoNamesCountryInfoUrl;
         this.inclusions = StringUtils.commaDelimitedListToSet(inclusionsCsv);
@@ -133,7 +137,7 @@ public class FileGeonamesImporter implements DataImporter
         Map.Entry<Date, File> fileData;
         try
         {
-            fileData = ResourceUtil.fetchResource(DataType.LOCATIONS, url);
+            fileData = ResourceUtil.fetchResource(DataType.LOCATIONS, maxAge, url);
         }
         catch (IOException exc)
         {
@@ -180,7 +184,7 @@ public class FileGeonamesImporter implements DataImporter
     {
         // Load countries
         logger.info("Loading countries");
-        final Map.Entry<Date, File> countriesFile = ResourceUtil.fetchResource("countries", geoNamesCountryInfoUrl);
+        final Map.Entry<Date, File> countriesFile = ResourceUtil.fetchResource("countries", maxAge, geoNamesCountryInfoUrl);
         final List<String> countryColumns = Arrays.asList("iso", "iso3", "iso_numeric", "fips", "country", "capital", "area", "population", "continent", "tld", "currency_Code", "currency_name", "phone", "postal_code_format", "postal_code_regex", "languages", "geonameid");
         countries = new HashMap<>();
         try (final CloseableIterator<Country> iter = new CsvFileIterator<>(countriesFile.getValue().toPath(), countryColumns, true, 0, c ->
@@ -199,7 +203,7 @@ public class FileGeonamesImporter implements DataImporter
 
         // Load proper names for language
         logger.info("Loading alternate names");
-        final Map.Entry<Date, File> alternateFile = ResourceUtil.fetchResource("alternate_names", geoNamesAlternateNamesUrl);
+        final Map.Entry<Date, File> alternateFile = ResourceUtil.fetchResource("alternate_names", maxAge, geoNamesAlternateNamesUrl);
         this.alternateNames = AlternateNamesFileReader.loadPreferredNames(alternateFile.getValue(), "EN");
     }
 

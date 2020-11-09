@@ -38,12 +38,14 @@ import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 
 import com.ethlo.geodata.dao.MetaDao;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
+import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
 import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.rest.v1.model.V1Continent;
@@ -59,6 +61,7 @@ import io.undertow.server.handlers.ExceptionHandler;
 import io.undertow.server.handlers.PathHandler;
 import io.undertow.server.handlers.resource.ResourceHandler;
 import io.undertow.util.Headers;
+import io.undertow.util.HttpString;
 import io.undertow.util.Methods;
 
 public class ServerHandler extends BaseServerHandler
@@ -213,8 +216,28 @@ public class ServerHandler extends BaseServerHandler
                     final double lng = requireDoubleParam(exchange, "lng");
                     final Coordinates coordinates = Coordinates.from(lat, lng);
                     final int maxDistance = getIntParam(exchange, "maxDistance").orElse(Integer.MAX_VALUE);
-                    final V1GeoLocation location = Optional.ofNullable(geodataService.findByCoordinate(coordinates, maxDistance)).map(mapper::transform).orElseThrow(notNull("Unable to determine nearest location of " + lat + "," + lng));
-                    json(exchange, location);
+                    final Optional<LookupMetadata> lookupMetadata = geodataService.findByCoordinate(coordinates, maxDistance);
+
+                    final Optional<GeoLocation> location = Optional.ofNullable(lookupMetadata
+                            .map(LookupMetadata::getLocation)
+                            .orElseGet(() ->
+                            {
+                                final Page<GeoLocationDistance> nearest = geodataService.findNear(coordinates, maxDistance, PageRequest.of(0, 1));
+                                return nearest.hasContent() ? nearest.getContent().get(0).getLocation() : null;
+                            }));
+
+                    final V1GeoLocation l = location
+                            .map(mapper::transform)
+                            .orElseThrow(notNull("Unable to determine location of " + lat + "," + lng));
+
+                    // Add some metadata about the lookup
+                    lookupMetadata.ifPresent(lmd ->
+                    {
+                        final String lookupHeader = lmd.getLocation().getId() + "-" + lmd.getSubdivideIndex() + "-" + lmd.getEnvelope().getArea();
+                        exchange.getResponseHeaders().add(new HttpString("X-Boundary-Lookup"), lookupHeader);
+                    });
+
+                    json(exchange, l);
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}/previewboundaries", exchange ->
@@ -235,7 +258,14 @@ public class ServerHandler extends BaseServerHandler
                     final double lng = requireDoubleParam(exchange, "lng");
                     final Coordinates coordinates = Coordinates.from(lat, lng);
                     final int maxDistance = getIntParam(exchange, "maxDistance").orElse(Integer.MAX_VALUE);
-                    json(exchange, Optional.ofNullable(geodataService.findWithin(coordinates, maxDistance))
+                    json(exchange, geodataService.findWithin(coordinates, maxDistance)
+                            .map(lmd ->
+                            {
+                                // Add some metadata about the lookup
+                                final String lookupHeader = lmd.getLocation().getId() + "-" + lmd.getSubdivideIndex() + "-" + lmd.getEnvelope().getArea();
+                                exchange.getResponseHeaders().add(new HttpString("X-Boundary-Lookup"), lookupHeader);
+                                return lmd.getLocation();
+                            })
                             .map(mapper::transform)
                             .orElseThrow(notNull("No boundaries containing " + lat + "," + lng + " found")));
                 })

@@ -26,11 +26,16 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import javax.annotation.PostConstruct;
 import javax.validation.constraints.NotNull;
@@ -44,6 +49,7 @@ import com.ethlo.geodata.DataType;
 import com.ethlo.geodata.SourceDataInfo;
 import com.ethlo.geodata.SourceDataInfoSet;
 import com.ethlo.geodata.dao.FileMetaDao;
+import com.ethlo.geodata.util.IoUtil;
 import com.ethlo.geodata.util.JsonUtil;
 
 @Service
@@ -99,19 +105,42 @@ public class DataImporterService
             return ipLookupImporter.importData();
         });
 
+        processLocalBoundaryData();
+
         if (!updated.get())
         {
             logger.info("No data to update. Max data age {}", maxDataAge);
         }
+    }
 
-        /*final Date boundariesTimestamp = geoFabrikBoundaryLoader.lastRemoteModified();
-        if (boundariesTimestamp.getTime() > getLastModified("geoboundaries") + maxDataAgeMillis)
+    private void processLocalBoundaryData() throws IOException
+    {
+        final Path boundaryImportFolder = basePath.resolve("input").resolve("boundaries");
+        logger.info("Checking folder {} for boundary data", boundaryImportFolder);
+        if (Files.exists(boundaryImportFolder))
         {
-            boundaryImporter.purge();
-            boundaryImporter.importData();
-            setLastModified("geoboundaries", boundariesTimestamp);
+            try (final Stream<Path> iter = Files.list(boundaryImportFolder))
+            {
+                iter
+                        .filter(supportedBoundaryFile())
+                        .forEach(this::processBoundaryFile);
+            }
         }
-        */
+        else
+        {
+            logger.info("Folder {} for boundary data does not exist. Skipping.", boundaryImportFolder);
+        }
+    }
+
+    private void processBoundaryFile(final Path path)
+    {
+        logger.info("TODO: Processing {}", path);
+    }
+
+    private Predicate<Path> supportedBoundaryFile()
+    {
+        final Set<String> supportedExtensions = new HashSet<>(Arrays.asList("geojson", "wkb", "wkt", "kml"));
+        return p -> supportedExtensions.contains(IoUtil.getExtension(p));
     }
 
     private void ifExpired(final String type, final Date sourceTimestamp, final Supplier<Integer> updater)

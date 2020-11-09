@@ -79,6 +79,11 @@ public class BinaryBoundaryEncoder
         for (int numGeometry = 0; numGeometry < numGeometries; numGeometry++)
         {
             final Map.Entry<Boolean, Coordinate[]> coordinates = readCoordinates(in);
+            if (coordinates.getValue().length == 0)
+            {
+                continue;
+            }
+
             final boolean isHole = coordinates.getKey();
             if (!isHole)
             {

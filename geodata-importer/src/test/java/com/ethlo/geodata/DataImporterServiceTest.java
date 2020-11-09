@@ -22,6 +22,8 @@ package com.ethlo.geodata;
  * #L%
  */
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -54,7 +56,6 @@ public class DataImporterServiceTest
         cal.set(Calendar.MILLISECOND, 0);
         final Date expected = cal.getTime();
         dataImporterService.setStatus("IP", expected, 2244);
-        //assertThat(dataImporterService.getLastModified(DataType.IP).get().getTime()).isEqualTo(expected.getTime());
-        //assertThat(geoMetaService.getSourceDataInfo().get(DataType.IP).getCount()).isEqualTo(2244);
+        assertThat(dataImporterService.getLastModified(DataType.IP).get().getTime()).isEqualTo(expected.getTime());
     }
 }

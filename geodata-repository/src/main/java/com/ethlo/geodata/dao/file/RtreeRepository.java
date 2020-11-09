@@ -134,7 +134,7 @@ public class RtreeRepository
         return EntryDefault.entry(payload, Geometries.rectangleGeographic(env.getMinX(), env.getMinY(), env.getMaxX(), env.getMaxY()));
     }
 
-    public Integer find(Coordinates coordinates)
+    public Entry<RTreePayload, Geometry> find(Coordinates coordinates)
     {
         // Point to find
         final Point target = Geometries.pointGeographic(coordinates.getLng(), coordinates.getLat());
@@ -151,7 +151,7 @@ public class RtreeRepository
         {
             if (isReallyInside(coordinates, candidate.value().getId(), candidate.value().getSubdivideIndex()))
             {
-                return candidate.value().getId();
+                return candidate;
             }
         }
 

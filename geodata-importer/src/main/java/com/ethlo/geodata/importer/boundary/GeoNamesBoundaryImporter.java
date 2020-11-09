@@ -1,4 +1,4 @@
-package com.ethlo.geodata.importer;
+package com.ethlo.geodata.importer.boundary;
 
 /*-
  * #%L
@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.locationtech.jts.geom.Geometry;
@@ -47,6 +48,8 @@ import com.ethlo.geodata.dao.FeatureCodeDao;
 import com.ethlo.geodata.dao.LocationDao;
 import com.ethlo.geodata.dao.file.FileFeatureCodeDao;
 import com.ethlo.geodata.dao.file.FileMmapLocationDao;
+import com.ethlo.geodata.importer.BinaryIndexedFileWriter;
+import com.ethlo.geodata.importer.CsvFileIterator;
 import com.ethlo.geodata.io.BinaryBoundaryEncoder;
 import com.ethlo.geodata.model.BoundaryData;
 import com.ethlo.geodata.model.MapFeature;
@@ -57,26 +60,26 @@ import com.google.common.collect.Iterators;
 
 public class GeoNamesBoundaryImporter
 {
-    public static final int MAX_SIZE = 2_000;
     public static final int MAX_PIECES = 100_000;
 
-    private static final Path input = Paths.get("/home/morten/Downloads/allshapes.txt");
-    private static final Path baseDirectory = Paths.get("/tmp/geodata/");
-
-    private final BinaryIndexedFileWriter<BoundaryData> binaryIndexedFileWriter = new BinaryIndexedFileWriter<>(baseDirectory, "boundaries")
+    public GeoNamesBoundaryImporter(final LocationDao locationDao,
+                                    final Path baseDirectory,
+                                    final Path inputFile,
+                                    final int maxTileSize,
+                                    final Predicate<RawLocation> includeGeometryFilter)
     {
-        @Override
-        protected void write(final BoundaryData data, final DataOutputStream out) throws IOException
+        final BinaryIndexedFileWriter<BoundaryData> binaryIndexedFileWriter = new BinaryIndexedFileWriter<>(baseDirectory, "boundaries")
         {
-            BinaryBoundaryEncoder.write(data, out);
-        }
-    };
+            @Override
+            protected void write(final BoundaryData data, final DataOutputStream out) throws IOException
+            {
+                BinaryBoundaryEncoder.write(data, out);
+            }
+        };
 
-    public GeoNamesBoundaryImporter(final Map<Integer, MapFeature> featureCodes, final LocationDao locationDao)
-    {
         final List<String> columns = Arrays.asList("id", "json");
         final AtomicInteger processed = new AtomicInteger();
-        try (final CloseableIterator<Map<String, String>> boundaryIterator = new CsvFileIterator<>(input, columns, true, 1, i -> i)
+        try (final CloseableIterator<Map<String, String>> boundaryIterator = new CsvFileIterator<>(inputFile, columns, true, 1, i -> i)
         {
             @Override
             public Map<String, String> next()
@@ -100,9 +103,7 @@ public class GeoNamesBoundaryImporter
                 }
                 else
                 {
-                    final MapFeature mapFeature = featureCodes.get(location.get().getMapFeatureId());
-                    final String key = mapFeature.getKey();
-                    return GeoConstants.ADMINISTRATIVE_OR_ABOVE.contains(key) && !key.equals("A.ADM3") && !key.equals("A.ADM4");
+                    return includeGeometryFilter.test(location.get());
                 }
             });
 
@@ -135,7 +136,7 @@ public class GeoNamesBoundaryImporter
                         bufferList.add(full);
 
                         final AtomicInteger index = new AtomicInteger(1);
-                        final List<BoundaryData> list = GeometryUtil.split(id, geometry, MAX_SIZE, MAX_PIECES).stream()
+                        final List<BoundaryData> list = GeometryUtil.split(id, geometry, maxTileSize, MAX_PIECES).stream()
                                 .map(tileGeometry -> new BoundaryData(id, index.getAndIncrement(), tileGeometry.getEnvelopeInternal(), fullArea, tileGeometry))
                                 .collect(Collectors.toList());
                         bufferList.addAll(list);
@@ -161,9 +162,19 @@ public class GeoNamesBoundaryImporter
 
     public static void main(String[] args)
     {
+        final Path inputFile = Paths.get("/home/morten/Downloads/allshapes.txt");
+        final Path baseDirectory = Paths.get("/tmp/geodata");
+
         final FeatureCodeDao featureCodeDao = new FileFeatureCodeDao(baseDirectory);
         final LocationDao locationDao = new FileMmapLocationDao(baseDirectory);
         locationDao.load();
-        new GeoNamesBoundaryImporter(featureCodeDao.load(), locationDao);
+
+        final Map<Integer, MapFeature> featureCodes = featureCodeDao.load();
+        new GeoNamesBoundaryImporter(locationDao, baseDirectory, inputFile, 2_000, l ->
+        {
+            final MapFeature mapFeature = featureCodes.get(l.getMapFeatureId());
+            final String key = mapFeature.getKey();
+            return GeoConstants.ADMINISTRATIVE_OR_ABOVE.contains(key) && !key.equals("A.ADM3") && !key.equals("A.ADM4");
+        });
     }
 }

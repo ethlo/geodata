@@ -10,6 +10,10 @@
 
     <link href="https://fonts.googleapis.com/css?family=Abril+Fatface|Roboto:300,700" rel="stylesheet">
 
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+          integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+          crossorigin=""/>
+
     <style>
         td.numeric {
             text-align: right;
@@ -65,7 +69,7 @@
         }
 
         .pure-menu-list {
-            padding-top:0.5em;
+            padding-top: 0.5em;
         }
 
         .home-menu .pure-menu-heading {
@@ -139,6 +143,12 @@
         .alt-stop {
             stop-color: rgb(150 207 36);
         }
+
+        #mapid {
+            height: 400px;
+            z-index: 0;
+        }
+
     </style>
 
 </head>
@@ -180,6 +190,8 @@
 </div>
 
 <div class="content">
+
+    <div id="mapid"></div>
 
     <h2>Server info</h2>
     <p>
@@ -245,14 +257,14 @@
 
     <h2>Disclaimer</h2>
     <p>
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-        WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-        PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY
-        DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-        PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-        HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-        NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-        POSSIBILITY OF SUCH DAMAGE.
+        This software is provided by the copyright holders and contributors "As is" and any express or implied
+        warranties, including, but not limited to, the implied warranties of merchantability and fitness for a
+        particular purpose are disclaimed. In no event shall the copyright owner or contributors be liable for any
+        direct, indirect, incidental, special, exemplary, or consequential damages (including, but not limited to,
+        procurement of substitute goods or services; loss of use, data, or profits; or business interruption) however
+        caused and on any theory of liability, whether in contract, strict liability, or tort (including negligence or
+        otherwise) arising in any way out of the use of this software, even if advised of the possibility of such
+        damage.
     </p>
 </div>
 </div>
@@ -268,6 +280,10 @@
         integrity="sha512-qTXRIMyZIFb8iQcfjXWCO8+M5Tbc38Qi5WzdPOYZHIlZpzBHG3L3by84BBBOiRGiEb7KKtAOAs5qYdUiZiQNNQ=="
         crossorigin="anonymous"></script>
 
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+        integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+        crossorigin=""></script>
+
 <script>
     const numberWithCommas = (x) => {
         const parts = x.toString().split(".");
@@ -280,6 +296,56 @@
     }
 
     $(document).ready(function () {
+
+        var mymap = L.map('mapid').setView([0, 0], 2);
+        $("#mapid").height($(window).height() - 100).width($(window).width() - 200);
+        mymap.invalidateSize();
+        const mapboxToken = 'pk.eyJ1IjoieGFlciIsImEiOiJja2g5NmlienMwdG5uMnFydGpnMWdscGw0In0.kVfN64HsM5lvDvXiD1vFjQ';
+        L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=' + mapboxToken, {
+            maxZoom: 18,
+            attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, ' +
+                '<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
+                'Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+            id: 'mapbox/streets-v11',
+            tileSize: 512,
+            zoomOffset: -1
+        }).addTo(mymap);
+
+        var myStyle = {
+            "color": "#ff5555",
+            "weight": 2,
+            "opacity": 0.85
+        };
+
+        mymap.on('click', function (e) {
+            var lat = e.latlng.lat;
+            var lng = e.latlng.lng;
+            $.getJSON('/v1/locations/contains?lat=' + lat + '&lng=' + lng, function (data) {
+                //console.log("(" + lat.toFixed(6) + ',' + lng.toFixed(6) + ") = " + data.id + " - " + data.name + " - " + data.country.code)
+
+                var newMarker = new L.marker(e.latlng,
+                    {
+                        click: function () {
+                            mymap.removeMarker(newMarker)
+                        }
+                    }).addTo(mymap);
+                newMarker.bindPopup('<p>' + data.id + ' - ' + data.name + '</p>' + data.path.map(p => p.name).join('<br>')).openPopup();
+
+                $.getJSON('/v1/locations/' + data.id + '/simpleboundaries?maxTolerance=0.01', function (geojson) {
+                    const layer = L.geoJSON(geojson, {
+                        onEachFeature: function (feature, layer) {
+                            layer.on({
+                                click: function () {
+                                    mymap.removeLayer(layer);
+                                }
+                            });
+                        },
+                        style: myStyle
+                    }).addTo(mymap);
+                    mymap.fitBounds(layer.getBounds());
+                });
+            });
+        });
 
         $.getJSON("/sysadmin/info", function (data) {
             $("#version-info").html(data['git']['git.build.version'] + ' - ' + data['git']['git.commit.id.abbrev']);
@@ -317,7 +383,7 @@
 
             $("time.timeago").timeago();
         });
-    });
+    })
 
 </script>
 

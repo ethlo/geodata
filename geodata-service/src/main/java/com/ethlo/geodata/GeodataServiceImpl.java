@@ -154,9 +154,10 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public GeoLocation findWithin(Coordinates coordinate, int maxDistanceInKilometers)
+    public Optional<LookupMetadata> findWithin(Coordinates coordinate, int maxDistanceInKilometers)
     {
-        return Optional.ofNullable(rtreeRepository.find(coordinate)).map(this::findById).orElse(null);
+        return Optional.ofNullable(rtreeRepository.find(coordinate)).map(e ->
+                new LookupMetadata(findById(e.value().getId()), e.value().getSubdivideIndex(), e.value().getEnvelope()));
     }
 
     @Override
@@ -247,7 +248,6 @@ public class GeodataServiceImpl implements GeodataService
         progressListener.begin("load_locations");
         final int locationCount = locationDao.load();
         logger.info("Loaded {} locations", locationCount);
-        //MemoryUsageUtil.dumpMemUsage("After locations loaded");
     }
 
     private void loadCountries(final LoadProgressListener progressListener)
@@ -278,7 +278,6 @@ public class GeodataServiceImpl implements GeodataService
         final Map<Integer, Integer> childToParent = hierarchyDao.load();
         logger.info("Loaded {} hierarchy references", childToParent.size());
         progressListener.end();
-        //MemoryUsageUtil.dumpMemUsage("Location hierarchy loaded");
 
         progressListener.begin("join_admin_levels");
         joinHierarchyNodes(childToParent, progressListener::progress);
@@ -301,7 +300,6 @@ public class GeodataServiceImpl implements GeodataService
         }
         progressListener.end();
         logger.info("Search index loaded with {} entries", locationsByName.size());
-        //MemoryUsageUtil.dumpMemUsage("Search-index loaded");
     }
 
     private void addToSearchIndex(final RawLocation e)
@@ -529,22 +527,9 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public GeoLocation findByCoordinate(Coordinates point, int distance)
+    public Optional<LookupMetadata> findByCoordinate(Coordinates point, int distance)
     {
-        GeoLocation location = findWithin(point, distance);
-
-        // Fall back to nearest match
-        if (location == null)
-        {
-            final Page<GeoLocationDistance> nearest = findNear(point, distance, PageRequest.of(0, 1));
-            location = nearest.hasContent() ? nearest.getContent().get(0).getLocation() : null;
-        }
-
-        if (location != null)
-        {
-            return location;
-        }
-        throw new EmptyResultDataAccessException("Cannot find a location for position lat=" + point.getLat() + ", lng=" + point.getLng(), 1);
+        return findWithin(point, distance);
     }
 
     @Override

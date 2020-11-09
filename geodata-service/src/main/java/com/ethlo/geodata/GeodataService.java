@@ -47,7 +47,7 @@ public interface GeodataService
 
     GeoLocation findById(int geoNameId);
 
-    GeoLocation findWithin(@Valid Coordinates point, int maxDistanceInKilometers);
+    Optional<LookupMetadata> findWithin(@Valid Coordinates point, int maxDistanceInKilometers);
 
     Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable);
 
@@ -73,7 +73,7 @@ public interface GeodataService
 
     GeoLocation findParent(int id);
 
-    GeoLocation findByCoordinate(Coordinates point, int distance);
+    Optional<LookupMetadata> findByCoordinate(Coordinates point, int distance);
 
     boolean isInsideAny(List<Integer> locations, int location);
 

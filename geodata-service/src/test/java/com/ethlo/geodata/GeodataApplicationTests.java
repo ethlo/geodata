@@ -76,9 +76,12 @@ public class GeodataApplicationTests
     @Test
     public void testQueryForPointInsideNorwayReturnsNorway()
     {
-        final GeoLocation location = geodataService.findWithin(Coordinates.from(61, 10.7), 1_000);
-        assertThat(location).isNotNull();
-        assertThat(location.getId()).isEqualTo(3144096);
+        final Optional<LookupMetadata> lookupMetadata = geodataService.findWithin(Coordinates.from(61, 10.7), 1_000);
+        lookupMetadata.ifPresent(md ->
+        {
+            assertThat(md.getLocation()).isNotNull();
+            assertThat(md.getLocation().getId()).isEqualTo(3144096);
+        });
     }
 
     @Test
