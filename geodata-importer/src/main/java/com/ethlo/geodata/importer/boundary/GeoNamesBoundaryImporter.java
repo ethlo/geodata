@@ -29,6 +29,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -90,7 +91,7 @@ public class GeoNamesBoundaryImporter
         };
     }
 
-    public CloseableIterator<BoundaryData> processTsv(final Path inputTsvFile, Consumer<Integer> progress)
+    public CloseableIterator<BoundaryData> processTsv(final Collection<Integer> overrides, final Path inputTsvFile, Consumer<Integer> progress)
     {
         final AtomicInteger processed = new AtomicInteger();
         final CloseableIterator<Map<String, String>> boundaryIterator = new CsvFileIterator<>(inputTsvFile, columns, true, 1, i -> i)
@@ -106,6 +107,11 @@ public class GeoNamesBoundaryImporter
         final Iterator<Map<String, String>> filtered = Iterators.filter(boundaryIterator, e ->
         {
             final int id = Integer.parseInt(e.get("id"));
+            if (overrides.contains(id))
+            {
+                return false;
+            }
+
             final Optional<RawLocation> location = locationDao.get(id);
             if (location.isEmpty())
             {
@@ -197,7 +203,7 @@ public class GeoNamesBoundaryImporter
         return list.iterator();
     }
 
-    private int getIdFromFilename(final Path path)
+    public static int getIdFromFilename(final Path path)
     {
         final String filename = path.getFileName().toString();
         final String basename = filename.split("\\.")[0];

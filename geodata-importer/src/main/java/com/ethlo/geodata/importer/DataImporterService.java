@@ -28,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -38,6 +39,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import javax.annotation.PostConstruct;
@@ -159,6 +161,8 @@ public class DataImporterService
 
     private int importFromDirectory(final Path boundaryImportFolder)
     {
+        final Collection<Integer> overrides = getSingleFileIds(boundaryImportFolder);
+
         try (final Stream<Path> stream = Files.list(boundaryImportFolder))
         {
             final Iterator<Path> inputFileIterator = stream
@@ -188,7 +192,7 @@ public class DataImporterService
                 {
                     if (inputFileIterator.hasNext())
                     {
-                        return processBoundaryFile(inputFileIterator.next());
+                        return processBoundaryFile(overrides, inputFileIterator.next());
                     }
                     return null;
                 }
@@ -202,19 +206,35 @@ public class DataImporterService
         }
     }
 
+    private Collection<Integer> getSingleFileIds(final Path boundaryImportFolder)
+    {
+        try (final Stream<Path> stream = Files.list(boundaryImportFolder))
+        {
+            return stream
+                    .filter(supportedBoundaryFile())
+                    .filter(p -> !isMulti(IoUtil.getExtension(p)))
+                    .map(GeoNamesBoundaryImporter::getIdFromFilename)
+                    .collect(Collectors.toSet());
+        }
+        catch (IOException e)
+        {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     private boolean isMulti(final String ext)
     {
         return ext.equals("tsv");
     }
 
-    private CloseableIterator<BoundaryData> processBoundaryFile(final Path path)
+    private CloseableIterator<BoundaryData> processBoundaryFile(final Collection<Integer> overrides, final Path path)
     {
         logger.info("Processing boundary file: {}", path.toAbsolutePath());
 
         switch (IoUtil.getExtension(path))
         {
             case "tsv":
-                return geoNamesBoundaryImporter.processTsv(path, progress -> logger.info("Progress {}", progress));
+                return geoNamesBoundaryImporter.processTsv(overrides, path, progress -> logger.info("{} progress {}", path.getFileName(), progress));
 
             case "kml":
                 return SerializationUtil.wrapClosable(geoNamesBoundaryImporter.processKml(path), null);
