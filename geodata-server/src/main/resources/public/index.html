@@ -144,7 +144,7 @@
             stop-color: rgb(150 207 36);
         }
 
-        #mapid {
+        #map {
             height: 400px;
             z-index: 0;
         }
@@ -180,7 +180,11 @@
         </a>
 
         <ul class="pure-menu-list">
-            <li class="pure-menu-item"><a href="#" class="pure-menu-link">Home</a></li>
+            <li class="pure-menu-item"><a href="#" onclick="toggle('main')" class="pure-menu-link">Home</a></li>
+            <li class="pure-menu-item"><a href="#" onclick="toggle('map'); adjustMapSize()"
+                                          class="pure-menu-link">Map</a></li>
+            <li class="pure-menu-item"><a href="#" onclick="toggle('metrics'); updateMetrics()" class="pure-menu-link">Metrics</a>
+            </li>
             <li class="pure-menu-item"><a href="/swagger-ui/?url=/spec.yaml"
                                           class="pure-menu-link">API documentation</a></li>
             <li class="pure-menu-item"><a
@@ -191,82 +195,94 @@
 
 <div class="content">
 
-    <div id="mapid"></div>
+    <div id="main">
+        <h2>Server info</h2>
+        <p>
+            Version: <span id="version-info">?</span>
+        </p>
+        <p>Server start:
+            <time id="uptime" class="timeago"></time>
+        </p>
+        <h2>Data</h2>
+        <div id="source-data">
+            <table class="data-table" style="width: 100%">
+                <thead>
+                <tr>
+                    <th style="text-align:left">Source</th>
+                    <th style="text-align: right">Count</th>
+                    <th>Last updated</th>
+                </tr>
+                </thead>
+                <tr>
+                    <td>IP lookup entries</td>
+                    <td class="numeric" data-count="ip"></td>
+                    <td style="text-align: center">
+                        <span data-lastmodified="ip"></span>
+                        -
+                        <time data-lastmodified="ip" class="timeago"></time>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Locations</td>
+                    <td class="numeric" data-count="locations"></td>
+                    <td style="text-align: center">
+                        <span data-lastmodified="locations"></span>
+                        -
+                        <time data-lastmodified="locations" class="timeago"></time>
+                    </td>
+                </tr>
+            </table>
 
-    <h2>Server info</h2>
-    <p>
-        Version: <span id="version-info">?</span>
-    </p>
-    <p>Server start:
-        <time id="uptime" class="timeago"></time>
-    </p>
+            <h2>Credits</h2>
+            <p>This service utilize data from:</p>
+            <ul>
+                <li><a href="https://geonames.org">Geonames.org</a> - Free data is available under CC 2.0 license</li>
+                <li>This product includes GeoLite2 data created by MaxMind, available from
+                    <a href="https://www.maxmind.com">https://www.maxmind.com</a>.
+                </li>
+            </ul>
 
-    <h2>Latency metrics</h2>
-    <table id="performance" class="data-table" style="width: 100%">
-        <thead>
-        <tr>
-            <th style="text-align:left">Path</th>
-            <th style="text-align:right">Average</th>
-            <th style="text-align:right">Min</th>
-            <th style="text-align:right">Max</th>
-            <th style="text-align:right">Invocations</th>
-        </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
-
-    <h2>Data</h2>
-    <div id="source-data">
-        <table class="data-table" style="width: 100%">
-            <thead>
-            <tr>
-                <th style="text-align:left">Source</th>
-                <th style="text-align: right">Count</th>
-                <th>Last updated</th>
-            </tr>
-            </thead>
-            <tr>
-                <td>IP lookup entries</td>
-                <td class="numeric" data-count="ip"></td>
-                <td style="text-align: center">
-                    <span data-lastmodified="ip"></span>
-                    -
-                    <time data-lastmodified="ip" class="timeago"></time>
-                </td>
-            </tr>
-            <tr>
-                <td>Locations</td>
-                <td class="numeric" data-count="locations"></td>
-                <td style="text-align: center">
-                    <span data-lastmodified="locations"></span>
-                    -
-                    <time data-lastmodified="locations" class="timeago"></time>
-                </td>
-            </tr>
-        </table>
+            <h2>Disclaimer</h2>
+            <p>
+                This software is provided by the copyright holders and contributors "As is" and any express or implied
+                warranties, including, but not limited to, the implied warranties of merchantability and fitness for a
+                particular purpose are disclaimed. In no event shall the copyright owner or contributors be liable for
+                any
+                direct, indirect, incidental, special, exemplary, or consequential damages (including, but not limited
+                to,
+                procurement of substitute goods or services; loss of use, data, or profits; or business interruption)
+                however
+                caused and on any theory of liability, whether in contract, strict liability, or tort (including
+                negligence
+                or
+                otherwise) arising in any way out of the use of this software, even if advised of the possibility of
+                such
+                damage.
+            </p>
+        </div>
     </div>
 
-    <h2>Credits</h2>
-    <p>This service utilize data from:</p>
-    <ul>
-        <li><a href="https://geonames.org">Geonames.org</a> - Free data is available under CC 2.0 license</li>
-        <li>This product includes GeoLite2 data created by MaxMind, available from
-            <a href="https://www.maxmind.com">https://www.maxmind.com</a>.
-        </li>
-    </ul>
+    <div id="map" style="display:none"></div>
 
-    <h2>Disclaimer</h2>
-    <p>
-        This software is provided by the copyright holders and contributors "As is" and any express or implied
-        warranties, including, but not limited to, the implied warranties of merchantability and fitness for a
-        particular purpose are disclaimed. In no event shall the copyright owner or contributors be liable for any
-        direct, indirect, incidental, special, exemplary, or consequential damages (including, but not limited to,
-        procurement of substitute goods or services; loss of use, data, or profits; or business interruption) however
-        caused and on any theory of liability, whether in contract, strict liability, or tort (including negligence or
-        otherwise) arising in any way out of the use of this software, even if advised of the possibility of such
-        damage.
-    </p>
-</div>
+    <div id="metrics" style="display:none">
+        <h2>Latency metrics</h2>
+        <table id="performance" class="data-table" style="width: 100%">
+            <thead>
+            <tr>
+                <th style="text-align:left">Path</th>
+                <th style="text-align:right">Median</th>
+                <th style="text-align:right">90th pct</th>
+                <th style="text-align:right">95th pct</th>
+                <th style="text-align:right">99th pct</th>
+                <th style="text-align:right">Average</th>
+                <th style="text-align:right">Min</th>
+                <th style="text-align:right">Max</th>
+                <th style="text-align:right">Invocations</th>
+            </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
 </div>
 
 <script src="https://code.jquery.com/jquery-3.5.1.min.js"
@@ -285,6 +301,9 @@
         crossorigin=""></script>
 
 <script>
+
+    var mymap;
+
     const numberWithCommas = (x) => {
         const parts = x.toString().split(".");
         parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -295,10 +314,43 @@
         return moment.duration(x, moment.ISO_8601).asMilliseconds().toFixed(2) + ' ms';
     }
 
+    function updateMetrics() {
+        $.getJSON('/sysadmin/performance', function (data) {
+
+            const uptimeElem = $('#uptime');
+            uptimeElem.attr('datetime', data.server_start_time)
+            uptimeElem.html(data.server_start_time);
+
+            const target = $('#performance > tbody:last-child')
+            target.empty()
+
+            for (x in data) {
+                const stats = data[x].latest;
+                if (stats) {
+                    const total = data[x].total_invocations;
+
+                    target.append('<tr>' +
+                        '<td style="text-align:left">' + x + '</td>' +
+                        '<td style="text-align:right">' + ms(stats.median) + '</>' +
+                        '<td style="text-align:right">' + ms(stats.percentile_90) + '</>' +
+                        '<td style="text-align:right">' + ms(stats.percentile_95) + '</>' +
+                        '<td style="text-align:right">' + ms(stats.percentile_99) + '</>' +
+                        '<td style="text-align:right">' + ms(stats.average) + '</>' +
+                        '<td style="text-align:right">' + ms(stats.min) + '</>' +
+                        '<td style="text-align:right">' + ms(stats.max) + '</td>' +
+                        '<td style="text-align:right">' + numberWithCommas(total) + '</td>' +
+                        '</tr>');
+                }
+            }
+
+            $("time.timeago").timeago();
+        });
+    }
+
     $(document).ready(function () {
 
-        var mymap = L.map('mapid').setView([0, 0], 2);
-        $("#mapid").height($(window).height() - 100).width($(window).width() - 200);
+        mymap = L.map('map').setView([0, 0], 2);
+        $("#map").height($(window).height() - 100).width($(window).width() - 200);
         mymap.invalidateSize();
         const mapboxToken = 'pk.eyJ1IjoieGFlciIsImEiOiJja2g5NmlienMwdG5uMnFydGpnMWdscGw0In0.kVfN64HsM5lvDvXiD1vFjQ';
         L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=' + mapboxToken, {
@@ -317,31 +369,29 @@
             "opacity": 0.85
         };
 
+        var layer;
+        var newMarker;
         mymap.on('click', function (e) {
             var lat = e.latlng.lat;
             var lng = e.latlng.lng;
             $.getJSON('/v1/locations/contains?lat=' + lat + '&lng=' + lng, function (data) {
-                //console.log("(" + lat.toFixed(6) + ',' + lng.toFixed(6) + ") = " + data.id + " - " + data.name + " - " + data.country.code)
 
-                var newMarker = new L.marker(e.latlng,
-                    {
-                        click: function () {
-                            mymap.removeMarker(newMarker)
-                        }
-                    }).addTo(mymap);
-                newMarker.bindPopup('<p>' + data.id + ' - ' + data.name + '</p>' + data.path.map(p => p.name).join('<br>')).openPopup();
+                if (newMarker) {
+                    mymap.removeLayer(newMarker);
+                }
+
+                newMarker = new L.marker(e.latlng).addTo(mymap);
+                newMarker.bindPopup('<p><b>' + data.id + ' - ' + data.name + '</b></p><ol>' + data.path.map(p => '<li>' + p.name + '</li>').join("\n")).openPopup();
 
                 $.getJSON('/v1/locations/' + data.id + '/simpleboundaries?maxTolerance=0.01', function (geojson) {
-                    const layer = L.geoJSON(geojson, {
-                        onEachFeature: function (feature, layer) {
-                            layer.on({
-                                click: function () {
-                                    mymap.removeLayer(layer);
-                                }
-                            });
-                        },
-                        style: myStyle
-                    }).addTo(mymap);
+
+                    if (layer) {
+                        mymap.removeLayer(layer);
+                    }
+
+                    layer = L.geoJSON(geojson,
+                        {style: myStyle})
+                        .addTo(mymap);
                     mymap.fitBounds(layer.getBounds());
                 });
             });
@@ -360,30 +410,23 @@
             });
         });
 
-        $.getJSON('/sysadmin/performance', function (data) {
-
-            const uptimeElem = $('#uptime');
-            uptimeElem.attr('datetime', data.server_start_time)
-            uptimeElem.html(data.server_start_time);
-
-            for (x in data) {
-                const stats = data[x].latest;
-                if (stats) {
-                    const total = data[x].total_invocations;
-
-                    $('#performance > tbody:last-child').append('<tr>' +
-                        '<td style="text-align:left">' + x + '</td>' +
-                        '<td style="text-align:right">' + ms(stats.average) + '</>' +
-                        '<td style="text-align:right">' + ms(stats.min) + '</>' +
-                        '<td style="text-align:right">' + ms(stats.max) + '</td>' +
-                        '<td style="text-align:right">' + numberWithCommas(total) + '</td>' +
-                        '</tr>');
-                }
-            }
-
-            $("time.timeago").timeago();
-        });
+        updateMetrics();
     })
+
+    const pages = ['main', 'map', 'metrics'];
+
+    window.toggle = function (page) {
+        pages.forEach(function (p) {
+            const elem = $('#' + p);
+            elem.css({'display': 'none'});
+        });
+        $('#' + page).css({display: 'block'});
+    }
+
+    window.adjustMapSize = function () {
+        $("#map").height($(window).height() - 100).width($(window).width() - 200);
+        mymap.invalidateSize();
+    }
 
 </script>
 

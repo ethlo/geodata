@@ -31,7 +31,7 @@ The API is fully documented using Open API 3.x specification and allows for easy
 You need to register for an account at MaxMind (free) for the GeoLite2 data
 
 ```shell script
-docker run --rm -m1G --name geodata-importer -v ~/geodata:/tmp/geodata \
+docker run --rm -m1G --name geodata-importer -v ~/geodata:/geodata-server/data \
 --env GEODATA_GEOLITE2_LICENSE_KEY=<LICENSE_KEY> \
 --env GEODATA_MAXDATAAGE=P7D \
 ethlocom/geodata-importer:latest
@@ -42,7 +42,7 @@ ethlocom/geodata-importer:latest
 Start the server and load the data from the import step. Listen on host port 6566. 
 
 ```shell script
-docker run -d --rm -m1G -p 6566:6565 --name geodata-server -v ~/geodata:/tmp/geodata \ 
+docker run -d --rm -m1G -p 6566:6565 --name geodata-server -v ~/geodata:/geodata-server/data \ 
 docker.io/ethlocom/geodata-server:latest \ 
 && docker logs -f geodata-server
 ```

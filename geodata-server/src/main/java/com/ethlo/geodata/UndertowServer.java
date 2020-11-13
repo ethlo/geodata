@@ -23,7 +23,6 @@ package com.ethlo.geodata;
  */
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.Collections;
@@ -34,6 +33,7 @@ import java.util.function.Function;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -62,7 +62,9 @@ public class UndertowServer
 {
     private static final Logger logger = LoggerFactory.getLogger(UndertowServer.class);
 
-    public UndertowServer()
+    public UndertowServer(@Value("${geodata.base-path}") final Path basePath,
+                          @Value("${server.host}") final String host,
+                          @Value("${server.port}") final int port)
     {
         final Map<Class<? extends Throwable>, Function<Throwable, ApiError>> exceptionHandlers = new LinkedHashMap<>();
         exceptionHandlers.put(EmptyResultDataAccessException.class, exc -> new ApiError(404, exc.getMessage()));
@@ -74,8 +76,6 @@ public class UndertowServer
             return new ApiError(500, "An internal error occurred");
         });
 
-
-        final Path basePath = Paths.get("/tmp/geodata");
         final MetaDao metaDao = new FileMetaDao(basePath);
         final LocationDao locationDao = new FileMmapLocationDao(basePath);
         final IpDao ipDao = new FileIpDao(basePath);
@@ -90,7 +90,7 @@ public class UndertowServer
 
         final InitSuspendHandler routes = new InitSuspendHandler(new ServerHandler(geodataService, metaDao).handler(exceptionHandlers));
 
-        final SimpleServer server = SimpleServer.simpleServer(routes, "0.0.0.0", 6565);
+        final SimpleServer server = SimpleServer.simpleServer(routes, host, port);
         server.start();
 
         logger.info("Startup completed in {}", DurationFormatUtils.formatDuration(Duration.between(MemoryUsageUtil.getJvmStartTime(), OffsetDateTime.now()).toMillis(), "ss.SSS 'seconds'"));

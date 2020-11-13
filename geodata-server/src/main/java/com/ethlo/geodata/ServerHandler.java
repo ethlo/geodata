@@ -262,7 +262,7 @@ public class ServerHandler extends BaseServerHandler
                             .map(lmd ->
                             {
                                 // Add some metadata about the lookup
-                                final String lookupHeader = lmd.getLocation().getId() + "-" + lmd.getSubdivideIndex() + "-" + lmd.getEnvelope().getArea();
+                                final String lookupHeader = lmd.getLocation().getId() + "-" + lmd.getSubdivideIndex() + "-" + lmd.getEnvelope().getDiameter() * (6371 / 2D);
                                 exchange.getResponseHeaders().add(new HttpString("X-Boundary-Lookup"), lookupHeader);
                                 return lmd.getLocation();
                             })

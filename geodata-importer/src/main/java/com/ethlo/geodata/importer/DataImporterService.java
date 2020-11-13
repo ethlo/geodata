@@ -23,12 +23,15 @@ package com.ethlo.geodata.importer;
  */
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -40,26 +43,40 @@ import java.util.stream.Stream;
 import javax.annotation.PostConstruct;
 import javax.validation.constraints.NotNull;
 
+import org.apache.commons.collections4.iterators.LazyIteratorChain;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import com.ethlo.geodata.DataType;
+import com.ethlo.geodata.GeoConstants;
 import com.ethlo.geodata.SourceDataInfo;
 import com.ethlo.geodata.SourceDataInfoSet;
+import com.ethlo.geodata.dao.FeatureCodeDao;
 import com.ethlo.geodata.dao.FileMetaDao;
+import com.ethlo.geodata.dao.LocationDao;
+import com.ethlo.geodata.dao.file.FileFeatureCodeDao;
+import com.ethlo.geodata.dao.file.FileMmapLocationDao;
+import com.ethlo.geodata.importer.boundary.GeoNamesBoundaryImporter;
+import com.ethlo.geodata.model.BoundaryData;
+import com.ethlo.geodata.model.MapFeature;
 import com.ethlo.geodata.util.IoUtil;
 import com.ethlo.geodata.util.JsonUtil;
+import com.ethlo.geodata.util.SerializationUtil;
 
 @Service
 public class DataImporterService
 {
+    public static final int MAX_TILE_SIZE = 2_000;
     private static final Logger logger = LoggerFactory.getLogger(DataImporterService.class);
+    private static final Set<String> supportedExtensions = new HashSet<>(Arrays.asList("tsv", "geojson", "wkb", "wkt", "kml"));
     private final Duration maxDataAge;
     private final FileIpDataImporter ipLookupImporter;
     private final FileGeonamesImporter geonamesImporter;
     private final Path basePath;
+    private GeoNamesBoundaryImporter geoNamesBoundaryImporter;
 
     public DataImporterService(@Value("${geodata.base-path}") @NotNull final Path basePath,
                                @Value("${geodata.max-data-age}") @NotNull final Duration maxDataAge,
@@ -105,7 +122,34 @@ public class DataImporterService
             return ipLookupImporter.importData();
         });
 
-        processLocalBoundaryData();
+        ifExpired(DataType.BOUNDARIES, new Date(), () ->
+        {
+            final FeatureCodeDao featureCodeDao = new FileFeatureCodeDao(basePath);
+            final LocationDao locationDao = new FileMmapLocationDao(basePath);
+            locationDao.load();
+
+            final Map<Integer, MapFeature> featureCodes = featureCodeDao.load();
+            this.geoNamesBoundaryImporter = new GeoNamesBoundaryImporter(locationDao, basePath, MAX_TILE_SIZE, l ->
+            {
+                final MapFeature mapFeature = featureCodes.get(l.getMapFeatureId());
+                final String key = mapFeature.getKey();
+                return GeoConstants.ADMINISTRATIVE_OR_ABOVE.contains(key) && !key.equals("A.ADM3") && !key.equals("A.ADM4");
+            });
+
+            updated.set(true);
+
+            final Path boundaryImportFolder = basePath.resolve("input").resolve("boundaries");
+            logger.info("Checking folder {} for boundary data", boundaryImportFolder);
+            if (Files.exists(boundaryImportFolder))
+            {
+                return importFromDirectory(boundaryImportFolder);
+            }
+            else
+            {
+                logger.info("Folder {} for boundary data does not exist. Skipping.", boundaryImportFolder);
+                return 0;
+            }
+        });
 
         if (!updated.get())
         {
@@ -113,39 +157,84 @@ public class DataImporterService
         }
     }
 
-    private void processLocalBoundaryData() throws IOException
+    private int importFromDirectory(final Path boundaryImportFolder)
     {
-        final Path boundaryImportFolder = basePath.resolve("input").resolve("boundaries");
-        logger.info("Checking folder {} for boundary data", boundaryImportFolder);
-        if (Files.exists(boundaryImportFolder))
+        try (final Stream<Path> stream = Files.list(boundaryImportFolder))
         {
-            try (final Stream<Path> iter = Files.list(boundaryImportFolder))
+            final Iterator<Path> inputFileIterator = stream
+                    .filter(supportedBoundaryFile())
+                    .sorted((a, b) ->
+                    {
+                        final String extA = IoUtil.getExtension(a);
+                        final String extB = IoUtil.getExtension(b);
+                        final boolean isMultiA = isMulti(extA);
+                        final boolean isMultiB = isMulti(extB);
+                        if (isMultiA && !isMultiB)
+                        {
+                            return -1;
+                        }
+                        else if (!isMultiA && isMultiB)
+                        {
+                            return 1;
+                        }
+                        return a.compareTo(b);
+                    }).iterator();
+
+
+            final LazyIteratorChain<BoundaryData> wrapper = new LazyIteratorChain<>()
             {
-                iter
-                        .filter(supportedBoundaryFile())
-                        .forEach(this::processBoundaryFile);
-            }
+                @Override
+                protected Iterator<BoundaryData> nextIterator(final int count)
+                {
+                    if (inputFileIterator.hasNext())
+                    {
+                        return processBoundaryFile(inputFileIterator.next());
+                    }
+                    return null;
+                }
+            };
+
+            return geoNamesBoundaryImporter.write(wrapper);
         }
-        else
+        catch (IOException e)
         {
-            logger.info("Folder {} for boundary data does not exist. Skipping.", boundaryImportFolder);
+            throw new UncheckedIOException(e);
         }
     }
 
-    private void processBoundaryFile(final Path path)
+    private boolean isMulti(final String ext)
     {
-        logger.info("TODO: Processing {}", path);
+        return ext.equals("tsv");
+    }
+
+    private CloseableIterator<BoundaryData> processBoundaryFile(final Path path)
+    {
+        logger.info("Processing boundary file: {}", path.toAbsolutePath());
+
+        switch (IoUtil.getExtension(path))
+        {
+            case "tsv":
+                return geoNamesBoundaryImporter.processTsv(path, progress -> logger.info("Progress {}", progress));
+
+            case "kml":
+                return SerializationUtil.wrapClosable(geoNamesBoundaryImporter.processKml(path), null);
+
+            case "geojson":
+                return SerializationUtil.wrapClosable(geoNamesBoundaryImporter.processGeoJson(path), null);
+
+            default:
+                throw new UnsupportedOperationException("Unhandled file type: " + path);
+        }
     }
 
     private Predicate<Path> supportedBoundaryFile()
     {
-        final Set<String> supportedExtensions = new HashSet<>(Arrays.asList("geojson", "wkb", "wkt", "kml"));
         return p -> supportedExtensions.contains(IoUtil.getExtension(p));
     }
 
     private void ifExpired(final String type, final Date sourceTimestamp, final Supplier<Integer> updater)
     {
-        logger.info("maxDataAge: {}", maxDataAge);
+        logger.info("Checking data type: {}, max age: {}", type, maxDataAge);
         final Optional<Date> localDataModifiedAt = getLastModified(type);
         logger.info("local last modified: {}", localDataModifiedAt.orElse(null));
         if (localDataModifiedAt.isEmpty() || sourceTimestamp.getTime() > localDataModifiedAt.get().getTime() + maxDataAge.toMillis())

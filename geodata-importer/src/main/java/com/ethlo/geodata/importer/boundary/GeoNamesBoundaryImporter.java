@@ -24,9 +24,10 @@ package com.ethlo.geodata.importer.boundary;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.Reader;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
@@ -35,40 +36,51 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+
+import javax.xml.stream.XMLStreamException;
 
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.springframework.data.util.CloseableIterator;
 
-import com.ethlo.geodata.GeoConstants;
-import com.ethlo.geodata.dao.FeatureCodeDao;
+import com.ethlo.geodata.DataType;
 import com.ethlo.geodata.dao.LocationDao;
-import com.ethlo.geodata.dao.file.FileFeatureCodeDao;
-import com.ethlo.geodata.dao.file.FileMmapLocationDao;
 import com.ethlo.geodata.importer.BinaryIndexedFileWriter;
 import com.ethlo.geodata.importer.CsvFileIterator;
 import com.ethlo.geodata.io.BinaryBoundaryEncoder;
 import com.ethlo.geodata.model.BoundaryData;
-import com.ethlo.geodata.model.MapFeature;
 import com.ethlo.geodata.model.RawLocation;
 import com.ethlo.geodata.util.GeometryUtil;
+import com.ethlo.geodata.util.Kml2GeoJson;
+import com.ethlo.geodata.util.SerializationUtil;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Iterators;
 
 public class GeoNamesBoundaryImporter
 {
     public static final int MAX_PIECES = 100_000;
+    private final List<String> columns = Arrays.asList("id", "json");
+    private final LocationDao locationDao;
+    private final int maxTileSize;
+
+    private final BinaryIndexedFileWriter<BoundaryData> binaryIndexedFileWriter;
+    private final Predicate<RawLocation> includeGeometryFilter;
 
     public GeoNamesBoundaryImporter(final LocationDao locationDao,
                                     final Path baseDirectory,
-                                    final Path inputFile,
                                     final int maxTileSize,
                                     final Predicate<RawLocation> includeGeometryFilter)
     {
-        final BinaryIndexedFileWriter<BoundaryData> binaryIndexedFileWriter = new BinaryIndexedFileWriter<>(baseDirectory, "boundaries")
+        this.locationDao = locationDao;
+        this.maxTileSize = maxTileSize;
+        this.includeGeometryFilter = includeGeometryFilter;
+
+        this.binaryIndexedFileWriter = new BinaryIndexedFileWriter<>(baseDirectory, DataType.BOUNDARIES)
         {
             @Override
             protected void write(final BoundaryData data, final DataOutputStream out) throws IOException
@@ -76,105 +88,143 @@ public class GeoNamesBoundaryImporter
                 BinaryBoundaryEncoder.write(data, out);
             }
         };
+    }
 
-        final List<String> columns = Arrays.asList("id", "json");
+    public CloseableIterator<BoundaryData> processTsv(final Path inputTsvFile, Consumer<Integer> progress)
+    {
         final AtomicInteger processed = new AtomicInteger();
-        try (final CloseableIterator<Map<String, String>> boundaryIterator = new CsvFileIterator<>(inputFile, columns, true, 1, i -> i)
+        final CloseableIterator<Map<String, String>> boundaryIterator = new CsvFileIterator<>(inputTsvFile, columns, true, 1, i -> i)
         {
             @Override
             public Map<String, String> next()
             {
-                final int current = processed.incrementAndGet();
-                if (current % 1000 == 0)
-                {
-                    System.out.println(current);
-                }
+                progress.accept(processed.incrementAndGet());
                 return super.next();
             }
-        })
+        };
+
+        final Iterator<Map<String, String>> filtered = Iterators.filter(boundaryIterator, e ->
         {
-            final Iterator<Map<String, String>> filtered = Iterators.filter(boundaryIterator, e ->
+            final int id = Integer.parseInt(e.get("id"));
+            final Optional<RawLocation> location = locationDao.get(id);
+            if (location.isEmpty())
             {
-                final int id = Integer.parseInt(e.get("id"));
-                final Optional<RawLocation> location = locationDao.get(id);
-                if (location.isEmpty())
-                {
-                    return false;
-                }
-                else
-                {
-                    return includeGeometryFilter.test(location.get());
-                }
-            });
-
-            final Iterator<BoundaryData> tileIterator = new AbstractIterator<>()
+                return false;
+            }
+            else
             {
-                private Iterator<BoundaryData> buffer = Collections.emptyIterator();
+                return includeGeometryFilter.test(location.get());
+            }
+        });
 
-                @Override
-                protected BoundaryData computeNext()
+        final Iterator<BoundaryData> tileIterator = new AbstractIterator<>()
+        {
+            private Iterator<BoundaryData> buffer = Collections.emptyIterator();
+
+            @Override
+            protected BoundaryData computeNext()
+            {
+                if (buffer.hasNext())
                 {
-                    if (buffer.hasNext())
-                    {
-                        return buffer.next();
-                    }
-
-                    if (!filtered.hasNext())
-                    {
-                        return endOfData();
-                    }
-
-                    final Map<String, String> next = filtered.next();
-                    final int id = Integer.parseInt(next.get("id"));
-
-                    final List<BoundaryData> bufferList = new LinkedList<>();
-                    try
-                    {
-                        final Geometry geometry = new GeoJsonReader().read(next.get("json"));
-                        final BoundaryData full = new BoundaryData(id, 0, geometry.getEnvelopeInternal(), geometry.getArea(), geometry);
-                        final double fullArea = full.getArea();
-                        bufferList.add(full);
-
-                        final AtomicInteger index = new AtomicInteger(1);
-                        final List<BoundaryData> list = GeometryUtil.split(id, geometry, maxTileSize, MAX_PIECES).stream()
-                                .map(tileGeometry -> new BoundaryData(id, index.getAndIncrement(), tileGeometry.getEnvelopeInternal(), fullArea, tileGeometry))
-                                .collect(Collectors.toList());
-                        bufferList.addAll(list);
-
-                        buffer = bufferList.iterator();
-                    }
-                    catch (ParseException e)
-                    {
-                        throw new UncheckedIOException(new IOException(e));
-                    }
-
-                    return computeNext();
+                    return buffer.next();
                 }
-            };
 
-            binaryIndexedFileWriter.writeData(tileIterator);
+                if (!filtered.hasNext())
+                {
+                    return endOfData();
+                }
+
+                final Map<String, String> next = filtered.next();
+                final int id = Integer.parseInt(next.get("id"));
+
+                final List<BoundaryData> bufferList = new LinkedList<>();
+                try
+                {
+                    final Geometry geometry = new GeoJsonReader().read(next.get("json"));
+
+                    final BoundaryData full = new BoundaryData(id, 0, geometry.getEnvelopeInternal(), geometry.getArea(), geometry);
+                    bufferList.add(full);
+                    final List<BoundaryData> list = processSingleGeometry(full);
+                    bufferList.addAll(list);
+                    buffer = bufferList.iterator();
+                }
+                catch (ParseException e)
+                {
+                    throw new UncheckedIOException(new IOException(e));
+                }
+
+                return computeNext();
+            }
+        };
+
+        return SerializationUtil.wrapClosable(tileIterator, boundaryIterator);
+    }
+
+    private List<BoundaryData> processSingleGeometry(final BoundaryData full)
+    {
+        final AtomicInteger index = new AtomicInteger(1);
+        final int id = full.getId();
+        final Geometry geometry = full.getGeometry();
+        return GeometryUtil.split(id, geometry, maxTileSize, MAX_PIECES).stream()
+                .map(tileGeometry -> new BoundaryData(id, index.getAndIncrement(), tileGeometry.getEnvelopeInternal(), full.getArea(), tileGeometry))
+                .collect(Collectors.toList());
+    }
+
+    public Iterator<BoundaryData> processKml(final Path path)
+    {
+        try (final Reader reader = Files.newBufferedReader(path))
+        {
+            final int id = getIdFromFilename(path);
+            final ObjectNode node = Kml2GeoJson.parse(reader);
+            final Geometry geometry = new GeoJsonReader().read(node.toString());
+            return writeSingleGeometryWithSplits(id, geometry);
         }
-        catch (IOException exc)
+        catch (IOException e)
         {
-            throw new UncheckedIOException(exc);
+            throw new UncheckedIOException(e);
+        }
+        catch (ParseException | XMLStreamException e)
+        {
+            throw new UncheckedIOException(new IOException(e));
         }
     }
 
-    public static void main(String[] args)
+    private Iterator<BoundaryData> writeSingleGeometryWithSplits(final int id, final Geometry geometry) throws IOException
     {
-        final Path inputFile = Paths.get("/home/morten/Downloads/allshapes.txt");
-        final Path baseDirectory = Paths.get("/tmp/geodata");
+        final BoundaryData full = new BoundaryData(id, 0, geometry.getEnvelopeInternal(), geometry.getArea(), geometry);
+        final List<BoundaryData> list = processSingleGeometry(full);
+        list.add(0, full);
+        return list.iterator();
+    }
 
-        final FeatureCodeDao featureCodeDao = new FileFeatureCodeDao(baseDirectory);
-        final LocationDao locationDao = new FileMmapLocationDao(baseDirectory);
-        locationDao.load();
+    private int getIdFromFilename(final Path path)
+    {
+        final String filename = path.getFileName().toString();
+        final String basename = filename.split("\\.")[0];
+        final String idStr = basename.split("__")[0];
+        return Integer.parseInt(idStr);
+    }
 
-        final Map<Integer, MapFeature> featureCodes = featureCodeDao.load();
-        new GeoNamesBoundaryImporter(locationDao, baseDirectory, inputFile, 2_000, l ->
+    public Iterator<BoundaryData> processGeoJson(final Path path)
+    {
+        try (final Reader reader = Files.newBufferedReader(path))
         {
-            final MapFeature mapFeature = featureCodes.get(l.getMapFeatureId());
-            final String key = mapFeature.getKey();
-            return GeoConstants.ADMINISTRATIVE_OR_ABOVE.contains(key) && !key.equals("A.ADM3") && !key.equals("A.ADM4");
-        });
+            final int id = getIdFromFilename(path);
+            final Geometry geometry = new GeoJsonReader().read(reader);
+            return writeSingleGeometryWithSplits(id, geometry);
+        }
+        catch (IOException e)
+        {
+            throw new UncheckedIOException(e);
+        }
+        catch (ParseException e)
+        {
+            throw new UncheckedIOException(new IOException(e));
+        }
+    }
+
+    public int write(final Iterator<BoundaryData> data) throws IOException
+    {
+        return this.binaryIndexedFileWriter.writeData(data);
     }
 }

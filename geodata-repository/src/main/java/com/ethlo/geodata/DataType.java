@@ -26,4 +26,5 @@ public class DataType
 {
     public static final String IP = "ip";
     public static final String LOCATIONS = "locations";
+    public static final String BOUNDARIES = "boundaries";
 }

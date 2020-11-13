@@ -30,10 +30,10 @@ import com.ethlo.geodata.DataType;
 
 @SpringBootApplication
 @ComponentScan(basePackageClasses = DataType.class)
-public class Main
+public class GeodataImporter
 {
     public static void main(String[] args)
     {
-        SpringApplication.run(Main.class, args);
+        SpringApplication.run(GeodataImporter.class, args);
     }
 }
