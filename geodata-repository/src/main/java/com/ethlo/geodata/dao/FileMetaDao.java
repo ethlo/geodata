@@ -60,7 +60,9 @@ public class FileMetaDao implements MetaDao
     {
         if (!Files.exists(metaFile))
         {
-            throw new IllegalStateException(FILE + " was not found in " + metaFile.getParent() + ". Make sure you have imported data and have configured the data directory properly");
+            throw new IllegalStateException(FILE + " was not found in " + metaFile.getParent()
+                    + ". Make sure you have imported data and have configured the data directory "
+                    + "properly. Use '-import' to run the application in import mode.");
         }
     }
 }

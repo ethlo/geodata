@@ -26,12 +26,19 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.AbstractMap;
 import java.util.Date;
 import java.util.Map;
@@ -44,8 +51,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.util.Assert;
 
 public class ResourceUtil
@@ -55,16 +60,11 @@ public class ResourceUtil
 
     public static Date getLastModified(String urlStr) throws IOException
     {
-        final Resource connection = openConnection(urlStr);
-        final long lastModified = connection.lastModified();
-        if (lastModified == 0)
-        {
-            throw new IOException("No value for Last-Modified for URL " + urlStr);
-        }
-        return new Date(lastModified);
+        final Map.Entry<Date, InputStream> connection = openConnection(urlStr);
+        return connection.getKey();
     }
 
-    private static Resource openConnection(String urlStr) throws IOException
+    private static Entry<Date, InputStream> openConnection(String urlStr) throws IOException
     {
         final String[] urlParts = StringUtils.split(urlStr, "|");
 
@@ -80,14 +80,34 @@ public class ResourceUtil
             {
                 throw new FileNotFoundException(file.getAbsolutePath());
             }
-            return new FileSystemResource(file);
+            final FileSystemResource fileRes = new FileSystemResource(file);
+            return new AbstractMap.SimpleEntry<>(new Date(fileRes.lastModified()), fileRes.getInputStream());
         }
         else if (urlStr.startsWith("classpath:"))
         {
-            return new ClassPathResource(urlParts[0].substring(10));
+            final ClassPathResource classRes = new ClassPathResource(urlParts[0].substring(10));
+            return new AbstractMap.SimpleEntry<>(new Date(classRes.lastModified()), classRes.getInputStream());
         }
 
-        return new UrlResource(urlParts[0]);
+        final HttpClient client = HttpClient.newHttpClient();
+        final HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(urlParts[0]))
+                .build();
+
+        try
+        {
+            final HttpResponse<InputStream> resp = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            if (resp.statusCode() != 200)
+            {
+                throw new IOException("HTTP status " + resp.statusCode() + " returned for URL " + request.uri());
+            }
+            final Date lastModified = resp.headers().firstValue("Last-Modified").map(d -> ZonedDateTime.parse(d, DateTimeFormatter.RFC_1123_DATE_TIME)).map(ZonedDateTime::toInstant).map(Date::from).orElseThrow();
+            return new AbstractMap.SimpleEntry<>(lastModified, resp.body());
+        }
+        catch (InterruptedException e)
+        {
+            throw new UncheckedIOException(new IOException(e));
+        }
     }
 
     public static Map.Entry<Date, File> fetchResource(String alias, Duration maxAge, String urlStr) throws IOException
@@ -105,10 +125,10 @@ public class ResourceUtil
 
     private static Map.Entry<Date, File> fetchZip(String alias, String url, Duration maxAge, String zipEntry) throws IOException
     {
-        final Resource resource = openConnection(url);
-        return downloadIfNewer(alias, resource, maxAge, f ->
+        final Entry<Date, InputStream> resource = openConnection(url);
+        return downloadIfNewer(alias, url, resource.getKey(), resource.getValue(), maxAge, f ->
         {
-            final ZipInputStream zipIn = new ZipInputStream(resource.getInputStream());
+            final ZipInputStream zipIn = new ZipInputStream(resource.getValue());
             ZipEntry entry;
             do
             {
@@ -120,24 +140,18 @@ public class ResourceUtil
         });
     }
 
-    private static Entry<Date, File> downloadIfNewer(String alias, Resource remoteResource, Duration maxAge, CheckedFunction<InputStream, InputStream> fun) throws IOException
+    private static Entry<Date, File> downloadIfNewer(String alias, String url, Date remoteLastModified, InputStream remoteResource, Duration maxAge, CheckedFunction<InputStream, InputStream> fun) throws IOException
     {
-        final File file = new File(tmpDir, alias + "_" + remoteResource.getURL().hashCode());
-        final Date remoteLastModified = new Date(remoteResource.lastModified());
+        final File file = new File(tmpDir, alias + "_" + url.hashCode());
         final long localLastModified = file.exists() ? file.lastModified() : -2;
-        if (!remoteResource.exists() && file.exists())
-        {
-            // Issue with remote file, use local file as fallback if it exists
-            return new AbstractMap.SimpleEntry<>(new Date(localLastModified), file);
-        }
 
         logger.info("Local file for " + "alias {}: Path: {}" + " - Exists: {}" + " - Last-Modified: {}", alias, file.getAbsolutePath(), file.exists(), formatDate(localLastModified));
 
         if (remoteLastModified.getTime() > localLastModified + maxAge.toMillis())
         {
             logger.info("New file has last-modified value of {}", formatDate(remoteLastModified.getTime()));
-            logger.info("Downloading new file from {}", remoteResource.getURL());
-            try (final InputStream in = fun.apply(remoteResource.getInputStream()))
+            logger.info("Downloading new file from {}", url);
+            try (final InputStream in = fun.apply(remoteResource))
             {
                 final Path tmpFile = Files.createTempFile(file.getName() + "-", ".tmp");
                 Files.copy(in, tmpFile, StandardCopyOption.REPLACE_EXISTING);
@@ -156,8 +170,8 @@ public class ResourceUtil
 
     private static Entry<Date, File> fetch(String alias, String url, final Duration maxAge) throws IOException
     {
-        final Resource resource = openConnection(url);
-        return downloadIfNewer(alias, resource, maxAge, in -> in);
+        final Entry<Date, InputStream> resource = openConnection(url);
+        return downloadIfNewer(alias, url, resource.getKey(), resource.getValue(), maxAge, i -> i);
     }
 
     @FunctionalInterface

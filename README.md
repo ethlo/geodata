@@ -22,7 +22,7 @@ appropriate fit-for-purpose data-structures, and a highly optimized HTTP handler
 For quick and easy distribution of data the system utilizes no database. Typical data imports are a few hundred mega bytes, 
 and require no further processing or data-loading before running on a server.
 
-### Fullt documented API
+### Fully documented RESTful API
 The API is fully documented using Open API 3.x specification and allows for easy consumption from numerous platforms.
 ![OpenAPI docs](docs/img/openapi.jpg?raw=true)
 
