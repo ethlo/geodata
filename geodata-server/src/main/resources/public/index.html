@@ -32,7 +32,7 @@
         body {
             font-family: 'Roboto', sans-serif;
             font-weight: 300;
-            margin: 5em;
+            margin: 0;
             font-size: 1.1em;
             line-height: 1.3em;
             color: #f5f5f5;
@@ -107,10 +107,8 @@
             color: rgb(150 207 36);
         }
 
-
-        /* We want to give the content area some more padding */
         .content {
-            padding: 0.1em 1em 3em;
+            padding: 4em 0.5em 0.5em;
         }
 
         /*
@@ -119,6 +117,10 @@
          * of the mobile styles.
          */
         @media (min-width: 48em) {
+
+            .content {
+                padding: 4em 3em 3em;
+            }
 
             /* We increase the body font size */
             body {
@@ -144,9 +146,13 @@
             stop-color: rgb(150 207 36);
         }
 
-        #map {
+        #mymap {
             height: 400px;
             z-index: 0;
+        }
+
+        #map {
+            padding-top: 2em;
         }
 
     </style>
@@ -262,7 +268,9 @@
         </div>
     </div>
 
-    <div id="map" style="display:none"></div>
+    <div id="map" style="display:none">
+        <div id="mymap"></div>
+    </div>
 
     <div id="metrics" style="display:none">
         <h2>Latency metrics</h2>
@@ -349,23 +357,17 @@
 
     $(document).ready(function () {
 
-        mymap = L.map('map').setView([0, 0], 2);
-        $("#map").height($(window).height() - 100).width($(window).width() - 200);
+        mymap = L.map('mymap').setView([0, 0], 2);
+        $("#mymap").height($(window).height() - 100).width($(window).width() - 100);
         mymap.invalidateSize();
-        const mapboxToken = 'pk.eyJ1IjoieGFlciIsImEiOiJja2g5NmlienMwdG5uMnFydGpnMWdscGw0In0.kVfN64HsM5lvDvXiD1vFjQ';
-        L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=' + mapboxToken, {
-            maxZoom: 18,
-            attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, ' +
-                '<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
-                'Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
-            id: 'mapbox/streets-v11',
-            tileSize: 512,
-            zoomOffset: -1
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>'
         }).addTo(mymap);
 
         var myStyle = {
             "color": "#ff5555",
-            "weight": 2,
+            "weight": 1,
             "opacity": 0.85
         };
 
@@ -395,7 +397,7 @@
                     mymap.fitBounds(layer.getBounds());
                 });
             });
-        });
+        })
 
         $.getJSON("/sysadmin/info", function (data) {
             $("#version-info").html(data['git']['git.build.version'] + ' - ' + data['git']['git.commit.id.abbrev']);
@@ -411,7 +413,7 @@
         });
 
         updateMetrics();
-    })
+    });
 
     const pages = ['main', 'map', 'metrics'];
 
