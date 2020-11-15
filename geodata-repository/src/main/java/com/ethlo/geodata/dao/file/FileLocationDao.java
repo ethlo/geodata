@@ -23,27 +23,22 @@ package com.ethlo.geodata.dao.file;
  */
 
 import java.io.DataInputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.util.Iterator;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.util.CloseableIterator;
-import org.springframework.stereotype.Repository;
-
+import com.ethlo.geodata.DataType;
 import com.ethlo.geodata.dao.LocationDao;
 import com.ethlo.geodata.model.RawLocation;
-import com.ethlo.geodata.util.SerializationUtil;
-import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Iterators;
 
-@Repository
-public class FileMmapLocationDao extends BaseMmapDao implements LocationDao
+public class FileLocationDao extends BaseMmapDao implements LocationDao
 {
-    public FileMmapLocationDao(@Value("${geodata.base-path}") final Path basePath)
+    public FileLocationDao(final Path basePath)
     {
-        super(basePath, "locations");
+        super(basePath, false, DataType.LOCATIONS);
     }
 
     @Override
@@ -53,43 +48,27 @@ public class FileMmapLocationDao extends BaseMmapDao implements LocationDao
     }
 
     @Override
-    public CloseableIterator<RawLocation> iterator()
+    public Iterator<RawLocation> iterator()
     {
-        final DataInputStream in = super.getInputStream(0);
-
-        return SerializationUtil.wrapClosable(new AbstractIterator<>()
+        return Iterators.transform(super.rawIterator(), e ->
         {
-            @Override
-            protected RawLocation computeNext()
+            try (final DataInputStream in = e.getValue())
             {
-                try
-                {
-                    final RawLocation l = new RawLocation();
-                    l.read(in);
-                    return l;
-                }
-                catch (EOFException ignored)
-                {
-                    return endOfData();
-                }
-                catch (IOException exc)
-                {
-                    throw new UncheckedIOException(exc);
-                }
+                final RawLocation l = new RawLocation();
+                l.read(in);
+                return l;
             }
-        }, in);
+            catch (IOException exc)
+            {
+                throw new UncheckedIOException(exc);
+            }
+        });
     }
 
     @Override
     public Optional<RawLocation> get(final int id)
     {
         return Optional.ofNullable(super.getOffset(id)).map(this::readDataAtOffset);
-    }
-
-    @Override
-    public int size()
-    {
-        return super.size();
     }
 
     private RawLocation readDataAtOffset(final Integer offset)

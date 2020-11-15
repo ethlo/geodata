@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -56,7 +57,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
-import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import com.ethlo.geodata.dao.BoundaryDao;
@@ -289,15 +289,14 @@ public class GeodataServiceImpl implements GeodataService
         logger.info("Loading search index");
         int count = 0;
         progressListener.begin("load_search_index");
-        try (final CloseableIterator<RawLocation> locationIter = locationDao.iterator())
+        final Iterator<RawLocation> locationIter = locationDao.iterator();
+        while (locationIter.hasNext())
         {
-            while (locationIter.hasNext())
-            {
-                final RawLocation location = locationIter.next();
-                addToSearchIndex(location);
-                progressListener.progress(count);
-            }
+            final RawLocation location = locationIter.next();
+            addToSearchIndex(location);
+            progressListener.progress(count);
         }
+
         progressListener.end();
         logger.info("Search index loaded with {} entries", locationsByName.size());
     }

@@ -50,7 +50,7 @@ import com.ethlo.geodata.dao.file.FileCountryDao;
 import com.ethlo.geodata.dao.file.FileFeatureCodeDao;
 import com.ethlo.geodata.dao.file.FileHierarchyDao;
 import com.ethlo.geodata.dao.file.FileIpDao;
-import com.ethlo.geodata.dao.file.FileMmapLocationDao;
+import com.ethlo.geodata.dao.file.FileLocationDao;
 import com.ethlo.geodata.dao.file.FileTimeZoneDao;
 import com.ethlo.geodata.progress.StatefulProgressListener;
 import com.ethlo.geodata.util.MemoryUsageUtil;
@@ -74,7 +74,7 @@ public class UndertowServer
         });
 
         final MetaDao metaDao = new FileMetaDao(basePath);
-        final LocationDao locationDao = new FileMmapLocationDao(basePath);
+        final LocationDao locationDao = new FileLocationDao(basePath);
         final IpDao ipDao = new FileIpDao(basePath);
         final HierarchyDao hierarchyDao = new FileHierarchyDao(basePath);
         final FeatureCodeDao featureCodeDao = new FileFeatureCodeDao(basePath);

@@ -28,6 +28,8 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import org.locationtech.jts.geom.Coordinate;
+
 public class Coordinates implements Serializable
 {
     private static final long serialVersionUID = -3056995518191959558L;
@@ -45,6 +47,11 @@ public class Coordinates implements Serializable
     public static Coordinates from(double lat, double lng)
     {
         return new Coordinates().setLat(lat).setLng(lng);
+    }
+
+    public static Coordinates of(final Coordinate coord)
+    {
+        return Coordinates.from(coord.y, coord.x);
     }
 
     public double getLat()

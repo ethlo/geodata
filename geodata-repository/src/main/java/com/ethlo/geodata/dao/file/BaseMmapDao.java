@@ -29,26 +29,33 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.AbstractMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
+import org.apache.commons.compress.utils.BoundedInputStream;
 import org.springframework.util.Assert;
 
 import com.ethlo.geodata.util.CompressionUtil;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Iterators;
 import com.google.common.primitives.Ints;
 
 public class BaseMmapDao
 {
     private final Path indexPath;
     private final Path dataPath;
+    private final boolean compress;
 
     private ArrayListMultimap<Integer, Integer> indexMap;
     private ByteBufferHolder byteBufferHolder;
 
-    public BaseMmapDao(Path basePath, String alias)
+    public BaseMmapDao(Path basePath, final boolean compress, String alias)
     {
         this.indexPath = basePath.resolve(alias + ".index");
         this.dataPath = basePath.resolve(alias + ".data");
+        this.compress = compress;
     }
 
     public int load()
@@ -84,9 +91,24 @@ public class BaseMmapDao
         return indexMap;
     }
 
+    protected Iterator<Map.Entry<Integer, DataInputStream>> rawIterator()
+    {
+        return Iterators.transform(indexMap.entries().iterator(), e -> new AbstractMap.SimpleEntry<>(e.getKey(), getInputStream(e.getValue())));
+    }
+
     protected DataInputStream getInputStream(long position)
     {
-        return new DataInputStream(byteBufferHolder.getInputStream(position));
+        try
+        {
+            final DataInputStream in = new DataInputStream(byteBufferHolder.getInputStream(position));
+            final int blockSize = in.readInt();
+            final BoundedInputStream bounded = new BoundedInputStream(in, blockSize);
+            return new DataInputStream(compress ? CompressionUtil.decompress(bounded) : bounded);
+        }
+        catch (IOException exc)
+        {
+            throw new UncheckedIOException(exc);
+        }
     }
 
     protected Integer getOffset(final int id)
@@ -100,8 +122,7 @@ public class BaseMmapDao
         return parts.size() > subIndex ? parts.get(subIndex) : null;
     }
 
-
-    protected int size()
+    public int size()
     {
         return indexMap.size();
     }

@@ -47,10 +47,11 @@ import org.locationtech.jts.util.Assert;
 
 import com.ethlo.geodata.model.BoundaryData;
 import com.ethlo.geodata.model.BoundaryMetadata;
+import com.ethlo.geodata.model.Coordinates;
 
 public class BinaryBoundaryEncoder
 {
-    public static final int SIZE_OF_COORDINATE = 8;
+    public static final int SIZE_OF_COORDINATE = 6;
     private static final GeometryFactory factory = new GeometryFactory();
 
     public static BoundaryData readGeometry(final DataInputStream in)
@@ -147,11 +148,12 @@ public class BinaryBoundaryEncoder
         boolean isHole = in.readByte() == 0;
         final int coordinateCount = in.readInt();
         final Coordinate[] coordinates = new Coordinate[coordinateCount];
+        final byte[] data = new byte[6];
         for (int i = 0; i < coordinateCount; i++)
         {
-            final float lat = in.readFloat();
-            final float lng = in.readFloat();
-            coordinates[i] = new CoordinateXY(lng, lat);
+            Assert.isTrue(in.read(data) == 6);
+            final Coordinates coord = LatLngEncoder.decode(data);
+            coordinates[i] = new CoordinateXY(coord.getLng(), coord.getLat());
         }
         return new AbstractMap.SimpleEntry<>(isHole, coordinates);
     }
@@ -299,8 +301,7 @@ public class BinaryBoundaryEncoder
         out.writeInt(coordinates.length);
         for (Coordinate coord : coordinates)
         {
-            out.writeFloat((float) coord.y);
-            out.writeFloat((float) coord.x);
+            out.write(LatLngEncoder.encode(Coordinates.of(coord)));
         }
     }
 
@@ -314,13 +315,5 @@ public class BinaryBoundaryEncoder
         out.writeFloat(maxLat);
         out.writeFloat(minLng);
         out.writeFloat(maxLng);
-    }
-
-    public BoundaryData read(InputStream source) throws IOException
-    {
-        try (final DataInputStream in = new DataInputStream(source))
-        {
-            return readGeometry(in);
-        }
     }
 }

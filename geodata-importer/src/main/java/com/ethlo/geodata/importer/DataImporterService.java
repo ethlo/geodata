@@ -60,13 +60,14 @@ import com.ethlo.geodata.dao.FeatureCodeDao;
 import com.ethlo.geodata.dao.FileMetaDao;
 import com.ethlo.geodata.dao.LocationDao;
 import com.ethlo.geodata.dao.file.FileFeatureCodeDao;
-import com.ethlo.geodata.dao.file.FileMmapLocationDao;
+import com.ethlo.geodata.dao.file.FileLocationDao;
 import com.ethlo.geodata.importer.boundary.GeoNamesBoundaryImporter;
 import com.ethlo.geodata.model.BoundaryData;
 import com.ethlo.geodata.model.MapFeature;
 import com.ethlo.geodata.util.IoUtil;
 import com.ethlo.geodata.util.JsonUtil;
 import com.ethlo.geodata.util.SerializationUtil;
+import com.google.common.util.concurrent.RateLimiter;
 
 @Service
 public class DataImporterService
@@ -127,7 +128,7 @@ public class DataImporterService
         ifExpired(DataType.BOUNDARIES, new Date(), () ->
         {
             final FeatureCodeDao featureCodeDao = new FileFeatureCodeDao(basePath);
-            final LocationDao locationDao = new FileMmapLocationDao(basePath);
+            final LocationDao locationDao = new FileLocationDao(basePath);
             locationDao.load();
 
             final Map<Integer, MapFeature> featureCodes = featureCodeDao.load();
@@ -230,11 +231,18 @@ public class DataImporterService
     private CloseableIterator<BoundaryData> processBoundaryFile(final Collection<Integer> overrides, final Path path)
     {
         logger.info("Processing boundary file: {}", path.toAbsolutePath());
+        final RateLimiter rateLimiter = RateLimiter.create(2);
 
         switch (IoUtil.getExtension(path))
         {
             case "tsv":
-                return geoNamesBoundaryImporter.processTsv(overrides, path, progress -> logger.info("{} progress {}", path.getFileName(), progress));
+                return geoNamesBoundaryImporter.processTsv(overrides, path, progress ->
+                {
+                    if (rateLimiter.tryAcquire())
+                    {
+                        logger.info("{} progress {}", path.getFileName(), progress);
+                    }
+                });
 
             case "kml":
                 return SerializationUtil.wrapClosable(geoNamesBoundaryImporter.processKml(path), null);

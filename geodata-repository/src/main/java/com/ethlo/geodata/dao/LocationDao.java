@@ -22,9 +22,8 @@ package com.ethlo.geodata.dao;
  * #L%
  */
 
+import java.util.Iterator;
 import java.util.Optional;
-
-import org.springframework.data.util.CloseableIterator;
 
 import com.ethlo.geodata.model.RawLocation;
 
@@ -32,7 +31,7 @@ public interface LocationDao
 {
     int load();
 
-    CloseableIterator<RawLocation> iterator();
+    Iterator<RawLocation> iterator();
 
     Optional<RawLocation> get(int id);
 

@@ -32,20 +32,22 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 
+import org.springframework.util.FastByteArrayOutputStream;
+
 import com.ethlo.geodata.model.IntIdentifiable;
 import com.ethlo.geodata.util.CompressionUtil;
-import com.google.common.io.CountingOutputStream;
 
-@SuppressWarnings("UnstableApiUsage")
 public abstract class BinaryIndexedFileWriter<T extends IntIdentifiable>
 {
     private final Path directory;
     private final String alias;
+    private final boolean compress;
 
-    protected BinaryIndexedFileWriter(final Path directory, final String alias)
+    protected BinaryIndexedFileWriter(final Path directory, final String alias, final boolean compress)
     {
         this.directory = directory;
         this.alias = alias;
+        this.compress = compress;
     }
 
     public int writeData(Iterator<T> data) throws IOException
@@ -53,7 +55,7 @@ public abstract class BinaryIndexedFileWriter<T extends IntIdentifiable>
         int count = 0;
 
         final Path indexPath = directory.resolve(alias + ".index");
-        final Path uncompressedDataPath = directory.resolve(alias + ".data");
+        final Path dataPath = directory.resolve(alias + ".data");
 
         try (final OutputStream uncompressedIndex = Files.newOutputStream(indexPath))
         {
@@ -62,33 +64,48 @@ public abstract class BinaryIndexedFileWriter<T extends IntIdentifiable>
         }
 
         try (final DataOutputStream indexOut = new DataOutputStream(CompressionUtil.compress(new BufferedOutputStream(Files.newOutputStream(indexPath, StandardOpenOption.APPEND))));
-             final CountingOutputStream countingBytes = new CountingOutputStream(new BufferedOutputStream(Files.newOutputStream(uncompressedDataPath)));
-             final DataOutputStream uncompressedOut = new DataOutputStream(countingBytes))
+             final DataOutputStream dataOutputStream = new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(dataPath))))
         {
+            int pos = 0;
             while (data.hasNext())
             {
                 final T d = data.next();
 
                 // Write raw data
-                final long startPos = countingBytes.getCount();
-                this.write(d, uncompressedOut);
+                final long startPos = pos;
+
+                final byte[] compressed = writeData(d, compress);
+                dataOutputStream.writeInt(compressed.length);
+                dataOutputStream.write(compressed);
 
                 // Write index in the raw file. Note that we can have multiple repeating IDs!
                 indexOut.writeInt(d.getId());
                 indexOut.writeInt((int) startPos);
 
                 count++;
+                pos += (4 + compressed.length);
             }
         }
 
         // Replace count
-        try (final RandomAccessFile raf = new RandomAccessFile(indexPath.toFile(), "rw");)
+        try (final RandomAccessFile raf = new RandomAccessFile(indexPath.toFile(), "rw"))
         {
             raf.seek(0);
             raf.writeInt(count);
         }
 
         return count;
+    }
+
+    private byte[] writeData(final T d, final boolean compress) throws IOException
+    {
+        try (final FastByteArrayOutputStream out = new FastByteArrayOutputStream(10_240))
+        {
+            final DataOutputStream compOut = new DataOutputStream(compress ? CompressionUtil.compress(out) : out);
+            this.write(d, compOut);
+            compOut.close();
+            return out.toByteArray();
+        }
     }
 
     protected abstract void write(T data, DataOutputStream out) throws IOException;

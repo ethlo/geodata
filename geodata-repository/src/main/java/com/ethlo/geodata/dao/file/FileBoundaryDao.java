@@ -23,7 +23,6 @@ package com.ethlo.geodata.dao.file;
  */
 
 import java.io.DataInputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
@@ -31,24 +30,19 @@ import java.util.Iterator;
 import java.util.Optional;
 
 import org.locationtech.jts.geom.Geometry;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Repository;
 
 import com.ethlo.geodata.dao.BoundaryDao;
 import com.ethlo.geodata.io.BinaryBoundaryEncoder;
 import com.ethlo.geodata.model.BoundaryData;
 import com.ethlo.geodata.model.BoundaryMetadata;
 import com.ethlo.geodata.model.RTreePayload;
-import com.ethlo.geodata.util.SerializationUtil;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Iterators;
 
-@Repository
 public class FileBoundaryDao extends BaseMmapDao implements BoundaryDao
 {
-    public FileBoundaryDao(@Value("${geodata.base-path}") final Path basePath)
+    public FileBoundaryDao(final Path basePath)
     {
-        super(basePath, "boundaries");
+        super(basePath, true, "boundaries");
     }
 
     @Override
@@ -56,29 +50,18 @@ public class FileBoundaryDao extends BaseMmapDao implements BoundaryDao
     {
         super.load();
 
-        final DataInputStream in = super.getInputStream(0);
-
-        return SerializationUtil.wrapClosable(Iterators.filter(new AbstractIterator<>()
+        return Iterators.transform(super.rawIterator(), e ->
         {
-            @Override
-            protected RTreePayload computeNext()
+            try (final DataInputStream in = e.getValue())
             {
-                try
-                {
-                    final BoundaryMetadata boundaryMetadata = BinaryBoundaryEncoder.readBoundaryMetadata(in);
-                    return new RTreePayload(boundaryMetadata.getId(), boundaryMetadata.getSubDivideIndex(), boundaryMetadata.getArea(), boundaryMetadata.getMbr());
-                }
-                catch (EOFException exc)
-                {
-                    return endOfData();
-                }
-                catch (IOException exc)
-                {
-                    throw new UncheckedIOException(exc);
-                }
+                final BoundaryMetadata boundaryMetadata = BinaryBoundaryEncoder.readBoundaryMetadata(in);
+                return new RTreePayload(boundaryMetadata.getId(), boundaryMetadata.getSubDivideIndex(), boundaryMetadata.getArea(), boundaryMetadata.getMbr());
             }
-            // We use the divided polygons for much faster lookup
-        }, e -> e.getSubdivideIndex() > 0), in);
+            catch (IOException exc)
+            {
+                throw new UncheckedIOException(exc);
+            }
+        });
     }
 
     @Override

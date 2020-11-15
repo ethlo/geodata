@@ -297,7 +297,7 @@ public class ServerHandler extends BaseServerHandler
                 .addPrefixPath("/swagger-ui", new ResourceHandler(classpathResource("META-INF/resources/webjars/swagger-ui/3.35.2")))
                 .addExactPath("/spec.yaml", new ResourceHandler(classpathResource("public/spec.yaml")))
                 .addExactPath("/", new ResourceHandler(classpathResource("public/index.html")));
-        
+
         // Source data information
         path.addExactPath("/sysadmin/source", exchange -> json(exchange, metaDao.load()));
 

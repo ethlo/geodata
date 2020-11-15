@@ -94,7 +94,7 @@ public class FileGeonamesImporter implements DataImporter
                                 final HierarchyDao hierarchyDao,
                                 final CountryDao countryDao)
     {
-        this.locationWriter = new BinaryIndexedFileWriter<>(basePath, "locations")
+        this.locationWriter = new BinaryIndexedFileWriter<>(basePath, "locations", false)
         {
             @Override
             protected void write(final RawLocation data, final DataOutputStream out) throws IOException

@@ -39,7 +39,6 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.util.CloseableIterator;
 
 import com.ethlo.geodata.dao.BoundaryDao;
 import com.ethlo.geodata.dao.LocationDao;
@@ -77,18 +76,16 @@ public class RtreeRepository
         // Load proximity tree
         this.proximity = RTree.star().create();
         final int batchSize = 20_000;
-        try (final CloseableIterator<RawLocation> iter = locationDao.iterator())
+        final Iterator<RawLocation> iter = locationDao.iterator();
+        List<Entry<Integer, Point>> batch;
+        do
         {
-            List<Entry<Integer, Point>> batch;
-            do
-            {
-                final Iterator<RawLocation> filtered = Iterators.filter(iter, l -> featureCodesIncluded.contains(Objects.requireNonNull(l).getMapFeatureId()));
-                batch = Lists.newArrayList(Iterators.limit(new ConvertingIterator(filtered), batchSize));
-                proximity = proximity.add(batch);
-            }
-            while (batch.size() == batchSize);
-            logger.info("Loaded {} location points", proximity.size());
+            final Iterator<RawLocation> filtered = Iterators.filter(iter, l -> featureCodesIncluded.contains(Objects.requireNonNull(l).getMapFeatureId()));
+            batch = Lists.newArrayList(Iterators.limit(new ConvertingIterator(filtered), batchSize));
+            proximity = proximity.add(batch);
         }
+        while (batch.size() == batchSize);
+        logger.info("Loaded {} location points", proximity.size());
 
         // Load boundaries
         boundaryRTree = getBoundaryRTree(locationDao, boundaryDao);
@@ -162,7 +159,9 @@ public class RtreeRepository
     {
         final org.locationtech.jts.geom.Point point = new GeometryFactory().createPoint(new Coordinate(coordinate.getLng(), coordinate.getLat()));
 
-        final org.locationtech.jts.geom.Geometry geom = boundaryDao.findGeometryById(id, subdivideIndex).orElseThrow();
+        final org.locationtech.jts.geom.Geometry geom = boundaryDao
+                .findGeometryById(id, subdivideIndex)
+                .orElseGet(() -> boundaryDao.findGeometryById(id, 0).orElseThrow(() -> new IllegalArgumentException("" + id + " - " + subdivideIndex)));
         if (geom instanceof GeometryCollection)
         {
             final GeometryCollection coll = (GeometryCollection) geom;

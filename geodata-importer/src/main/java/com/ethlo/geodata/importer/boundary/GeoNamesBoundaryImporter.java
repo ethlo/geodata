@@ -46,6 +46,8 @@ import javax.xml.stream.XMLStreamException;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.geojson.GeoJsonReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.util.CloseableIterator;
 
 import com.ethlo.geodata.DataType;
@@ -65,6 +67,8 @@ import com.google.common.collect.Iterators;
 public class GeoNamesBoundaryImporter
 {
     public static final int MAX_PIECES = 100_000;
+    private static final Logger logger = LoggerFactory.getLogger(GeoNamesBoundaryImporter.class);
+
     private final List<String> columns = Arrays.asList("id", "json");
     private final LocationDao locationDao;
     private final int maxTileSize;
@@ -81,7 +85,7 @@ public class GeoNamesBoundaryImporter
         this.maxTileSize = maxTileSize;
         this.includeGeometryFilter = includeGeometryFilter;
 
-        this.binaryIndexedFileWriter = new BinaryIndexedFileWriter<>(baseDirectory, DataType.BOUNDARIES)
+        this.binaryIndexedFileWriter = new BinaryIndexedFileWriter<>(baseDirectory, DataType.BOUNDARIES, true)
         {
             @Override
             protected void write(final BoundaryData data, final DataOutputStream out) throws IOException
@@ -89,6 +93,14 @@ public class GeoNamesBoundaryImporter
                 BinaryBoundaryEncoder.write(data, out);
             }
         };
+    }
+
+    public static int getIdFromFilename(final Path path)
+    {
+        final String filename = path.getFileName().toString();
+        final String basename = filename.split("\\.")[0];
+        final String idStr = basename.split("__")[0];
+        return Integer.parseInt(idStr);
     }
 
     public CloseableIterator<BoundaryData> processTsv(final Collection<Integer> overrides, final Path inputTsvFile, Consumer<Integer> progress)
@@ -149,9 +161,16 @@ public class GeoNamesBoundaryImporter
                     final Geometry geometry = new GeoJsonReader().read(next.get("json"));
 
                     final BoundaryData full = new BoundaryData(id, 0, geometry.getEnvelopeInternal(), geometry.getArea(), geometry);
-                    bufferList.add(full);
                     final List<BoundaryData> list = processSingleGeometry(full);
+                    if (full.getGeometry().getNumPoints() > 100_000)
+                    {
+                        logger.info("Large geometry for location {} with size of {}", id, full.getGeometry().getNumPoints());
+                    }
                     bufferList.addAll(list);
+                    if (list.size() > 1)
+                    {
+                        bufferList.add(0, full);
+                    }
                     buffer = bufferList.iterator();
                 }
                 catch (ParseException e)
@@ -199,16 +218,11 @@ public class GeoNamesBoundaryImporter
     {
         final BoundaryData full = new BoundaryData(id, 0, geometry.getEnvelopeInternal(), geometry.getArea(), geometry);
         final List<BoundaryData> list = processSingleGeometry(full);
-        list.add(0, full);
+        if (list.size() > 1)
+        {
+            list.add(0, full);
+        }
         return list.iterator();
-    }
-
-    public static int getIdFromFilename(final Path path)
-    {
-        final String filename = path.getFileName().toString();
-        final String basename = filename.split("\\.")[0];
-        final String idStr = basename.split("__")[0];
-        return Integer.parseInt(idStr);
     }
 
     public Iterator<BoundaryData> processGeoJson(final Path path)

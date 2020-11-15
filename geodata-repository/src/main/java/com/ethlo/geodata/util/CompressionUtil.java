@@ -42,9 +42,9 @@ public class CompressionUtil
         try
         {
             options.setMode(LZMA2Options.MODE_FAST);
-            //options.setMatchFinder(LZMA2Options.MF_HC4);
-            //options.setDictSize(LZMA2Options.DICT_SIZE_MIN);
-            //options.setNiceLen(100);
+            options.setMatchFinder(LZMA2Options.MF_HC4);
+            options.setDictSize(LZMA2Options.DICT_SIZE_MIN);
+            options.setNiceLen(100);
         }
         catch (UnsupportedOptionsException exc)
         {
@@ -62,7 +62,7 @@ public class CompressionUtil
         return new XZInputStream(in);
     }
 
-    public byte[] compress(byte[] uncompressed) throws IOException
+    public static byte[] compress(byte[] uncompressed) throws IOException
     {
         try (final FastByteArrayOutputStream out = new FastByteArrayOutputStream(Math.max(1024, uncompressed.length / 10)))
         {
