@@ -131,7 +131,7 @@ public class DataImporterService
         });
 
         final Path boundaryImportFolder = inputBasePath.resolve(DataType.BOUNDARIES);
-        ifExpired(DataType.BOUNDARIES, getLastModifiedFile(boundaryImportFolder).orElse(OffsetDateTime.MIN), () ->
+        ifExpired(DataType.BOUNDARIES, getLastModifiedFile(boundaryImportFolder).orElse(OffsetDateTime.now().minusYears(10)), () ->
         {
             final FeatureCodeDao featureCodeDao = new FileFeatureCodeDao(basePath);
             final LocationDao locationDao = new FileLocationDao(basePath);

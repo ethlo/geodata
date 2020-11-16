@@ -28,13 +28,22 @@ The API is fully documented using Open API 3.x specification and allows for easy
 
 ## Usage guide
 ### Import and process data
-You need to register for an account at MaxMind (free) for the GeoLite2 data
+Prerequisite: You need to register for an account at MaxMind (free) for the GeoLite2 data
 
+Simple, sample script I use for creating data-set for the server:
 ```shell script
-docker run --rm -m1G --name geodata-importer -v ~/geodata:/geodata-server/data \
---env GEODATA_GEOLITE2_LICENSE_KEY=<LICENSE_KEY> \
---env GEODATA_MAXDATAAGE=P7D \
-ethlocom/geodata-importer:latest
+#!/bin/bash
+docker run --memory=2G --rm --name geodata-server-import \
+-v ~/geodata/data:/geodata-server/data \
+-v ~/geodata/input:/geodata-server/input \
+-v /tmp/geodata:/tmp/geodata \
+-e "GEODATA_IMPORT=1" \
+-e "GEODATA_MAXDATAAGE=P14D" \
+-e "GEODATA_GEOLITE2_LICENSE_KEY=<<LICENSE>>" ethlocom/geodata-server
+
+cd /tmp/geodata/data
+rm -rf all.zip
+zip all.zip *
 ```
 
 ### Start the server
@@ -42,7 +51,8 @@ ethlocom/geodata-importer:latest
 Start the server and load the data from the import step. Listen on host port 6566. 
 
 ```shell script
-docker run -d --rm -m1G -p 6566:6565 --name geodata-server -v ~/geodata:/geodata-server/data \ 
+docker run -d --rm -m1G -p 6566:6565 --name geodata-server -v ~/geodata:/geodata-server/data \
+-e JAVA_OPTS="-XX:MaxDirectMemorySize=1G" \ 
 docker.io/ethlocom/geodata-server:latest \ 
 && docker logs -f geodata-server
 ```
