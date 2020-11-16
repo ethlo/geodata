@@ -32,7 +32,6 @@ Prerequisite: You need to register for an account at MaxMind (free) for the GeoL
 
 Simple, sample script I use for creating data-set for the server:
 ```shell script
-#!/bin/bash
 docker run --memory=2G --rm --name geodata-server-import \
 -v ~/geodata/data:/geodata-server/data \
 -v ~/geodata/input:/geodata-server/input \
@@ -40,10 +39,6 @@ docker run --memory=2G --rm --name geodata-server-import \
 -e "GEODATA_IMPORT=1" \
 -e "GEODATA_MAXDATAAGE=P14D" \
 -e "GEODATA_GEOLITE2_LICENSE_KEY=<<LICENSE>>" ethlocom/geodata-server
-
-cd /tmp/geodata/data
-rm -rf all.zip
-zip all.zip *
 ```
 
 ### Start the server
@@ -51,7 +46,7 @@ zip all.zip *
 Start the server and load the data from the import step. Listen on host port 6566. 
 
 ```shell script
-docker run -d --rm -m1G -p 6566:6565 --name geodata-server -v ~/geodata:/geodata-server/data \
+docker run -d --rm -m1G -p 6566:6565 --name geodata-server -v ~/geodata/data:/geodata-server/data \
 -e JAVA_OPTS="-XX:MaxDirectMemorySize=1G" \ 
 docker.io/ethlocom/geodata-server:latest \ 
 && docker logs -f geodata-server
