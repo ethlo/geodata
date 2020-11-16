@@ -4,19 +4,16 @@
 ![Docker Pulls](https://img.shields.io/docker/pulls/ethlocom/geodata-server)
 ![Splash info page](docs/img/splash.jpg?raw=true)
 
-> :warning: Fast-moving active development!
-
 ### Features
 Simple, fast and free geo-data server for flexible deployment. This service is intended for doing quick lookups, like:
-* IP-to-location
-* searching for a location by name
-* query if a location is a child, grand-child, etc of another location
+* Searching for a location by name, ip, telephone number, lat/long coordinates
+* Query if a location is a child, grand-child, etc of another location
 * Browse location hierarchy (starting from continents and moving down administrative locations)
-* etc, etc, and not map/GIS tool
+
+NOTE: This is not an advanced GIS tool for map manipulation and analysis.
 
 ### Performance
-Quick startup, low memory overhead and super-fast response times utilizing 
-appropriate fit-for-purpose data-structures, and a highly optimized HTTP handler built on UnderTow. Depending on hardware you can expect tens-of-thousands to hundreds-of-thousands of requests per second.
+Low memory overhead and super-fast response times utilizing appropriate fit-for-purpose data-structures, and a highly optimized HTTP handler built on UnderTow. Depending on hardware you can expect thousands to hundreds-of-thousands of requests per second.
 
 ### Ease-of-use
 For quick and easy distribution of data the system utilizes no database. Typical data imports are a few hundred mega bytes, 
