@@ -47,8 +47,7 @@ Start the server and load the data from the import step. Listen on host port 656
 
 ```shell script
 docker run -d --rm -m1G -p 6566:6565 --name geodata-server -v ~/geodata/data:/geodata-server/data \
--e JAVA_OPTS="-XX:MaxDirectMemorySize=1G" \ 
-docker.io/ethlocom/geodata-server:latest \ 
+-e JAVA_OPTS="-XX:MaxDirectMemorySize=1G" ethlocom/geodata-server:latest \ 
 && docker logs -f geodata-server
 ```
 
