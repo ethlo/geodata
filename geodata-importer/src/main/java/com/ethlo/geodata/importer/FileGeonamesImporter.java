@@ -23,14 +23,13 @@ package com.ethlo.geodata.importer;
  */
 
 import java.io.DataOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -79,6 +78,8 @@ public class FileGeonamesImporter implements DataImporter
     private final String url;
     private final BinaryIndexedFileWriter<RawLocation> locationWriter;
     private final Duration maxAge;
+    private final Path tmpDir;
+    private final ResourceUtil resourceUtil;
 
     private Map<Integer, String> alternateNames;
     private Map<String, Country> countries;
@@ -88,11 +89,13 @@ public class FileGeonamesImporter implements DataImporter
                                 @Value("${geodata.geonames.source.names}") final String geoNamesAllCountriesUrl,
                                 @Value("${geodata.geonames.features.included}") final String inclusionsCsv,
                                 @Value("${geodata.base-path}") final Path basePath,
+                                @Value("${geodata.tmp.dir}") final Path tmpDir,
                                 @Value("${geodata.max-data-age}") final Duration maxAge,
                                 final FeatureCodeDao featureCodeDao,
                                 final TimeZoneDao timeZoneDao,
                                 final HierarchyDao hierarchyDao,
-                                final CountryDao countryDao)
+                                final CountryDao countryDao,
+                                final ResourceUtil resourceUtil)
     {
         this.locationWriter = new BinaryIndexedFileWriter<>(basePath, "locations", false)
         {
@@ -112,7 +115,8 @@ public class FileGeonamesImporter implements DataImporter
         this.timeZoneDao = timeZoneDao;
         this.hierarchyDao = hierarchyDao;
         this.countryDao = countryDao;
-
+        this.tmpDir = tmpDir;
+        this.resourceUtil = resourceUtil;
         logger.info("Included features: {}", StringUtils.collectionToCommaDelimitedString(inclusions));
     }
 
@@ -134,17 +138,17 @@ public class FileGeonamesImporter implements DataImporter
             throw new UncheckedIOException(e);
         }
 
-        Map.Entry<Date, File> fileData;
+        Map.Entry<OffsetDateTime, Path> fileData;
         try
         {
-            fileData = ResourceUtil.fetchResource(DataType.LOCATIONS, maxAge, url);
+            fileData = resourceUtil.fetchResource(DataType.LOCATIONS, maxAge, url);
         }
         catch (IOException exc)
         {
             throw new UncheckedIOException("Unable to download resource: " + url, exc);
         }
 
-        try (final CloseableIterator<RawLocation> iter = new CsvFileIterator<>(fileData.getValue().toPath(), HEADERS, true, 0, this::processLine))
+        try (final CloseableIterator<RawLocation> iter = new CsvFileIterator<>(fileData.getValue(), HEADERS, true, 0, this::processLine))
         {
             final int result = locationWriter.writeData(iter);
 
@@ -158,7 +162,7 @@ public class FileGeonamesImporter implements DataImporter
             featureCodeDao.save(featureCodes);
 
             logger.info("Build hierarchy");
-            try (final CloseableIterator<Map<String, String>> iterator = new CsvFileIterator<>(fileData.getValue().toPath(), HEADERS, true, 0, i -> i))
+            try (final CloseableIterator<Map<String, String>> iterator = new CsvFileIterator<>(fileData.getValue(), HEADERS, true, 0, i -> i))
             {
                 final Iterator<Map<String, String>> filtered = new FilterIterator<>(iterator, e -> inclusions.contains(e.get("feature_class") + "." + e.get("feature_code")));
                 final Map<Integer, Integer> childToParent = HierachyBuilder.build(filtered, adminLevels, countries);
@@ -175,19 +179,19 @@ public class FileGeonamesImporter implements DataImporter
     }
 
     @Override
-    public Date lastRemoteModified() throws IOException
+    public OffsetDateTime lastRemoteModified() throws IOException
     {
-        return ResourceUtil.getLastModified(url);
+        return resourceUtil.getLastModified(url);
     }
 
     protected void prepare() throws IOException
     {
         // Load countries
         logger.info("Loading countries");
-        final Map.Entry<Date, File> countriesFile = ResourceUtil.fetchResource("countries", maxAge, geoNamesCountryInfoUrl);
+        final Map.Entry<OffsetDateTime, Path> countriesFile = resourceUtil.fetchResource("countries", maxAge, geoNamesCountryInfoUrl);
         final List<String> countryColumns = Arrays.asList("iso", "iso3", "iso_numeric", "fips", "country", "capital", "area", "population", "continent", "tld", "currency_Code", "currency_name", "phone", "postal_code_format", "postal_code_regex", "languages", "geonameid");
         countries = new HashMap<>();
-        try (final CloseableIterator<Country> iter = new CsvFileIterator<>(countriesFile.getValue().toPath(), countryColumns, true, 0, c ->
+        try (final CloseableIterator<Country> iter = new CsvFileIterator<>(countriesFile.getValue(), countryColumns, true, 0, c ->
         {
             final int id = Integer.parseInt(c.get("geonameid"));
             final String countryCode = c.get("iso");
@@ -203,7 +207,7 @@ public class FileGeonamesImporter implements DataImporter
 
         // Load proper names for language
         logger.info("Loading alternate names");
-        final Map.Entry<Date, File> alternateFile = ResourceUtil.fetchResource("alternate_names", maxAge, geoNamesAlternateNamesUrl);
+        final Map.Entry<OffsetDateTime, Path> alternateFile = resourceUtil.fetchResource("alternate_names", maxAge, geoNamesAlternateNamesUrl);
         this.alternateNames = AlternateNamesFileReader.loadPreferredNames(alternateFile.getValue(), "EN");
     }
 

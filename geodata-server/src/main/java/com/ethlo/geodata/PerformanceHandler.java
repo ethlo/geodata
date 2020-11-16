@@ -30,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.LongSummaryStatistics;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.ethlo.geodata.util.MemoryUsageUtil;
@@ -64,7 +65,7 @@ public class PerformanceHandler implements HttpHandler
             combined.addAll(tracker);
         }
 
-        final Map<String, Object> results = new LinkedHashMap<>();
+        final Map<String, Object> results = new TreeMap<>();
         for (Map.Entry<String, Collection<Long>> entry : combined.results.entrySet())
         {
             final Map<String, Object> details = new LinkedHashMap<>();
@@ -147,11 +148,6 @@ public class PerformanceHandler implements HttpHandler
                 v.add(elapsed);
                 return v;
             });
-        }
-
-        public Map<String, Collection<Long>> getResults()
-        {
-            return results;
         }
 
         public Long getTotalInvocations(String path)

@@ -23,7 +23,6 @@ package com.ethlo.geodata.importer;
  */
 
 import java.io.BufferedInputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
@@ -31,7 +30,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
-import java.util.Date;
+import java.time.OffsetDateTime;
 import java.util.Map;
 
 import javax.validation.constraints.NotNull;
@@ -52,15 +51,18 @@ public class FileIpDataImporter implements DataImporter
     private final Path filePath;
     private final String url;
     private final Duration maxAge;
+    private final ResourceUtil resourceUtil;
 
     public FileIpDataImporter(
             @Value("${geodata.geolite2.source.mmdb}") @NotNull final String url,
             @Value("${geodata.base-path}") final Path basePath,
-            @Value("${geodata.max-data-age}") final Duration maxAge)
+            @Value("${geodata.max-data-age}") final Duration maxAge,
+            final ResourceUtil resourceUtil)
     {
         this.filePath = basePath.resolve(FileIpDao.IP_FILE);
         this.url = url;
         this.maxAge = maxAge;
+        this.resourceUtil = resourceUtil;
     }
 
     @Override
@@ -81,9 +83,9 @@ public class FileIpDataImporter implements DataImporter
     {
         try
         {
-            final Map.Entry<Date, File> entry = ResourceUtil.fetchResource(DataType.IP, maxAge, url);
+            final Map.Entry<OffsetDateTime, Path> entry = resourceUtil.fetchResource(DataType.IP, maxAge, url);
             final Path tmp = filePath.getParent().resolve(FileIpDao.IP_FILE + ".tmp");
-            TarGzUtil.extract(new BufferedInputStream(Files.newInputStream(entry.getValue().toPath())), (e) ->
+            TarGzUtil.extract(new BufferedInputStream(Files.newInputStream(entry.getValue())), (e) ->
             {
                 if (e.getKey().getName().endsWith("GeoLite2-City.mmdb"))
                 {
@@ -122,8 +124,8 @@ public class FileIpDataImporter implements DataImporter
     }
 
     @Override
-    public Date lastRemoteModified() throws IOException
+    public OffsetDateTime lastRemoteModified() throws IOException
     {
-        return ResourceUtil.getLastModified(url);
+        return resourceUtil.getLastModified(url);
     }
 }

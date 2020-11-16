@@ -25,9 +25,9 @@ package com.ethlo.geodata.importer;
 import static org.apache.commons.lang3.StringUtils.stripToNull;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import org.springframework.util.StringUtils;
@@ -36,10 +36,10 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
 public class AlternateNamesFileReader
 {
-    public static Map<Integer, String> loadPreferredNames(File alternateNamesFile, String preferredLanguage) throws IOException
+    public static Map<Integer, String> loadPreferredNames(Path alternateNamesFile, String preferredLanguage) throws IOException
     {
         final Map<Integer, String> preferredNames = new Int2ObjectOpenHashMap<>(1_000_000);
-        try (final BufferedReader alternateReader = new BufferedReader(new FileReader(alternateNamesFile)))
+        try (final BufferedReader alternateReader = Files.newBufferedReader(alternateNamesFile))
         {
             String line;
             while ((line = alternateReader.readLine()) != null)
@@ -61,7 +61,7 @@ public class AlternateNamesFileReader
         }
 
         // Run through again, but use the "preferred" if not "short" name was found in the previous round
-        try (final BufferedReader alternateReader = new BufferedReader(new FileReader(alternateNamesFile)))
+        try (final BufferedReader alternateReader = Files.newBufferedReader(alternateNamesFile))
         {
             String line;
             while ((line = alternateReader.readLine()) != null)

@@ -28,8 +28,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Calendar;
-import java.util.Date;
+import java.time.OffsetDateTime;
 
 import org.junit.Test;
 
@@ -37,7 +36,9 @@ import com.ethlo.geodata.importer.DataImporterService;
 
 public class DataImporterServiceTest
 {
-    private final DataImporterService dataImporterService = new DataImporterService(Files.createDirectory(Path.of("test")), Duration.ofDays(7), null, null);
+    final Path basePath = Path.of("test");
+    final Path inputPath = basePath.resolve("input");
+    private final DataImporterService dataImporterService = new DataImporterService(Files.createDirectory(basePath), inputPath, Duration.ofDays(7), null, null);
 
     public DataImporterServiceTest() throws IOException
     {
@@ -46,16 +47,8 @@ public class DataImporterServiceTest
     @Test
     public void metadataTest()
     {
-        final Calendar cal = Calendar.getInstance();
-        cal.set(Calendar.YEAR, 2010);
-        cal.set(Calendar.MONTH, 10);
-        cal.set(Calendar.DAY_OF_MONTH, 31);
-        cal.set(Calendar.HOUR_OF_DAY, 14);
-        cal.set(Calendar.MINUTE, 56);
-        cal.set(Calendar.SECOND, 45);
-        cal.set(Calendar.MILLISECOND, 0);
-        final Date expected = cal.getTime();
+        final OffsetDateTime expected = OffsetDateTime.parse("2010-12-24T22:46:11Z");
         dataImporterService.setStatus("IP", expected, 2244);
-        assertThat(dataImporterService.getLastModified(DataType.IP).get().getTime()).isEqualTo(expected.getTime());
+        assertThat(dataImporterService.getLastModified(DataType.IP).get()).isAtSameInstantAs(expected);
     }
 }

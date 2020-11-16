@@ -34,13 +34,18 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.FileTime;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap;
-import java.util.Date;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.zip.ZipEntry;
@@ -49,22 +54,36 @@ import java.util.zip.ZipInputStream;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
+@Component
 public class ResourceUtil
 {
     private static final Logger logger = LoggerFactory.getLogger(ResourceUtil.class);
-    private static final String tmpDir = System.getProperty("java.io.tmpdir");
+    private final Path tmpDir;
 
-    public static Date getLastModified(String urlStr) throws IOException
+    public ResourceUtil(@Value("${geodata.tmp.dir}") Path tmpDir)
     {
-        final Map.Entry<Date, InputStream> connection = openConnection(urlStr);
+        this.tmpDir = tmpDir;
+    }
+
+    private static OffsetDateTime getOffsetDateTime(final Resource fileRes) throws IOException
+    {
+        return OffsetDateTime.ofInstant(Instant.ofEpochMilli(fileRes.lastModified()), ZoneOffset.systemDefault());
+    }
+
+    public OffsetDateTime getLastModified(String urlStr) throws IOException
+    {
+        final Entry<OffsetDateTime, InputStream> connection = openConnection(urlStr);
         return connection.getKey();
     }
 
-    private static Entry<Date, InputStream> openConnection(String urlStr) throws IOException
+    private Entry<OffsetDateTime, InputStream> openConnection(String urlStr) throws IOException
     {
         final String[] urlParts = StringUtils.split(urlStr, "|");
 
@@ -81,12 +100,12 @@ public class ResourceUtil
                 throw new FileNotFoundException(file.getAbsolutePath());
             }
             final FileSystemResource fileRes = new FileSystemResource(file);
-            return new AbstractMap.SimpleEntry<>(new Date(fileRes.lastModified()), fileRes.getInputStream());
+            return new AbstractMap.SimpleEntry<>(getOffsetDateTime(fileRes), fileRes.getInputStream());
         }
         else if (urlStr.startsWith("classpath:"))
         {
             final ClassPathResource classRes = new ClassPathResource(urlParts[0].substring(10));
-            return new AbstractMap.SimpleEntry<>(new Date(classRes.lastModified()), classRes.getInputStream());
+            return new AbstractMap.SimpleEntry<>(getOffsetDateTime(classRes), classRes.getInputStream());
         }
 
         final HttpClient client = HttpClient.newHttpClient();
@@ -101,7 +120,7 @@ public class ResourceUtil
             {
                 throw new IOException("HTTP status " + resp.statusCode() + " returned for URL " + request.uri());
             }
-            final Date lastModified = resp.headers().firstValue("Last-Modified").map(d -> ZonedDateTime.parse(d, DateTimeFormatter.RFC_1123_DATE_TIME)).map(ZonedDateTime::toInstant).map(Date::from).orElseThrow();
+            final OffsetDateTime lastModified = resp.headers().firstValue("Last-Modified").map(d -> ZonedDateTime.parse(d, DateTimeFormatter.RFC_1123_DATE_TIME)).map(ZonedDateTime::toOffsetDateTime).orElseThrow();
             return new AbstractMap.SimpleEntry<>(lastModified, resp.body());
         }
         catch (InterruptedException e)
@@ -110,7 +129,7 @@ public class ResourceUtil
         }
     }
 
-    public static Map.Entry<Date, File> fetchResource(String alias, Duration maxAge, String urlStr) throws IOException
+    public Entry<OffsetDateTime, Path> fetchResource(String alias, Duration maxAge, String urlStr) throws IOException
     {
         final String[] urlParts = StringUtils.split(urlStr, "|");
         if (urlParts[0].endsWith("zip"))
@@ -123,9 +142,9 @@ public class ResourceUtil
         }
     }
 
-    private static Map.Entry<Date, File> fetchZip(String alias, String url, Duration maxAge, String zipEntry) throws IOException
+    private Map.Entry<OffsetDateTime, Path> fetchZip(String alias, String url, Duration maxAge, String zipEntry) throws IOException
     {
-        final Entry<Date, InputStream> resource = openConnection(url);
+        final Entry<OffsetDateTime, InputStream> resource = openConnection(url);
         return downloadIfNewer(alias, url, resource.getKey(), resource.getValue(), maxAge, f ->
         {
             final ZipInputStream zipIn = new ZipInputStream(resource.getValue());
@@ -140,37 +159,32 @@ public class ResourceUtil
         });
     }
 
-    private static Entry<Date, File> downloadIfNewer(String alias, String url, Date remoteLastModified, InputStream remoteResource, Duration maxAge, CheckedFunction<InputStream, InputStream> fun) throws IOException
+    private Entry<OffsetDateTime, Path> downloadIfNewer(String alias, String url, OffsetDateTime remoteLastModified, InputStream remoteResource, Duration maxAge, CheckedFunction<InputStream, InputStream> fun) throws IOException
     {
-        final File file = new File(tmpDir, alias + "_" + url.hashCode());
-        final long localLastModified = file.exists() ? file.lastModified() : -2;
+        final Path file = tmpDir.resolve(alias + "_" + url.hashCode());
+        final OffsetDateTime localLastModified = Files.exists(file) ? OffsetDateTime.ofInstant(Files.getLastModifiedTime(file).toInstant(), ZoneId.systemDefault()) : OffsetDateTime.MIN;
 
-        logger.info("Local file for " + "alias {}: Path: {}" + " - Exists: {}" + " - Last-Modified: {}", alias, file.getAbsolutePath(), file.exists(), formatDate(localLastModified));
+        logger.info("Local file for " + "alias {}: Path: {}" + " - Exists: {}" + " - Last-Modified: {}", alias, file, Files.exists(file), localLastModified);
 
-        if (remoteLastModified.getTime() > localLastModified + maxAge.toMillis())
+        if (remoteLastModified.isAfter(localLastModified.plus(maxAge.toMillis(), ChronoUnit.MILLIS)))
         {
-            logger.info("New file has last-modified value of {}", formatDate(remoteLastModified.getTime()));
+            logger.info("New file has last-modified value of {}", remoteLastModified);
             logger.info("Downloading new file from {}", url);
             try (final InputStream in = fun.apply(remoteResource))
             {
-                final Path tmpFile = Files.createTempFile(file.getName() + "-", ".tmp");
+                final Path tmpFile = Files.createTempFile(file.getFileName().toString() + "-", ".tmp");
                 Files.copy(in, tmpFile, StandardCopyOption.REPLACE_EXISTING);
-                Files.move(tmpFile, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                file.setLastModified(remoteLastModified.getTime());
+                Files.move(tmpFile, file, StandardCopyOption.REPLACE_EXISTING);
+                Files.setLastModifiedTime(file, FileTime.fromMillis(remoteLastModified.toInstant().toEpochMilli()));
             }
         }
 
-        return new AbstractMap.SimpleEntry<>(new Date(Math.max(localLastModified, remoteLastModified.getTime())), file);
+        return new AbstractMap.SimpleEntry<>(Collections.max(Arrays.asList(localLastModified, remoteLastModified)), file);
     }
 
-    private static LocalDateTime formatDate(long timestamp)
+    private Entry<OffsetDateTime, Path> fetch(String alias, String url, final Duration maxAge) throws IOException
     {
-        return LocalDateTime.ofEpochSecond(timestamp / 1_000, 0, ZoneOffset.UTC);
-    }
-
-    private static Entry<Date, File> fetch(String alias, String url, final Duration maxAge) throws IOException
-    {
-        final Entry<Date, InputStream> resource = openConnection(url);
+        final Entry<OffsetDateTime, InputStream> resource = openConnection(url);
         return downloadIfNewer(alias, url, resource.getKey(), resource.getValue(), maxAge, i -> i);
     }
 

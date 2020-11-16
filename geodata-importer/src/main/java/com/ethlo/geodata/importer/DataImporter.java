@@ -23,7 +23,7 @@ package com.ethlo.geodata.importer;
  */
 
 import java.io.IOException;
-import java.util.Date;
+import java.time.OffsetDateTime;
 
 public interface DataImporter
 {
@@ -31,5 +31,5 @@ public interface DataImporter
 
     int importData() throws IOException;
 
-    Date lastRemoteModified() throws IOException;
+    OffsetDateTime lastRemoteModified() throws IOException;
 }

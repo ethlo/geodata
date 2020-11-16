@@ -22,7 +22,7 @@ package com.ethlo.geodata;
  * #L%
  */
 
-import java.util.Date;
+import java.time.OffsetDateTime;
 import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -31,11 +31,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class SourceDataInfo
 {
     private final int count;
-    private final Date lastModified;
+    private final OffsetDateTime lastModified;
     private final String type;
 
     @JsonCreator
-    public SourceDataInfo(@JsonProperty("type") String type, @JsonProperty("count") int count, @JsonProperty("lastModified") Date lastModified)
+    public SourceDataInfo(@JsonProperty("type") String type, @JsonProperty("count") int count, @JsonProperty("lastModified") OffsetDateTime lastModified)
     {
         this.type = type;
         this.count = count;
@@ -47,7 +47,7 @@ public class SourceDataInfo
         return count;
     }
 
-    public Date getLastModified()
+    public OffsetDateTime getLastModified()
     {
         return lastModified;
     }

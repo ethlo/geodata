@@ -27,9 +27,11 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -79,25 +81,28 @@ public class DataImporterService
     private final FileIpDataImporter ipLookupImporter;
     private final FileGeonamesImporter geonamesImporter;
     private final Path basePath;
+    private final Path inputBasePath;
     private GeoNamesBoundaryImporter geoNamesBoundaryImporter;
 
     public DataImporterService(@Value("${geodata.base-path}") @NotNull final Path basePath,
+                               @Value("${geodata.data-source-path}") @NotNull final Path inputBasePath,
                                @Value("${geodata.max-data-age}") @NotNull final Duration maxDataAge,
                                FileIpDataImporter ipLookupImporter,
                                FileGeonamesImporter geonamesImporter)
     {
         this.basePath = Objects.requireNonNull(basePath, "GEODATA_BASEPATH must be set");
+        this.inputBasePath = inputBasePath;
         this.maxDataAge = Objects.requireNonNull(maxDataAge, "GEODATA_MAXDATAAGE must be set");
         this.ipLookupImporter = ipLookupImporter;
         this.geonamesImporter = geonamesImporter;
     }
 
-    public Optional<Date> getLastModified(String alias)
+    public Optional<OffsetDateTime> getLastModified(String alias)
     {
         return Optional.ofNullable(getSourceDataInfo().get(alias)).map(SourceDataInfo::getLastModified);
     }
 
-    public void setStatus(String type, Date lastModified, final int count)
+    public void setStatus(String type, OffsetDateTime lastModified, final int count)
     {
         final Path file = basePath.resolve(FileMetaDao.FILE);
         final SourceDataInfoSet data = getSourceDataInfo();
@@ -125,7 +130,8 @@ public class DataImporterService
             return ipLookupImporter.importData();
         });
 
-        ifExpired(DataType.BOUNDARIES, new Date(), () ->
+        final Path boundaryImportFolder = inputBasePath.resolve(DataType.BOUNDARIES);
+        ifExpired(DataType.BOUNDARIES, getLastModifiedFile(boundaryImportFolder).orElse(OffsetDateTime.MIN), () ->
         {
             final FeatureCodeDao featureCodeDao = new FileFeatureCodeDao(basePath);
             final LocationDao locationDao = new FileLocationDao(basePath);
@@ -141,7 +147,6 @@ public class DataImporterService
 
             updated.set(true);
 
-            final Path boundaryImportFolder = basePath.resolve("input").resolve("boundaries");
             logger.info("Checking folder {} for boundary data", boundaryImportFolder);
             if (Files.exists(boundaryImportFolder))
             {
@@ -158,6 +163,26 @@ public class DataImporterService
         {
             logger.info("No data to update. Max data age {}", maxDataAge);
         }
+    }
+
+    private Optional<OffsetDateTime> getLastModifiedFile(final Path directory)
+    {
+        if (Files.isDirectory(directory))
+        {
+            try (final Stream<Path> stream = Files.list(directory))
+            {
+                return stream.filter(p -> !Files.isDirectory(p))
+                        .sorted((p1, p2) -> Long.compare(p2.toFile().lastModified(), p1.toFile().lastModified()))
+                        .map(p -> OffsetDateTime.ofInstant(Instant.ofEpochMilli(p.toFile().lastModified()), ZoneId.systemDefault()))
+                        .findFirst();
+            }
+            catch (IOException e)
+            {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        return Optional.empty();
     }
 
     private int importFromDirectory(final Path boundaryImportFolder)
@@ -260,12 +285,12 @@ public class DataImporterService
         return p -> supportedExtensions.contains(IoUtil.getExtension(p));
     }
 
-    private void ifExpired(final String type, final Date sourceTimestamp, final Supplier<Integer> updater)
+    private void ifExpired(final String type, final OffsetDateTime sourceTimestamp, final Supplier<Integer> updater)
     {
         logger.info("Checking data type: {}, max age: {}", type, maxDataAge);
-        final Optional<Date> localDataModifiedAt = getLastModified(type);
+        final Optional<OffsetDateTime> localDataModifiedAt = getLastModified(type);
         logger.info("local last modified: {}", localDataModifiedAt.orElse(null));
-        if (localDataModifiedAt.isEmpty() || sourceTimestamp.getTime() > localDataModifiedAt.get().getTime() + maxDataAge.toMillis())
+        if (localDataModifiedAt.isEmpty() || sourceTimestamp.isAfter(localDataModifiedAt.get().plusSeconds(maxDataAge.toSeconds())))
         {
             final int count = updater.get();
             setStatus(type, sourceTimestamp, count);

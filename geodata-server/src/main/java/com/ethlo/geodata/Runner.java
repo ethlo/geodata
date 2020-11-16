@@ -30,7 +30,8 @@ public class Runner
 {
     public static void main(String[] args)
     {
-        if (args.length == 1 && "-import".equals(args[0]))
+        final boolean isImport = args.length == 1 && "--import".equals(args[0]);
+        if (isImport || System.getenv("GEODATA_IMPORT") != null)
         {
             SpringApplication.run(GeodataImporter.class, args);
         }

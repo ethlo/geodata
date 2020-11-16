@@ -22,13 +22,13 @@ package com.ethlo.geodata.importer.boundary;
  * #L%
  */
 
-import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Date;
+import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -82,8 +82,8 @@ public class GeoFabrikBoundaryImporter
     {
         final String continentName = Objects.requireNonNull(continents.get(continentCode.toUpperCase()), "No continent with code " + continentCode);
         final String url = BASE_URL + continentName + "/" + countryName + ".kml";
-        final Map.Entry<Date, File> file = ResourceUtil.fetchResource((continentName + "_" + countryName + ".kml").toLowerCase(), Duration.ZERO, url);
-        try (final Reader reader = Files.newBufferedReader(file.getValue().toPath()))
+        final Map.Entry<OffsetDateTime, Path> file = new ResourceUtil(Files.createTempDirectory("geofabrik")).fetchResource((continentName + "_" + countryName + ".kml").toLowerCase(), Duration.ZERO, url);
+        try (final Reader reader = Files.newBufferedReader(file.getValue()))
         {
             return Kml2GeoJson.parse(reader);
         }
