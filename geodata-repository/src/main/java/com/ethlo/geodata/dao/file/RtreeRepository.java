@@ -74,6 +74,7 @@ public class RtreeRepository
         this.boundaryDao = boundaryDao;
 
         // Load proximity tree
+        logger.info("Loading proximity tree");
         this.proximity = RTree.star().create();
         final int batchSize = 20_000;
         final Iterator<RawLocation> iter = locationDao.iterator();
@@ -108,7 +109,7 @@ public class RtreeRepository
     private RTree<RTreePayload, Geometry> getBoundaryRTree(final LocationDao locationDao, final BoundaryDao boundaryDao)
     {
         RTree<RTreePayload, Geometry> tmp = RTree.create();
-        final Iterator<RTreePayload> entries = boundaryDao.entries();
+        final Iterator<RTreePayload> entries = boundaryDao.iterator();
         while (entries.hasNext())
         {
             final RTreePayload entry = entries.next();

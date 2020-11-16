@@ -256,7 +256,7 @@ public class DataImporterService
     private CloseableIterator<BoundaryData> processBoundaryFile(final Collection<Integer> overrides, final Path path)
     {
         logger.info("Processing boundary file: {}", path.toAbsolutePath());
-        final RateLimiter rateLimiter = RateLimiter.create(2);
+        final RateLimiter rateLimiter = RateLimiter.create(0.1);
 
         switch (IoUtil.getExtension(path))
         {

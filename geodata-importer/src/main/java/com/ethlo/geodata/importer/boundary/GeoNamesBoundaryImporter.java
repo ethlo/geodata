@@ -159,13 +159,14 @@ public class GeoNamesBoundaryImporter
                 try
                 {
                     final Geometry geometry = new GeoJsonReader().read(next.get("json"));
-
                     final BoundaryData full = new BoundaryData(id, 0, geometry.getEnvelopeInternal(), geometry.getArea(), geometry);
-                    final List<BoundaryData> list = processSingleGeometry(full);
                     if (full.getGeometry().getNumPoints() > 100_000)
                     {
-                        logger.info("Large geometry for location {} with size of {}", id, full.getGeometry().getNumPoints());
+                        logger.warn("Large geometry for location {} with size of {}. Consider simplifying before importing.", id, full.getGeometry().getNumPoints());
                     }
+
+                    final List<BoundaryData> list = processSingleGeometry(full);
+
                     bufferList.addAll(list);
                     if (list.size() > 1)
                     {

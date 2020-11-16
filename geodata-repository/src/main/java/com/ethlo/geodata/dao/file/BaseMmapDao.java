@@ -35,6 +35,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.compress.utils.BoundedInputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
 
 import com.ethlo.geodata.util.CompressionUtil;
@@ -44,6 +46,8 @@ import com.google.common.primitives.Ints;
 
 public class BaseMmapDao
 {
+    private final Logger logger = LoggerFactory.getLogger(getClass());
+
     private final Path indexPath;
     private final Path dataPath;
     private final boolean compress;
@@ -60,8 +64,11 @@ public class BaseMmapDao
 
     public int load()
     {
-        indexMap = loadIndex();
-        this.byteBufferHolder = new ByteBufferHolder(dataPath);
+        if (indexMap == null)
+        {
+            indexMap = loadIndex();
+            this.byteBufferHolder = new ByteBufferHolder(dataPath);
+        }
         return indexMap.size();
     }
 

@@ -92,10 +92,11 @@ public class UndertowServer
 
         logger.info("Startup completed in {}", DurationFormatUtils.formatDuration(Duration.between(MemoryUsageUtil.getJvmStartTime(), OffsetDateTime.now()).toMillis(), "ss.SSS 'seconds'"));
 
+        geodataService.load(progressListener);
+
         logger.info("Triggering GC");
         System.gc();
 
-        geodataService.load(progressListener);
         routes.setReady(true);
 
         MemoryUsageUtil.dumpMemUsage("Ready");

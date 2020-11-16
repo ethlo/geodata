@@ -46,10 +46,9 @@ public class FileBoundaryDao extends BaseMmapDao implements BoundaryDao
     }
 
     @Override
-    public Iterator<RTreePayload> entries()
+    public Iterator<RTreePayload> iterator()
     {
         super.load();
-
         return Iterators.transform(super.rawIterator(), e ->
         {
             try (final DataInputStream in = e.getValue())

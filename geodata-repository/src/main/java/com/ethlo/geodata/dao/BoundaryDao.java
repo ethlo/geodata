@@ -31,7 +31,7 @@ import com.ethlo.geodata.model.RTreePayload;
 
 public interface BoundaryDao
 {
-    Iterator<RTreePayload> entries();
+    Iterator<RTreePayload> iterator();
 
     Optional<Geometry> findGeometryById(int id);
 
