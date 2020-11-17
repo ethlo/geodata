@@ -61,7 +61,7 @@ public class BaseServerHandler
         final boolean pretty = getBooleanParam(exchange, "pretty").orElse(false);
         if (!pretty)
         {
-            exchange.getResponseSender().send(JsonStream.serialize(obj));
+            exchange.getResponseSender().send(ByteBuffer.wrap(JsonUtil.getMapper().writeValueAsBytes(obj)));
         }
         else
         {

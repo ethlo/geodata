@@ -27,6 +27,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.net.ConnectException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -122,6 +123,10 @@ public class ResourceUtil
             }
             final OffsetDateTime lastModified = resp.headers().firstValue("Last-Modified").map(d -> ZonedDateTime.parse(d, DateTimeFormatter.RFC_1123_DATE_TIME)).map(ZonedDateTime::toOffsetDateTime).orElseThrow();
             return new AbstractMap.SimpleEntry<>(lastModified, resp.body());
+        }
+        catch (ConnectException e)
+        {
+            throw new UncheckedIOException("Cannot connect to " + request.uri(), e);
         }
         catch (InterruptedException e)
         {

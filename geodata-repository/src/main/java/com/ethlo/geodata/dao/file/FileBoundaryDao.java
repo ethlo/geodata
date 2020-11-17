@@ -36,13 +36,12 @@ import com.ethlo.geodata.io.BinaryBoundaryEncoder;
 import com.ethlo.geodata.model.BoundaryData;
 import com.ethlo.geodata.model.BoundaryMetadata;
 import com.ethlo.geodata.model.RTreePayload;
-import com.google.common.collect.Iterators;
 
 public class FileBoundaryDao extends BaseMmapDao implements BoundaryDao
 {
     public FileBoundaryDao(final Path basePath)
     {
-        super(basePath, true, "boundaries");
+        super(basePath, "boundaries");
     }
 
     @Override

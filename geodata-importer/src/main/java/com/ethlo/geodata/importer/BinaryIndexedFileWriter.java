@@ -34,6 +34,7 @@ import java.util.Iterator;
 
 import org.springframework.util.FastByteArrayOutputStream;
 
+import com.ethlo.geodata.io.RecordType;
 import com.ethlo.geodata.model.IntIdentifiable;
 import com.ethlo.geodata.util.CompressionUtil;
 
@@ -75,6 +76,7 @@ public abstract class BinaryIndexedFileWriter<T extends IntIdentifiable>
                 final long startPos = pos;
 
                 final byte[] compressed = writeData(d, compress);
+                dataOutputStream.writeByte(compress ? RecordType.LZMA_PREFIXED_LENGTH.getId() : RecordType.UNCOMPRESSED_PREFIXED_LENGTH.getId());
                 dataOutputStream.writeInt(compressed.length);
                 dataOutputStream.write(compressed);
 
@@ -83,7 +85,7 @@ public abstract class BinaryIndexedFileWriter<T extends IntIdentifiable>
                 indexOut.writeInt((int) startPos);
 
                 count++;
-                pos += (4 + compressed.length);
+                pos += (1 + 4 + compressed.length);
             }
         }
 

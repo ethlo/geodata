@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.collections4.iterators.FilterIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,6 +52,7 @@ import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.RawLocation;
 import com.ethlo.geodata.util.ResourceUtil;
+import com.google.common.collect.Iterators;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
 @Component
@@ -78,7 +78,6 @@ public class FileGeonamesImporter implements DataImporter
     private final String url;
     private final BinaryIndexedFileWriter<RawLocation> locationWriter;
     private final Duration maxAge;
-    private final Path tmpDir;
     private final ResourceUtil resourceUtil;
 
     private Map<Integer, String> alternateNames;
@@ -89,7 +88,6 @@ public class FileGeonamesImporter implements DataImporter
                                 @Value("${geodata.geonames.source.names}") final String geoNamesAllCountriesUrl,
                                 @Value("${geodata.geonames.features.included}") final String inclusionsCsv,
                                 @Value("${geodata.base-path}") final Path basePath,
-                                @Value("${geodata.tmp.dir}") final Path tmpDir,
                                 @Value("${geodata.max-data-age}") final Duration maxAge,
                                 final FeatureCodeDao featureCodeDao,
                                 final TimeZoneDao timeZoneDao,
@@ -115,7 +113,6 @@ public class FileGeonamesImporter implements DataImporter
         this.timeZoneDao = timeZoneDao;
         this.hierarchyDao = hierarchyDao;
         this.countryDao = countryDao;
-        this.tmpDir = tmpDir;
         this.resourceUtil = resourceUtil;
         logger.info("Included features: {}", StringUtils.collectionToCommaDelimitedString(inclusions));
     }
@@ -164,7 +161,7 @@ public class FileGeonamesImporter implements DataImporter
             logger.info("Build hierarchy");
             try (final CloseableIterator<Map<String, String>> iterator = new CsvFileIterator<>(fileData.getValue(), HEADERS, true, 0, i -> i))
             {
-                final Iterator<Map<String, String>> filtered = new FilterIterator<>(iterator, e -> inclusions.contains(e.get("feature_class") + "." + e.get("feature_code")));
+                final Iterator<Map<String, String>> filtered = Iterators.filter(iterator, e -> inclusions.contains(e.get("feature_class") + "." + e.get("feature_code")));
                 final Map<Integer, Integer> childToParent = HierachyBuilder.build(filtered, adminLevels, countries);
                 logger.info("Hierarchy nodes: {}", childToParent.size());
                 hierarchyDao.save(childToParent);

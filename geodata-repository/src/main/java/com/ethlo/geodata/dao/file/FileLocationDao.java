@@ -37,7 +37,7 @@ public class FileLocationDao extends BaseMmapDao implements LocationDao
 {
     public FileLocationDao(final Path basePath)
     {
-        super(basePath, false, DataType.LOCATIONS);
+        super(basePath, DataType.LOCATIONS);
     }
 
     @Override

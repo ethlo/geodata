@@ -35,66 +35,67 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import org.apache.commons.compress.utils.BoundedInputStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
 
+import com.ethlo.geodata.io.RecordType;
 import com.ethlo.geodata.util.CompressionUtil;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.primitives.Ints;
 
 public class BaseMmapDao
 {
-    private final Logger logger = LoggerFactory.getLogger(getClass());
-
     private final Path indexPath;
     private final Path dataPath;
-    private final boolean compress;
 
     private ArrayListMultimap<Integer, Integer> indexMap;
     private ByteBufferHolder byteBufferHolder;
 
-    public BaseMmapDao(Path basePath, final boolean compress, String alias)
+    public BaseMmapDao(Path basePath, String alias)
     {
         this.indexPath = basePath.resolve(alias + ".index");
         this.dataPath = basePath.resolve(alias + ".data");
-        this.compress = compress;
     }
 
     public int load()
     {
         if (indexMap == null)
         {
-            indexMap = loadIndex();
-            this.byteBufferHolder = new ByteBufferHolder(dataPath);
+            loadIndex();
+            if (!indexMap.isEmpty())
+            {
+                this.byteBufferHolder = new ByteBufferHolder(dataPath);
+            }
         }
         return indexMap.size();
     }
 
-    private ArrayListMultimap<Integer, Integer> loadIndex()
+    private void loadIndex()
     {
-        try (final InputStream indexIn = Files.newInputStream(indexPath))
-        {
-            final byte[] countBuffer = new byte[4];
-            Assert.isTrue(indexIn.read(countBuffer) == 4, "Expected to read 4 bytes");
-            final int entries = Ints.fromByteArray(countBuffer);
+        this.indexMap = ArrayListMultimap.create();
 
-            try (final DataInputStream compressedIndexIn = new DataInputStream(CompressionUtil.decompress(new BufferedInputStream(indexIn))))
+        if (Files.exists(indexPath))
+        {
+            try (final InputStream indexIn = Files.newInputStream(indexPath))
             {
-                this.indexMap = ArrayListMultimap.create();
-                for (int i = 0; i < entries; i++)
+                final byte[] countBuffer = new byte[4];
+                Assert.isTrue(indexIn.read(countBuffer) == 4, "Expected to read 4 bytes");
+                final int entries = Ints.fromByteArray(countBuffer);
+
+                try (final DataInputStream compressedIndexIn = new DataInputStream(CompressionUtil.decompress(new BufferedInputStream(indexIn))))
                 {
-                    final int id = compressedIndexIn.readInt();
-                    final int offset = compressedIndexIn.readInt();
-                    indexMap.put(id, offset);
+                    for (int i = 0; i < entries; i++)
+                    {
+                        final int id = compressedIndexIn.readInt();
+                        final int offset = compressedIndexIn.readInt();
+                        indexMap.put(id, offset);
+                    }
                 }
             }
+            catch (IOException exc)
+            {
+                throw new UncheckedIOException(exc);
+            }
         }
-        catch (IOException exc)
-        {
-            throw new UncheckedIOException(exc);
-        }
-        return indexMap;
     }
 
     protected Stream<Map.Entry<Integer, DataInputStream>> rawIterator()
@@ -107,9 +108,11 @@ public class BaseMmapDao
         try
         {
             final DataInputStream in = new DataInputStream(byteBufferHolder.getInputStream(position));
+            final int typeInfo = in.readUnsignedByte();
             final int blockSize = in.readInt();
+
             final BoundedInputStream bounded = new BoundedInputStream(in, blockSize);
-            return new DataInputStream(compress ? CompressionUtil.decompress(bounded) : bounded);
+            return new DataInputStream(typeInfo == RecordType.LZMA_PREFIXED_LENGTH.getId() ? CompressionUtil.decompress(bounded) : bounded);
         }
         catch (IOException exc)
         {

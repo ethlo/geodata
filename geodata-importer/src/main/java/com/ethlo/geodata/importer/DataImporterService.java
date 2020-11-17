@@ -116,14 +116,14 @@ public class DataImporterService
         Files.createDirectories(basePath);
 
         final AtomicBoolean updated = new AtomicBoolean();
-        ifExpired(DataType.LOCATIONS, geonamesImporter.lastRemoteModified(), () ->
+        ifExpired(DataType.LOCATIONS, geonamesImporter.lastRemoteModified(), maxDataAge, () ->
         {
             geonamesImporter.purgeData();
             updated.set(true);
             return geonamesImporter.importData();
         });
 
-        ifExpired(DataType.IP, ipLookupImporter.lastRemoteModified(), () ->
+        ifExpired(DataType.IP, ipLookupImporter.lastRemoteModified(), maxDataAge, () ->
         {
             ipLookupImporter.purgeData();
             updated.set(true);
@@ -131,7 +131,7 @@ public class DataImporterService
         });
 
         final Path boundaryImportFolder = inputBasePath.resolve(DataType.BOUNDARIES);
-        ifExpired(DataType.BOUNDARIES, getLastModifiedFile(boundaryImportFolder).orElse(OffsetDateTime.now().minusYears(10)), () ->
+        ifExpired(DataType.BOUNDARIES, getLastModifiedFile(boundaryImportFolder).orElse(OffsetDateTime.now().minusYears(10)), Duration.ofSeconds(5), () ->
         {
             final FeatureCodeDao featureCodeDao = new FileFeatureCodeDao(basePath);
             final LocationDao locationDao = new FileLocationDao(basePath);
@@ -285,9 +285,9 @@ public class DataImporterService
         return p -> supportedExtensions.contains(IoUtil.getExtension(p));
     }
 
-    private void ifExpired(final String type, final OffsetDateTime sourceTimestamp, final Supplier<Integer> updater)
+    private void ifExpired(final String type, final OffsetDateTime sourceTimestamp, Duration expiry, final Supplier<Integer> updater)
     {
-        logger.info("Checking data type: {}, max age: {}", type, maxDataAge);
+        logger.info("Checking data type: {}, max age: {}", type, expiry);
         final Optional<OffsetDateTime> localDataModifiedAt = getLastModified(type);
         logger.info("local last modified: {}", localDataModifiedAt.orElse(null));
         if (localDataModifiedAt.isEmpty() || sourceTimestamp.isAfter(localDataModifiedAt.get().plusSeconds(maxDataAge.toSeconds())))
