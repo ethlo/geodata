@@ -30,9 +30,9 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.AbstractMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import org.apache.commons.compress.utils.BoundedInputStream;
 import org.slf4j.Logger;
@@ -41,7 +41,6 @@ import org.springframework.util.Assert;
 
 import com.ethlo.geodata.util.CompressionUtil;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Iterators;
 import com.google.common.primitives.Ints;
 
 public class BaseMmapDao
@@ -98,9 +97,9 @@ public class BaseMmapDao
         return indexMap;
     }
 
-    protected Iterator<Map.Entry<Integer, DataInputStream>> rawIterator()
+    protected Stream<Map.Entry<Integer, DataInputStream>> rawIterator()
     {
-        return Iterators.transform(indexMap.entries().iterator(), e -> new AbstractMap.SimpleEntry<>(e.getKey(), getInputStream(e.getValue())));
+        return indexMap.entries().parallelStream().map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), getInputStream(e.getValue())));
     }
 
     protected DataInputStream getInputStream(long position)

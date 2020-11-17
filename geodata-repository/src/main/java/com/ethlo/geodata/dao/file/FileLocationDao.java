@@ -26,13 +26,12 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
-import java.util.Iterator;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import com.ethlo.geodata.DataType;
 import com.ethlo.geodata.dao.LocationDao;
 import com.ethlo.geodata.model.RawLocation;
-import com.google.common.collect.Iterators;
 
 public class FileLocationDao extends BaseMmapDao implements LocationDao
 {
@@ -48,9 +47,9 @@ public class FileLocationDao extends BaseMmapDao implements LocationDao
     }
 
     @Override
-    public Iterator<RawLocation> iterator()
+    public Stream<RawLocation> stream()
     {
-        return Iterators.transform(super.rawIterator(), e ->
+        return rawIterator().map(e ->
         {
             try (final DataInputStream in = e.getValue())
             {

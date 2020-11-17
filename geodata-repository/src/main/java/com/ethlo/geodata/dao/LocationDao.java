@@ -22,8 +22,8 @@ package com.ethlo.geodata.dao;
  * #L%
  */
 
-import java.util.Iterator;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import com.ethlo.geodata.model.RawLocation;
 
@@ -31,7 +31,7 @@ public interface LocationDao
 {
     int load();
 
-    Iterator<RawLocation> iterator();
+    Stream<RawLocation> stream();
 
     Optional<RawLocation> get(int id);
 

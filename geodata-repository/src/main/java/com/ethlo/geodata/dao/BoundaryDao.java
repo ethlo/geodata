@@ -24,6 +24,7 @@ package com.ethlo.geodata.dao;
 
 import java.util.Iterator;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import org.locationtech.jts.geom.Geometry;
 
@@ -31,7 +32,7 @@ import com.ethlo.geodata.model.RTreePayload;
 
 public interface BoundaryDao
 {
-    Iterator<RTreePayload> iterator();
+    Stream<RTreePayload> stream();
 
     Optional<Geometry> findGeometryById(int id);
 

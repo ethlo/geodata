@@ -26,8 +26,8 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
-import java.util.Iterator;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import org.locationtech.jts.geom.Geometry;
 
@@ -46,10 +46,10 @@ public class FileBoundaryDao extends BaseMmapDao implements BoundaryDao
     }
 
     @Override
-    public Iterator<RTreePayload> iterator()
+    public Stream<RTreePayload> stream()
     {
         super.load();
-        return Iterators.transform(super.rawIterator(), e ->
+        return super.rawIterator().map(e ->
         {
             try (final DataInputStream in = e.getValue())
             {

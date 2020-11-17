@@ -289,7 +289,7 @@ public class GeodataServiceImpl implements GeodataService
         logger.info("Loading search index");
         int count = 0;
         progressListener.begin("load_search_index");
-        final Iterator<RawLocation> locationIter = locationDao.iterator();
+        final Iterator<RawLocation> locationIter = locationDao.stream().iterator();
         while (locationIter.hasNext())
         {
             final RawLocation location = locationIter.next();

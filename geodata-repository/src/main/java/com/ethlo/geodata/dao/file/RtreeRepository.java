@@ -28,7 +28,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -77,7 +76,7 @@ public class RtreeRepository
         logger.info("Loading proximity tree");
         this.proximity = RTree.star().create();
         final int batchSize = 20_000;
-        final Iterator<RawLocation> iter = locationDao.iterator();
+        final Iterator<RawLocation> iter = locationDao.stream().iterator();
         List<Entry<Integer, Point>> batch;
         do
         {
@@ -108,22 +107,10 @@ public class RtreeRepository
 
     private RTree<RTreePayload, Geometry> getBoundaryRTree(final LocationDao locationDao, final BoundaryDao boundaryDao)
     {
-        RTree<RTreePayload, Geometry> tmp = RTree.create();
-        final Iterator<RTreePayload> entries = boundaryDao.iterator();
-        while (entries.hasNext())
-        {
-            final RTreePayload entry = entries.next();
-            final Optional<RawLocation> location = locationDao.get(entry.getId());
-            if (location.isPresent())
-            {
-                tmp = tmp.add(envelopeEntry(entry));
-                if (tmp.size() % 1000 == 0)
-                {
-                    logger.debug("boundary tree size: {}", tmp.size());
-                }
-            }
-        }
-        return tmp;
+        return RTree.create(boundaryDao.stream()
+                .filter(entry -> locationDao.get(entry.getId()).isPresent())
+                .map(this::envelopeEntry)
+                .collect(Collectors.toList()));
     }
 
     private Entry<RTreePayload, Geometry> envelopeEntry(RTreePayload payload)
