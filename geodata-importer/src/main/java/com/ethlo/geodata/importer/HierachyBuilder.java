@@ -35,6 +35,7 @@ import org.springframework.util.StringUtils;
 
 import com.ethlo.geodata.GeoConstants;
 import com.ethlo.geodata.model.Country;
+import com.google.common.util.concurrent.RateLimiter;
 
 public class HierachyBuilder
 {
@@ -59,51 +60,26 @@ public class HierachyBuilder
             {
                 if (Objects.equals(key, value))
                 {
-                    throw new IllegalArgumentException("Key and value are the same: " + key);
-                }
-                return super.put(key, value);
-            }
-        };
-
-        while (locations.hasNext())
-        {
-            final Map<String, String> rs = locations.next();
-            final int id = Integer.parseInt(rs.get("geonameid"));
-            final String featureCode = rs.get("feature_class") + "." + rs.get("feature_code");
-            final String countryCode = rs.get("country_code");
-            final String[] adminCodeArray = getAdminCodeArray(rs);
-            final Integer parentId = getParentId(id, featureCode, countries, adminLevels, countryCode, adminCodeArray).orElse(null);
-
-            if (parentId != null)
-            {
-                childToParent.put(id, parentId);
-            }
-            else if (GeoConstants.COUNTRY_LEVEL_FEATURES.contains(featureCode))
-            {
-                final int continentId = getContinentId(countries, countryCode);
-                childToParent.put(id, continentId);
-            }
-            else if (!StringUtils.isEmpty(countryCode))
-            {
-                final int countryId = getCountryId(countries, countryCode);
-                if (countryId != id)
-                {
-                    childToParent.put(id, countryId);
+                    logger.error("Integrity error: Location {} points to self", key);
+                    return null;
                 }
                 else
                 {
-                    final int continentId = getContinentId(countries, countryCode);
-                    childToParent.put(id, continentId);
+                    return super.put(key, value);
                 }
             }
-            else
+        };
+
+        final RateLimiter rateLimiter = RateLimiter.create(0.2);
+        int count = 0;
+        while (locations.hasNext())
+        {
+            handleSingleLocation(locations.next(), adminLevels, countries, childToParent);
+            if (rateLimiter.tryAcquire())
             {
-                if (id != GeoConstants.EARTH_ID && GeoConstants.CONTINENTS.values().stream().noneMatch(e -> e == id))
-                {
-                    final String name = rs.get("name");
-                    logger.info("No parent: {} - {} - {}", id, name, featureCode);
-                }
+                logger.info("Processing locations: {}", count);
             }
+            count++;
         }
 
         // Link continents to earth
@@ -111,6 +87,46 @@ public class HierachyBuilder
 
         logger.info("Processed hierarchy for a total of {} nodes", childToParent.size());
         return childToParent;
+    }
+
+    private static void handleSingleLocation(final Map<String, String> rs, final Map<String, Integer> adminLevels, final Map<String, Country> countries, final Map<Integer, Integer> childToParent)
+    {
+        final int id = Integer.parseInt(rs.get("geonameid"));
+        final String featureCode = rs.get("feature_class") + "." + rs.get("feature_code");
+        final String countryCode = rs.get("country_code");
+        final String[] adminCodeArray = getAdminCodeArray(rs);
+
+        final Integer parentId = getParentId(id, featureCode, countries, adminLevels, countryCode, adminCodeArray).orElse(null);
+        if (parentId != null)
+        {
+            childToParent.put(id, parentId);
+        }
+        else if (GeoConstants.COUNTRY_LEVEL_FEATURES.contains(featureCode))
+        {
+            final int continentId = getContinentId(countries, countryCode);
+            childToParent.put(id, continentId);
+        }
+        else if (!StringUtils.isEmpty(countryCode))
+        {
+            final int countryId = getCountryId(countries, countryCode);
+            if (countryId != id)
+            {
+                childToParent.put(id, countryId);
+            }
+            else
+            {
+                final int continentId = getContinentId(countries, countryCode);
+                childToParent.put(id, continentId);
+            }
+        }
+        else
+        {
+            if (id != GeoConstants.EARTH_ID && GeoConstants.CONTINENTS.values().stream().noneMatch(e -> e == id))
+            {
+                final String name = rs.get("name");
+                logger.info("No parent: {} - {} - {}", id, name, featureCode);
+            }
+        }
     }
 
     private static String[] getAdminCodeArray(final Map<String, String> rs)
@@ -129,27 +145,23 @@ public class HierachyBuilder
         return GeoConstants.CONTINENTS.entrySet().stream().filter(e -> e.getKey().equals(country.getContinentCode())).findFirst().map(Map.Entry::getValue).orElseThrow();
     }
 
-    private static Optional<Integer> getParentId(final long id, final String featureCode, final Map<String, Country> countryToId, final Map<String, Integer> cache, final String countryCode, final String[] adminCodeArray)
+    private static Optional<Integer> getParentId(final int id, final String featureCode, final Map<String, Country> countryToId, final Map<String, Integer> cache, final String countryCode, final String[] adminCodeArray)
     {
         final int index = GeoConstants.ADMINISTRATIVE_LEVEL_FEATURES.indexOf(featureCode);
 
         if (index == 0)
         {
-            // Country level
+            // Country level, this is ADM1
             return Optional.of(getCountryId(countryToId, countryCode));
         }
 
         final boolean isAdminLevelLocation = index > -1;
+        final Optional<Integer> lastNonEmpty = lastOfNotEmpty(id, adminCodeArray);
+        return lastNonEmpty.flatMap(lastNonEmptyIndex ->
+        {
+            final int startIndex = isAdminLevelLocation ? index - 1 : lastNonEmptyIndex;
 
-        if (isAdminLevelLocation)
-        {
-            final String key = getKey(countryCode, adminCodeArray, index - 1);
-            return Optional.ofNullable(cache.get(key));
-        }
-        else
-        {
-            final int lastNonEmptyIndex = lastOfNotEmpty(adminCodeArray);
-            for (int i = lastNonEmptyIndex; i >= 0; i--)
+            for (int i = startIndex; i >= 0; i--)
             {
                 final String key = getKey(countryCode, adminCodeArray, i);
                 final Integer parentId = cache.get(key);
@@ -158,10 +170,9 @@ public class HierachyBuilder
                     return Optional.of(parentId);
                 }
             }
-        }
 
-        logger.debug("Inconsistent data! No match for parent of {} - {} - {}", id, featureCode, countryCode);
-        return Optional.empty();
+            return Optional.empty();
+        });
     }
 
     private static int getCountryId(final Map<String, Country> countryToId, final String countryCode)
@@ -174,22 +185,22 @@ public class HierachyBuilder
         throw new IllegalArgumentException("Unknown country code: " + countryCode);
     }
 
-    private static String getKey(final String countryCode, final String[] adminCodeArray, final int index)
+    private static String getKey(final String countryCode, final String[] adminCodeArray, final int adminLevelIndexForParent)
     {
-        final String adminLevelCode = GeoConstants.ADMINISTRATIVE_LEVEL_FEATURES.get(index);
-        final String adminCodes = nullAfterOffset(adminCodeArray, index);
+        final String adminLevelCode = GeoConstants.ADMINISTRATIVE_LEVEL_FEATURES.get(adminLevelIndexForParent);
+        final String adminCodes = nullAfterOffset(adminCodeArray, adminLevelIndexForParent);
         return countryCode + "|" + adminCodes + "|" + adminLevelCode;
     }
 
-    private static int lastOfNotEmpty(final String[] codes)
+    public static Optional<Integer> lastOfNotEmpty(final int selfId, final String[] codes)
     {
         for (int i = codes.length - 1; i >= 0; i--)
         {
-            if (!"".equals(codes[i]))
+            if (!"".equals(codes[i]) && !("00".equals(codes[i]) && i == 0) && !(Integer.valueOf(selfId).toString().equals(codes[i])))
             {
-                return i;
+                return Optional.of(i);
             }
         }
-        return -1;
+        return Optional.empty();
     }
 }

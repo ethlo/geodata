@@ -43,7 +43,7 @@ public class RawLocation implements CompactSerializable, IntIdentifiable
     {
     }
 
-    public RawLocation(final int id, final String name, final String countryCode, final com.ethlo.geodata.model.Coordinates coordinates, final int mapFeatureId, final long population, final int timeZoneId, final int elevation)
+    public RawLocation(final int id, final String name, final String countryCode, final Coordinates coordinates, final int mapFeatureId, final long population, final int timeZoneId, final int elevation)
     {
         this.id = id;
         this.name = name;
@@ -61,6 +61,12 @@ public class RawLocation implements CompactSerializable, IntIdentifiable
         return id;
     }
 
+    @Override
+    public boolean isCompressible()
+    {
+        return false;
+    }
+
     public String getName()
     {
         return name;
@@ -71,9 +77,9 @@ public class RawLocation implements CompactSerializable, IntIdentifiable
         return countryCode;
     }
 
-    public com.ethlo.geodata.model.Coordinates getCoordinates()
+    public Coordinates getCoordinates()
     {
-        return com.ethlo.geodata.model.Coordinates.from(lat, lng);
+        return Coordinates.from(lat, lng);
     }
 
     public int getMapFeatureId()

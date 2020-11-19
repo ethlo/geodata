@@ -112,7 +112,7 @@ public class BaseMmapDao
             final int blockSize = in.readInt();
 
             final BoundedInputStream bounded = new BoundedInputStream(in, blockSize);
-            return new DataInputStream(typeInfo == RecordType.LZMA_PREFIXED_LENGTH.getId() ? CompressionUtil.decompress(bounded) : bounded);
+            return new DataInputStream(typeInfo == RecordType.LZMA2_PREFIXED_LENGTH.getId() ? CompressionUtil.decompress(bounded) : bounded);
         }
         catch (IOException exc)
         {

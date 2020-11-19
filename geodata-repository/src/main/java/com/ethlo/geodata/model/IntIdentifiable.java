@@ -24,5 +24,7 @@ package com.ethlo.geodata.model;
 
 public interface IntIdentifiable
 {
-    public int getId();
+    int getId();
+
+    boolean isCompressible();
 }

@@ -75,8 +75,9 @@ public abstract class BinaryIndexedFileWriter<T extends IntIdentifiable>
                 // Write raw data
                 final long startPos = pos;
 
-                final byte[] compressed = writeData(d, compress);
-                dataOutputStream.writeByte(compress ? RecordType.LZMA_PREFIXED_LENGTH.getId() : RecordType.UNCOMPRESSED_PREFIXED_LENGTH.getId());
+                final boolean doCompress = compress && d.isCompressible();
+                final byte[] compressed = writeData(d, doCompress);
+                dataOutputStream.writeByte(doCompress ? RecordType.LZMA2_PREFIXED_LENGTH.getId() : RecordType.UNCOMPRESSED_PREFIXED_LENGTH.getId());
                 dataOutputStream.writeInt(compressed.length);
                 dataOutputStream.write(compressed);
 

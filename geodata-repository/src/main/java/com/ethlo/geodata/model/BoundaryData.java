@@ -25,7 +25,7 @@ package com.ethlo.geodata.model;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 
-public class BoundaryData extends BoundaryMetadata
+public class BoundaryData extends BoundaryMetadata implements IntIdentifiable
 {
     private final Geometry geometry;
 
@@ -38,5 +38,11 @@ public class BoundaryData extends BoundaryMetadata
     public Geometry getGeometry()
     {
         return geometry;
+    }
+
+    @Override
+    public boolean isCompressible()
+    {
+        return geometry.getNumPoints() > 100;
     }
 }

@@ -24,7 +24,7 @@ package com.ethlo.geodata.model;
 
 import org.locationtech.jts.geom.Envelope;
 
-public class BoundaryMetadata implements IntIdentifiable
+public class BoundaryMetadata
 {
     private final int id;
     private final Envelope mbr;
@@ -49,7 +49,6 @@ public class BoundaryMetadata implements IntIdentifiable
         return area;
     }
 
-    @Override
     public int getId()
     {
         return id;
