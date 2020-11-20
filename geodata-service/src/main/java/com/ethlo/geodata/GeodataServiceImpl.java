@@ -143,12 +143,7 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public GeoLocation findById(int geoNameId)
-    {
-        return doFindById(geoNameId);
-    }
-
-    private GeoLocation doFindById(int id)
+    public GeoLocation findById(int id)
     {
         return locationDao.get(id).map(this::populate).orElseThrow(() -> new EmptyResultDataAccessException("No location with id " + id, 1));
     }
@@ -175,7 +170,7 @@ public class GeodataServiceImpl implements GeodataService
         {
             return Collections.emptyList();
         }
-        return (ids).stream().map(this::doFindById).collect(Collectors.toList());
+        return (ids).stream().map(this::findById).collect(Collectors.toList());
     }
 
     @Override
@@ -185,21 +180,56 @@ public class GeodataServiceImpl implements GeodataService
     }
 
     @Override
-    public Page<GeoLocation> findChildren(int locationId, Pageable pageable)
+    public Page<GeoLocation> findChildren(int locationId, final boolean matchLevel, Pageable pageable)
     {
+        final GeoLocation self = findById(locationId);
+        final Optional<List<String>> subLevel = getSubLevel(self.getFeatureKey());
         final Node node = nodes.get(locationId);
         if (node == null)
         {
             throw new EmptyResultDataAccessException("No location with id " + locationId + " found", 1);
         }
-        final long total = node.getChildren().size();
-        final List<Integer> ids = node.getChildren().stream()
+
+        final List<Integer> ids = node.getChildren()
+                .stream()
+                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+
+        final List<GeoLocation> all = findByIds(ids);
+
+        final List<GeoLocation> locations = all
+                .stream()
+                .filter(l -> subLevel.map(s -> s.contains(l.getFeatureKey())).orElse(false)).collect(Collectors.toList());
+        final long total = locations.size();
+
+        final List<GeoLocation> content = locations
+                .stream()
+                .sorted(Comparator.comparing(GeoLocation::getName))
                 .skip(pageable.getOffset())
                 .limit(pageable.getPageSize())
-                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
-        final List<GeoLocation> locations = findByIds(ids);
-        locations.sort(Comparator.comparing(GeoLocation::getName));
-        return new PageImpl<>(locations, pageable, total);
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(content, pageable, total);
+    }
+
+    private Optional<List<String>> getSubLevel(final String featureCode)
+    {
+        if (GeoConstants.CONTINENT_LEVEL_FEATURE.equals(featureCode))
+        {
+            return Optional.of(GeoConstants.COUNTRY_LEVEL_FEATURES);
+        }
+        else if (GeoConstants.COUNTRY_LEVEL_FEATURES.contains(featureCode))
+        {
+            return Optional.of(Collections.singletonList(GeoConstants.ADM1));
+        }
+        else if (GeoConstants.ADMINISTRATIVE_LEVEL_FEATURES.contains(featureCode))
+        {
+            final int selfIndex = GeoConstants.ADMINISTRATIVE_LEVEL_FEATURES.indexOf(featureCode);
+            if (selfIndex < GeoConstants.ADMINISTRATIVE_LEVEL_FEATURES.size() - 1)
+            {
+                return Optional.of(Collections.singletonList(GeoConstants.ADMINISTRATIVE_LEVEL_FEATURES.get(selfIndex + 1)));
+            }
+        }
+        return Optional.empty();
     }
 
     @PostConstruct
@@ -391,7 +421,7 @@ public class GeodataServiceImpl implements GeodataService
         final List<Integer> childIds = Optional.ofNullable(nodes.get(id).getChildren()).orElse(Collections.emptyList());
 
         final List<GeoLocation> content = childIds.stream()
-                .map(this::doFindById)
+                .map(this::findById)
                 .filter(l -> "ADM1".equals(l.getFeatureCode()))
                 .skip(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -567,7 +597,7 @@ public class GeodataServiceImpl implements GeodataService
             final List<GeoLocation> content = ids.stream()
                     .skip(skip)
                     .limit(size)
-                    .map(this::doFindById)
+                    .map(this::findById)
                     .sorted(Comparator.comparingLong(GeoLocation::getPopulation))
                     .collect(Collectors.toList());
             return new SliceImpl<>(Lists.reverse(content), pageable, hasMore);

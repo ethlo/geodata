@@ -132,7 +132,7 @@ public class GeodataApplicationTests
     @Test
     public void testListChildrenOfNorway()
     {
-        final Page<GeoLocation> children = geodataService.findChildren(3144096, PageRequest.of(0, 20));
+        final Page<GeoLocation> children = geodataService.findChildren(3144096, true, PageRequest.of(0, 20));
         assertThat(children).hasSize(13);
     }
 
@@ -146,7 +146,7 @@ public class GeodataApplicationTests
     @Test
     public void testLocationsInOsloCounty()
     {
-        final Page<GeoLocation> locations = geodataService.findChildren(3143242, PageRequest.of(0, 100));
+        final Page<GeoLocation> locations = geodataService.findChildren(3143242, false, PageRequest.of(0, 100));
         assertThat(locations).isNotEmpty();
     }
 

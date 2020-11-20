@@ -120,8 +120,9 @@ public class ServerHandler extends BaseServerHandler
 
                 .add(Methods.GET, "/v1/locations/{id}/children", exchange ->
                 {
+                    final boolean matchLevel = getBooleanParam(exchange, "match_level").orElse(true);
                     final int id = requireIntParam(exchange, "id");
-                    json(exchange, Mapper.toGeoLocationPage(geodataService.findChildren(id, getPageable(exchange)).map(mapper::transform)));
+                    json(exchange, Mapper.toGeoLocationPage(geodataService.findChildren(id, matchLevel, getPageable(exchange)).map(mapper::transform)));
                 })
 
                 .add(Methods.GET, "/v1/continents/{continentCode}", exchange ->

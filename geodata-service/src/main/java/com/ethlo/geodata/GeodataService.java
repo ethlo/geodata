@@ -57,7 +57,7 @@ public interface GeodataService
 
     Optional<Geometry> findBoundaries(int id, View view);
 
-    Page<GeoLocation> findChildren(int locationId, Pageable pageable);
+    Page<GeoLocation> findChildren(int locationId, final boolean matchLevel, Pageable pageable);
 
     Page<Continent> findContinents();
 

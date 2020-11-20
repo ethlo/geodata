@@ -169,4 +169,9 @@ public class GeoLocation implements Serializable
         this.timeZone = timeZone;
         return this;
     }
+
+    public String getFeatureKey()
+    {
+        return featureClass + "." + featureCode;
+    }
 }
