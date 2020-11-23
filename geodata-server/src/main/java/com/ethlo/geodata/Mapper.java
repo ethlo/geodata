@@ -98,6 +98,8 @@ public class Mapper
                 .parentLocationId(l.getParentLocationId() != null ? l.getParentLocationId() : null)
                 .population(l.getPopulation() != 0 ? l.getPopulation() : null)
                 .timeZone(l.getTimeZone())
+                .hasBoundary(geodataService.hasBoundary(l.getId()))
+                .hasChildren(geodataService.hasRealChildren(l.getId()))
                 .path(transform(geodataService.findPath(l.getId())));
     }
 

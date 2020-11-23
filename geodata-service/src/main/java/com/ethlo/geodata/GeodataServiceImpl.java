@@ -183,22 +183,14 @@ public class GeodataServiceImpl implements GeodataService
     public Page<GeoLocation> findChildren(int locationId, final boolean matchLevel, Pageable pageable)
     {
         final GeoLocation self = findById(locationId);
+        final List<Integer> all = getChildIds(locationId);
         final Optional<List<String>> subLevel = getSubLevel(self.getFeatureKey());
-        final Node node = nodes.get(locationId);
-        if (node == null)
-        {
-            throw new EmptyResultDataAccessException("No location with id " + locationId + " found", 1);
-        }
-
-        final List<Integer> ids = node.getChildren()
-                .stream()
-                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
-
-        final List<GeoLocation> all = findByIds(ids);
-
         final List<GeoLocation> locations = all
                 .stream()
-                .filter(l -> subLevel.map(s -> s.contains(l.getFeatureKey())).orElse(false)).collect(Collectors.toList());
+                .map(this::findById)
+                .filter(l -> subLevel.map(s -> s.contains(l.getFeatureKey())).orElse(false))
+                .collect(Collectors.toList());
+
         final long total = locations.size();
 
         final List<GeoLocation> content = locations
@@ -209,6 +201,36 @@ public class GeodataServiceImpl implements GeodataService
                 .collect(Collectors.toList());
 
         return new PageImpl<>(content, pageable, total);
+    }
+
+    @Override
+    public boolean hasRealChildren(final int id)
+    {
+        final GeoLocation self = findById(id);
+        final List<Integer> all = getChildIds(id);
+        final Optional<List<String>> subLevel = getSubLevel(self.getFeatureKey());
+
+        return all
+                .stream()
+                .map(this::findById)
+                .anyMatch(l -> subLevel.map(s -> s.contains(l.getFeatureKey())).orElse(false));
+    }
+
+    @Override
+    public boolean hasBoundary(final int id)
+    {
+        return boundaryDao.hasGeometry(id);
+    }
+
+    private List<Integer> getChildIds(final int id)
+    {
+        final Node node = nodes.get(id);
+        if (node == null)
+        {
+            throw new EmptyResultDataAccessException("No location with id " + id + " found", 1);
+        }
+
+        return node.getChildren();
     }
 
     private Optional<List<String>> getSubLevel(final String featureCode)

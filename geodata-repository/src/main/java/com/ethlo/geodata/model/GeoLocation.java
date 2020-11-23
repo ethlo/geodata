@@ -26,9 +26,6 @@ import java.io.Serializable;
 
 import javax.validation.constraints.NotNull;
 
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-
-@JsonPropertyOrder({"id", "parentLocationId", "name", "featureClass", "featureCode", "country", "coordinates", "timeZone", "population"})
 public class GeoLocation implements Serializable
 {
     private static final long serialVersionUID = -4591909310445372923L;
@@ -54,6 +51,10 @@ public class GeoLocation implements Serializable
     private long population;
 
     private String timeZone;
+
+    private boolean hasChildren;
+
+    private boolean hasBoundary;
 
     public String getFeatureCode()
     {

@@ -87,6 +87,10 @@ public interface GeodataService
 
     Slice<GeoLocation> findByName(String name, Pageable pageable);
 
+    boolean hasRealChildren(int id);
+
+    boolean hasBoundary(int id);
+
     void load(LoadProgressListener loadProgressListener);
 
     List<GeoLocation> findPath(int id);

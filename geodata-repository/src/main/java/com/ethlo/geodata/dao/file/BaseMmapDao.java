@@ -131,6 +131,11 @@ public class BaseMmapDao
         return parts.size() > subIndex ? parts.get(subIndex) : null;
     }
 
+    public boolean exists(int id)
+    {
+        return this.indexMap.containsKey(id);
+    }
+
     public int size()
     {
         return indexMap.size();

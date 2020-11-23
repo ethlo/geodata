@@ -79,4 +79,10 @@ public class FileBoundaryDao extends BaseMmapDao implements BoundaryDao
                 .map(BinaryBoundaryEncoder::readGeometry)
                 .map(BoundaryData::getGeometry);
     }
+
+    @Override
+    public boolean hasGeometry(final int id)
+    {
+        return super.exists(id);
+    }
 }

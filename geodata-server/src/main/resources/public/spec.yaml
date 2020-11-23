@@ -371,6 +371,12 @@ paths:
             format: int32
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/size'
+        - name: match_level
+          in: query
+          description: Whether to match the level, i.e avoid minor locations attached directly to a country for example. Enabled by default.
+          required: false
+          schema:
+            type: boolean
       responses:
         200:
           description: OK
@@ -767,10 +773,20 @@ components:
           format: int64
         timeZone:
           type: string
+        hasChildren:
+          type: boolean
+        hasBoundary:
+          type: boolean
         path:
           type: array
           items:
             $ref: '#/components/schemas/GeoLocationSummary'
+      required:
+        - id
+        - name
+        - coordinates
+        - featureClass
+        - featureCode
     GeoLocationSummary:
       type: object
       properties:
