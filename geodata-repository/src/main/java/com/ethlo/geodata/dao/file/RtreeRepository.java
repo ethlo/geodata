@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Envelope;
@@ -47,12 +48,12 @@ import com.ethlo.geodata.model.RawLocation;
 import com.github.davidmoten.grumpy.core.Position;
 import com.github.davidmoten.guavamini.Lists;
 import com.github.davidmoten.rtree2.Entry;
-import com.github.davidmoten.rtree2.Iterables;
 import com.github.davidmoten.rtree2.RTree;
 import com.github.davidmoten.rtree2.geometry.Geometries;
 import com.github.davidmoten.rtree2.geometry.Geometry;
 import com.github.davidmoten.rtree2.geometry.Point;
 import com.github.davidmoten.rtree2.geometry.Rectangle;
+import com.github.davidmoten.rtree2.geometry.internal.RectangleDouble;
 import com.github.davidmoten.rtree2.internal.EntryDefault;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Iterators;
@@ -61,8 +62,6 @@ import com.google.common.primitives.Ints;
 public class RtreeRepository
 {
     private static final Logger logger = LoggerFactory.getLogger(RtreeRepository.class);
-
-    private static final int PROXIMITY_DISTANCE_SEARCH_INCREMENT_KM = 50;
 
     private final BoundaryDao boundaryDao;
     private final RTree<RTreePayload, Geometry> boundaryRTree;
@@ -178,50 +177,17 @@ public class RtreeRepository
     public Map<Integer, Double> getNearest(final Coordinates point, final int maxDistanceInKilometers, final Pageable pageable)
     {
         final int max = Ints.saturatedCast((pageable.getOffset() + pageable.getPageSize()));
-
-        final LinkedHashMap<Integer, Double> idAndDistance = new LinkedHashMap<>();
-
-        for (int maxDistance = PROXIMITY_DISTANCE_SEARCH_INCREMENT_KM; maxDistance <= maxDistanceInKilometers; maxDistance += PROXIMITY_DISTANCE_SEARCH_INCREMENT_KM)
-        {
-            final Map<Integer, Double> found = doFindNearest(point, maxDistance, max * 2);
-            idAndDistance.putAll(found);
-            if (idAndDistance.size() >= max)
-            {
-                break;
-            }
-        }
-
-        return idAndDistance.entrySet()
-                .stream()
-                .sorted(Map.Entry.comparingByValue())
-                .skip(Ints.saturatedCast(pageable.getOffset()))
-                .limit(pageable.getPageSize())
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
-    }
-
-    private Map<Integer, Double> doFindNearest(final Coordinates point, final int maxDistanceInKilometers, final int max)
-    {
         final Position from = Position.create(point.getLat(), point.getLng());
-        final Rectangle bounds = createBounds(from, maxDistanceInKilometers);
-
-        final Iterator<Entry<Integer, Point>> entryIterator = Iterators.limit(Iterables.filter(proximity.search(bounds),
-                entry ->
-                {
-                    final Point p = entry.geometry();
-                    final Position position = Position.create(p.y(), p.x());
-                    return from.getDistanceToKm(position) < maxDistanceInKilometers;
-                }
-        ).iterator(), max);
-
-        final Map<Integer, Double> idAndDistance = new LinkedHashMap<>();
-        while (entryIterator.hasNext())
-        {
-            final Entry<Integer, Point> entry = entryIterator.next();
-            final double distance = from.getDistanceToKm(Position.create(entry.geometry().y(), entry.geometry().x()));
-            idAndDistance.put(entry.value(), distance);
-        }
-
-        return idAndDistance;
+        //final Rectangle bounds = createBounds(from, maxDistanceInKilometers);
+        return StreamSupport
+                .stream(proximity.nearest(RectangleDouble.create(point.getLng(), point.getLat(), point.getLng(), point.getLat()), maxDistanceInKilometers, max).spliterator(), false)
+                .skip(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .collect(Collectors.toMap(Entry::value,
+                        entry -> from.getDistanceToKm(Position.create(entry.geometry().y(), entry.geometry().x())),
+                        (e1, e2) -> e1,
+                        LinkedHashMap::new
+                ));
     }
 
     private static class ConvertingIterator extends AbstractIterator<Entry<Integer, Point>>
