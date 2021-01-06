@@ -28,6 +28,7 @@ import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
@@ -37,6 +38,7 @@ import com.google.common.primitives.Ints;
 import com.maxmind.db.MaxMindDbConstructor;
 import com.maxmind.db.MaxMindDbParameter;
 import com.maxmind.db.Reader;
+import com.maxmind.db.ReaderIterator;
 
 @Repository
 public class FileIpDao implements IpDao
@@ -79,26 +81,69 @@ public class FileIpDao implements IpDao
         }
     }
 
+    @Override
+    public void iterate(Consumer<Integer> callback) throws IOException
+    {
+        new ReaderIterator(reader).iterateSearchTree(data -> data.getMostSpecificId().ifPresent(callback));
+    }
+
     public static class LookupResult
     {
         private final Country country;
         private final City city;
+        private final Country registeredCountry;
+        private final Continent continent;
 
         @MaxMindDbConstructor
-        public LookupResult(@MaxMindDbParameter(name = "country") Country country, @MaxMindDbParameter(name = "city") City city)
+        public LookupResult(@MaxMindDbParameter(name = "continent") Continent continent,
+                            @MaxMindDbParameter(name = "registered_country") Country registeredCountry,
+                            @MaxMindDbParameter(name = "country") Country country,
+                            @MaxMindDbParameter(name = "city") City city)
         {
+            this.continent = continent;
+            this.registeredCountry = registeredCountry;
             this.country = country;
             this.city = city;
         }
 
+        public Optional<Integer> getMostSpecificId()
+        {
+            final Optional<Integer> cityId = Optional.ofNullable(city != null ? city.getId() : null);
+            final Optional<Integer> countryId = Optional.ofNullable(country != null ? country.getId() : null);
+            final Optional<Integer> regCountryId = Optional.ofNullable(registeredCountry != null ? registeredCountry.getId() : null);
+            final Optional<Integer> continentId = Optional.ofNullable(continent != null ? continent.getId() : null);
+            return cityId.or(() -> countryId).or(() -> regCountryId).or(() -> continentId);
+        }
+
         public Country getCountry()
         {
-            return this.country;
+            return country;
+        }
+
+        public Country getRegisteredCountry()
+        {
+            return registeredCountry;
         }
 
         public City getCity()
         {
             return city;
+        }
+
+        public static class Continent
+        {
+            private final long id;
+
+            @MaxMindDbConstructor
+            public Continent(@MaxMindDbParameter(name = "geoname_id") long id)
+            {
+                this.id = id;
+            }
+
+            public int getId()
+            {
+                return Ints.checkedCast(id);
+            }
         }
 
         public static class Country

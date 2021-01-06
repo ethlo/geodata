@@ -100,7 +100,9 @@ public class FileIpDataImporter implements DataImporter
                 }
             });
             Files.move(tmp, filePath, StandardCopyOption.ATOMIC_MOVE);
-            final Metadata metadata = new Reader(filePath.toFile()).getMetadata();
+            final Reader reader = new Reader(filePath.toFile());
+
+            final Metadata metadata = reader.getMetadata();
             return extractCount(metadata);
         }
         catch (IOException exc)
