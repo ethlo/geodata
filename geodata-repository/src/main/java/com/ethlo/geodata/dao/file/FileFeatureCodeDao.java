@@ -52,7 +52,11 @@ public class FileFeatureCodeDao implements FeatureCodeDao
                 .collect(Collectors.toMap(Map.Entry::getValue, e ->
                 {
                     final String[] parts = e.getKey().split("\\.");
-                    return new MapFeature(parts[0], parts[1]);
+                    if (parts.length == 2)
+                    {
+                        return new MapFeature(parts[0], parts[1]);
+                    }
+                    return new MapFeature(parts[0], null);
                 }));
     }
 

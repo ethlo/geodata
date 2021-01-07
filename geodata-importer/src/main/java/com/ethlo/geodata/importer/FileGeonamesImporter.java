@@ -31,6 +31,7 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +49,7 @@ import com.ethlo.geodata.dao.CountryDao;
 import com.ethlo.geodata.dao.FeatureCodeDao;
 import com.ethlo.geodata.dao.HierarchyDao;
 import com.ethlo.geodata.dao.TimeZoneDao;
+import com.ethlo.geodata.dao.file.FileIpDao;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.RawLocation;
@@ -79,9 +81,11 @@ public class FileGeonamesImporter implements DataImporter
     private final BinaryIndexedFileWriter<RawLocation> locationWriter;
     private final Duration maxAge;
     private final ResourceUtil resourceUtil;
+    private final Path basePath;
 
     private Map<Integer, String> alternateNames;
     private Map<String, Country> countries;
+    private Set<Integer> geoIpIds;
 
     public FileGeonamesImporter(@Value("${geodata.geonames.source.alternatenames}") final String geoNamesAlternateNamesUrl,
                                 @Value("${geodata.geonames.source.country}") final String geoNamesCountryInfoUrl,
@@ -104,6 +108,7 @@ public class FileGeonamesImporter implements DataImporter
             }
         };
 
+        this.basePath = basePath;
         this.url = geoNamesAllCountriesUrl;
         this.maxAge = maxAge;
         this.geoNamesAlternateNamesUrl = geoNamesAlternateNamesUrl;
@@ -161,7 +166,12 @@ public class FileGeonamesImporter implements DataImporter
             logger.info("Build hierarchy");
             try (final CloseableIterator<Map<String, String>> iterator = new CsvFileIterator<>(fileData.getValue(), HEADERS, true, 0, i -> i))
             {
-                final Iterator<Map<String, String>> filtered = Iterators.filter(iterator, e -> inclusions.contains(e.get("feature_class") + "." + e.get("feature_code")));
+                final Iterator<Map<String, String>> filtered = Iterators.filter(iterator, e ->
+                {
+                    final String featureKey = e.get("feature_class") + "." + e.get("feature_code");
+                    final int id = Integer.parseInt(e.get("geonameid"));
+                    return inclusions.contains(featureKey) || geoIpIds.contains(id);
+                });
                 final Map<Integer, Integer> childToParent = HierachyBuilder.build(filtered, adminLevels, countries);
                 logger.info("Hierarchy nodes: {}", childToParent.size());
                 hierarchyDao.save(childToParent);
@@ -206,14 +216,19 @@ public class FileGeonamesImporter implements DataImporter
         logger.info("Loading alternate names");
         final Map.Entry<OffsetDateTime, Path> alternateFile = resourceUtil.fetchResource("alternate_names", maxAge, geoNamesAlternateNamesUrl);
         this.alternateNames = AlternateNamesFileReader.loadPreferredNames(alternateFile.getValue(), "EN");
+
+        logger.info("Create list of location ids used by ip-lookup database");
+        this.geoIpIds = new HashSet<>();
+        new FileIpDao(basePath).iterate(id -> geoIpIds.add(id));
     }
 
     private RawLocation processLine(final Map<String, String> line)
     {
+        final int id = Integer.parseInt(line.get("geonameid"));
         final String featureClass = line.get("feature_class");
         final String featureCode = line.get("feature_code");
         final String featureKey = featureClass + "." + featureCode;
-        if (!inclusions.contains(featureKey))
+        if (!inclusions.contains(featureKey) && !geoIpIds.contains(id))
         {
             return null;
         }
@@ -222,7 +237,6 @@ public class FileGeonamesImporter implements DataImporter
         timezones.computeIfAbsent(timezone, tz -> timezones.size() + 1);
         featureCodes.computeIfAbsent(featureClass + "." + featureCode, combined -> featureCodes.size() + 1);
 
-        final int id = Integer.parseInt(line.get("geonameid"));
         final String name = line.get("name");
         final String adm1 = line.get("adm1");
         final String adm2 = line.get("adm2");

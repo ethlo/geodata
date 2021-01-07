@@ -179,6 +179,7 @@ public class ResourceUtil
             {
                 final Path tmpFile = Files.createTempFile(file.getFileName().toString() + "-", ".tmp");
                 Files.copy(in, tmpFile, StandardCopyOption.REPLACE_EXISTING);
+                Files.createDirectories(file.getParent());
                 Files.move(tmpFile, file, StandardCopyOption.REPLACE_EXISTING);
                 Files.setLastModifiedTime(file, FileTime.fromMillis(remoteLastModified.toInstant().toEpochMilli()));
             }

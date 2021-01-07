@@ -39,6 +39,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -62,6 +63,7 @@ import com.ethlo.geodata.dao.FeatureCodeDao;
 import com.ethlo.geodata.dao.FileMetaDao;
 import com.ethlo.geodata.dao.LocationDao;
 import com.ethlo.geodata.dao.file.FileFeatureCodeDao;
+import com.ethlo.geodata.dao.file.FileIpDao;
 import com.ethlo.geodata.dao.file.FileLocationDao;
 import com.ethlo.geodata.importer.boundary.GeoNamesBoundaryImporter;
 import com.ethlo.geodata.model.BoundaryData;
@@ -90,6 +92,8 @@ public class DataImporterService
                                FileIpDataImporter ipLookupImporter,
                                FileGeonamesImporter geonamesImporter)
     {
+        logger.info("Base path for data: {}", basePath);
+
         this.basePath = Objects.requireNonNull(basePath, "GEODATA_BASEPATH must be set");
         this.inputBasePath = inputBasePath;
         this.maxDataAge = Objects.requireNonNull(maxDataAge, "GEODATA_MAXDATAAGE must be set");
@@ -116,18 +120,19 @@ public class DataImporterService
         Files.createDirectories(basePath);
 
         final AtomicBoolean updated = new AtomicBoolean();
-        ifExpired(DataType.LOCATIONS, geonamesImporter.lastRemoteModified(), maxDataAge, () ->
-        {
-            geonamesImporter.purgeData();
-            updated.set(true);
-            return geonamesImporter.importData();
-        });
 
         ifExpired(DataType.IP, ipLookupImporter.lastRemoteModified(), maxDataAge, () ->
         {
             ipLookupImporter.purgeData();
             updated.set(true);
             return ipLookupImporter.importData();
+        });
+
+        ifExpired(DataType.LOCATIONS, geonamesImporter.lastRemoteModified(), maxDataAge, () ->
+        {
+            geonamesImporter.purgeData();
+            updated.set(true);
+            return geonamesImporter.importData();
         });
 
         final Path boundaryImportFolder = inputBasePath.resolve(DataType.BOUNDARIES);

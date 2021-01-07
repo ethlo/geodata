@@ -22,10 +22,14 @@ package com.ethlo.geodata.dao;
  * #L%
  */
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 public interface IpDao
 {
     Optional<Integer> findByIp(InetAddress ip);
+
+    void iterate(Consumer<Integer> callback) throws IOException;
 }
