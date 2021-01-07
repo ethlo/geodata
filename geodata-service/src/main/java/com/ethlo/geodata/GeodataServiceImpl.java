@@ -225,12 +225,11 @@ public class GeodataServiceImpl implements GeodataService
     private List<Integer> getChildIds(final int id)
     {
         final Node node = nodes.get(id);
-        if (node == null)
+        if (node != null)
         {
-            throw new EmptyResultDataAccessException("No location with id " + id + " found", 1);
+            return node.getChildren();
         }
-
-        return node.getChildren();
+        return Collections.emptyList();
     }
 
     private Optional<List<String>> getSubLevel(final String featureCode)

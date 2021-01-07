@@ -166,7 +166,12 @@ public class FileGeonamesImporter implements DataImporter
             logger.info("Build hierarchy");
             try (final CloseableIterator<Map<String, String>> iterator = new CsvFileIterator<>(fileData.getValue(), HEADERS, true, 0, i -> i))
             {
-                final Iterator<Map<String, String>> filtered = Iterators.filter(iterator, e -> inclusions.contains(e.get("feature_class") + "." + e.get("feature_code")));
+                final Iterator<Map<String, String>> filtered = Iterators.filter(iterator, e ->
+                {
+                    final String featureKey = e.get("feature_class") + "." + e.get("feature_code");
+                    final int id = Integer.parseInt(e.get("geonameid"));
+                    return inclusions.contains(featureKey) || geoIpIds.contains(id);
+                });
                 final Map<Integer, Integer> childToParent = HierachyBuilder.build(filtered, adminLevels, countries);
                 logger.info("Hierarchy nodes: {}", childToParent.size());
                 hierarchyDao.save(childToParent);
@@ -214,7 +219,7 @@ public class FileGeonamesImporter implements DataImporter
 
         logger.info("Create list of location ids used by ip-lookup database");
         this.geoIpIds = new HashSet<>();
-        new FileIpDao(basePath).iterate(id-> geoIpIds.add(id));
+        new FileIpDao(basePath).iterate(id -> geoIpIds.add(id));
     }
 
     private RawLocation processLine(final Map<String, String> line)
