@@ -24,9 +24,9 @@ package com.ethlo.geodata.importer;
 
 
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -87,7 +87,7 @@ public class CsvFileIterator<T> implements CloseableIterator<T>
     {
         try
         {
-            final BufferedReader reader = new BufferedReader(new FileReader(csvFile.toFile()));
+            final BufferedReader reader = Files.newBufferedReader(csvFile);
 
             // Skip requested number of lines
             for (int i = 0; i < skipLines; i++)
