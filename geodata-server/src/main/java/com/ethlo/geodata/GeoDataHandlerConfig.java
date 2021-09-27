@@ -1,35 +1,25 @@
 package com.ethlo.geodata;
 
-/*-
- * #%L
- * geodata-fast-server
- * %%
- * Copyright (C) 2017 - 2020 Morten Haraldsen (ethlo)
- * %%
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Lesser Public License for more details.
- *
- * You should have received a copy of the GNU General Lesser Public
- * License along with this program.  If not, see
- * <http://www.gnu.org/licenses/lgpl-3.0.html>.
- * #L%
- */
+import static com.ethlo.kviksilver.util.RequestUtil.classpathResource;
+import static com.ethlo.kviksilver.util.RequestUtil.getBooleanParam;
+import static com.ethlo.kviksilver.util.RequestUtil.getIntList;
+import static com.ethlo.kviksilver.util.RequestUtil.getIntParam;
+import static com.ethlo.kviksilver.util.RequestUtil.getPageable;
+import static com.ethlo.kviksilver.util.RequestUtil.json;
+import static com.ethlo.kviksilver.util.RequestUtil.missingParam;
+import static com.ethlo.kviksilver.util.RequestUtil.requireDoubleParam;
+import static com.ethlo.kviksilver.util.RequestUtil.requireIntParam;
+import static com.ethlo.kviksilver.util.RequestUtil.requireStringParam;
+import static com.ethlo.kviksilver.util.RequestUtil.required;
 
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.locationtech.jts.geom.Geometry;
@@ -42,42 +32,87 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 
+import com.ethlo.geodata.dao.BoundaryDao;
+import com.ethlo.geodata.dao.CountryDao;
+import com.ethlo.geodata.dao.FeatureCodeDao;
+import com.ethlo.geodata.dao.FileMetaDao;
+import com.ethlo.geodata.dao.HierarchyDao;
+import com.ethlo.geodata.dao.IpDao;
+import com.ethlo.geodata.dao.LocationDao;
 import com.ethlo.geodata.dao.MetaDao;
+import com.ethlo.geodata.dao.TimeZoneDao;
+import com.ethlo.geodata.dao.file.FileBoundaryDao;
+import com.ethlo.geodata.dao.file.FileCountryDao;
+import com.ethlo.geodata.dao.file.FileFeatureCodeDao;
+import com.ethlo.geodata.dao.file.FileHierarchyDao;
+import com.ethlo.geodata.dao.file.FileIpDao;
+import com.ethlo.geodata.dao.file.FileLocationDao;
+import com.ethlo.geodata.dao.file.FileTimeZoneDao;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
 import com.ethlo.geodata.model.View;
+import com.ethlo.geodata.progress.StatefulProgressListener;
 import com.ethlo.geodata.rest.v1.model.V1Continent;
 import com.ethlo.geodata.rest.v1.model.V1GeoLocation;
 import com.ethlo.geodata.rest.v1.model.V1PageContinent;
 import com.ethlo.geodata.util.InetUtil;
 import com.ethlo.geodata.util.MemoryUsageUtil;
+import com.ethlo.kviksilver.KviksilverConfig;
 import io.undertow.Handlers;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.server.RoutingHandler;
-import io.undertow.server.handlers.ExceptionHandler;
 import io.undertow.server.handlers.PathHandler;
 import io.undertow.server.handlers.resource.ResourceHandler;
 import io.undertow.util.Headers;
 import io.undertow.util.HttpString;
 import io.undertow.util.Methods;
 
-public class ServerHandler extends BaseServerHandler
+public class GeoDataHandlerConfig implements KviksilverConfig
 {
     private final GeodataService geodataService;
     private final MetaDao metaDao;
     private final Mapper mapper;
 
-    public ServerHandler(final GeodataService geodataService, final MetaDao metaDao)
+    public GeoDataHandlerConfig(final Path basePath)
     {
-        this.geodataService = geodataService;
-        this.mapper = new Mapper(geodataService);
-        this.metaDao = metaDao;
+        metaDao = new FileMetaDao(basePath);
+        final LocationDao locationDao = new FileLocationDao(basePath);
+        final IpDao ipDao = new FileIpDao(basePath);
+        final HierarchyDao hierarchyDao = new FileHierarchyDao(basePath);
+        final FeatureCodeDao featureCodeDao = new FileFeatureCodeDao(basePath);
+        final TimeZoneDao timeZoneDao = new FileTimeZoneDao(basePath);
+        final CountryDao countryDao = new FileCountryDao(basePath);
+        final BoundaryDao boundaryDao = new FileBoundaryDao(basePath);
+        final int boundaryQualityConstant = 200_000;
+        geodataService = new GeodataServiceImpl(locationDao, ipDao, hierarchyDao, featureCodeDao, timeZoneDao, countryDao, boundaryDao, metaDao, Collections.emptyList(), boundaryQualityConstant);
+        mapper = new Mapper(geodataService);
     }
 
-    public HttpHandler handler(Map<Class<? extends Throwable>, Function<Throwable, ApiError>> errorHandlers)
+    @Override
+    public Runnable getStartListener()
+    {
+        return () ->
+        {
+            final StatefulProgressListener progressListener = new StatefulProgressListener();
+            geodataService.load(progressListener);
+        };
+    }
+
+    @Override
+    public Runnable getReadyListener()
+    {
+        return () ->
+        {
+            System.gc();
+            MemoryUsageUtil.dumpMemUsage("Ready");
+        };
+    }
+
+    @Override
+    public HttpHandler getHandler()
     {
         final RoutingHandler routes = Handlers.routing()
 
@@ -90,14 +125,14 @@ public class ServerHandler extends BaseServerHandler
                 .add(Methods.GET, "/v1/locations/{id}/boundaries", exchange ->
                 {
                     final int id = requireIntParam(exchange, "id");
-                    final Geometry boundary = geodataService.findBoundaries(id).orElseThrow(notNull("No boundary for id " + id));
+                    final Geometry boundary = geodataService.findBoundaries(id).orElseThrow(required("No boundary for id " + id));
                     sendGeoJson(exchange, boundary);
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}/boundaries.wkb", exchange ->
                 {
                     final int id = requireIntParam(exchange, "id");
-                    final Geometry boundary = geodataService.findBoundaries(id).orElseThrow(notNull("No boundary for id " + id));
+                    final Geometry boundary = geodataService.findBoundaries(id).orElseThrow(required("No boundary for id " + id));
                     sendWkb(exchange, boundary);
                 })
 
@@ -106,7 +141,7 @@ public class ServerHandler extends BaseServerHandler
                     final String ip = requireStringParam(exchange, "ip");
                     json(exchange, Optional.ofNullable(geodataService.findByIp(InetUtil.inet(ip)))
                             .map(mapper::transform)
-                            .orElseThrow(notNull("No location found for IP address " + ip)));
+                            .orElseThrow(required("No location found for IP address " + ip)));
                 })
 
                 .add(Methods.GET, "/v1/locations/name/{name}", exchange ->
@@ -128,22 +163,22 @@ public class ServerHandler extends BaseServerHandler
                 .add(Methods.GET, "/v1/continents/{continentCode}", exchange ->
                 {
                     final String continentCode = requireStringParam(exchange, "continentCode");
-                    json(exchange, Optional.ofNullable(geodataService.findContinent(continentCode)).map(mapper::transform).orElseThrow(notNull("No continent found for continent code " + continentCode)));
+                    json(exchange, Optional.ofNullable(geodataService.findContinent(continentCode)).map(mapper::transform).orElseThrow(required("No continent found for continent code " + continentCode)));
                 })
 
                 .add(Methods.GET, "/v1/countries", exchange ->
-                        json(exchange, mapper.toCountryPage(geodataService.findCountries(pageable(exchange)).map(mapper::transform))))
+                        json(exchange, mapper.toCountryPage(geodataService.findCountries(getPageable(exchange)).map(mapper::transform))))
 
                 .add(Methods.GET, "/v1/countries/{countryCode}/children", exchange ->
                 {
                     final String countryCode = requireStringParam(exchange, "countryCode");
-                    json(exchange, Mapper.toGeoLocationPage(geodataService.findChildren(countryCode, pageable(exchange)).map(mapper::transform)));
+                    json(exchange, Mapper.toGeoLocationPage(geodataService.findChildren(countryCode, getPageable(exchange)).map(mapper::transform)));
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}", exchange ->
                 {
                     final int id = requireIntParam(exchange, "id");
-                    json(exchange, Optional.ofNullable(geodataService.findById(id)).map(mapper::transform).orElseThrow(notNull("No location with id " + id)));
+                    json(exchange, Optional.ofNullable(geodataService.findById(id)).map(mapper::transform).orElseThrow(required("No location with id " + id)));
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}/parent", exchange ->
@@ -151,7 +186,7 @@ public class ServerHandler extends BaseServerHandler
                     final int id = requireIntParam(exchange, "id");
                     json(exchange, Optional.ofNullable(geodataService.findParent(id))
                             .map(mapper::transform)
-                            .orElseThrow(notNull("No parent location found for id " + id)));
+                            .orElseThrow(required("No parent location found for id " + id)));
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}/insideany/{ids}", exchange ->
@@ -185,25 +220,25 @@ public class ServerHandler extends BaseServerHandler
                 .add(Methods.GET, "/v1/continents/{continent}/countries", exchange ->
                 {
                     final String continent = requireStringParam(exchange, "continent");
-                    json(exchange, mapper.toCountryPage(geodataService.findCountriesOnContinent(continent, pageable(exchange)).map(mapper::transform)));
+                    json(exchange, mapper.toCountryPage(geodataService.findCountriesOnContinent(continent, getPageable(exchange)).map(mapper::transform)));
                 })
 
                 .add(Methods.GET, "/v1/countries/{countryCode}", exchange ->
                 {
                     final String countryCode = requireStringParam(exchange, "countryCode");
-                    json(exchange, Optional.ofNullable(geodataService.findCountryByCode(countryCode)).map(mapper::transform).orElseThrow(notNull("No such country code: " + countryCode)));
+                    json(exchange, Optional.ofNullable(geodataService.findCountryByCode(countryCode)).map(mapper::transform).orElseThrow(required("No such country code: " + countryCode)));
                 })
 
                 .add(Methods.GET, "/v1/locations/phone/{phone}", exchange ->
                 {
                     final String phone = requireStringParam(exchange, "phone");
-                    final Country country = Optional.ofNullable(geodataService.findByPhoneNumber(phone)).orElseThrow(notNull("Unable to determine country by phone number " + phone));
+                    final Country country = Optional.ofNullable(geodataService.findByPhoneNumber(phone)).orElseThrow(required("Unable to determine country by phone number " + phone));
                     json(exchange, mapper.transform(country));
                 })
 
                 .add(Methods.GET, "/v1/locations/proximity", exchange ->
                 {
-                    final Pageable pageable = pageable(exchange);
+                    final Pageable pageable = getPageable(exchange);
                     final double lat = requireDoubleParam(exchange, "lat");
                     final double lng = requireDoubleParam(exchange, "lng");
                     final int maxDistance = getIntParam(exchange, "maxDistance").orElse(Integer.MAX_VALUE);
@@ -229,7 +264,7 @@ public class ServerHandler extends BaseServerHandler
 
                     final V1GeoLocation l = location
                             .map(mapper::transform)
-                            .orElseThrow(notNull("Unable to determine location of " + lat + "," + lng));
+                            .orElseThrow(required("Unable to determine location of " + lat + "," + lng));
 
                     // Add some metadata about the lookup
                     lookupMetadata.ifPresent(lmd ->
@@ -268,7 +303,7 @@ public class ServerHandler extends BaseServerHandler
                                 return lmd.getLocation();
                             })
                             .map(mapper::transform)
-                            .orElseThrow(notNull("No boundaries containing " + lat + "," + lng + " found")));
+                            .orElseThrow(required("No boundaries containing " + lat + "," + lng + " found")));
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}/outsideall/{ids}", exchange ->
@@ -290,11 +325,8 @@ public class ServerHandler extends BaseServerHandler
                     sendGeoJson(exchange, boundary);
                 });
 
-        // Performance logging handler
-        final HttpHandler performanceHandler = new PerformanceHandler(routes);
-
         // Static content
-        final PathHandler path = Handlers.path(performanceHandler)
+        final PathHandler path = Handlers.path(routes)
                 .addPrefixPath("/swagger-ui", new ResourceHandler(classpathResource("META-INF/resources/webjars/swagger-ui/3.35.2")))
                 .addExactPath("/spec.yaml", new ResourceHandler(classpathResource("public/spec.yaml")))
                 .addExactPath("/", new ResourceHandler(classpathResource("public/index.html")));
@@ -320,28 +352,14 @@ public class ServerHandler extends BaseServerHandler
         path.addExactPath("/sysadmin/memory", exchange ->
                 json(exchange, MemoryUsageUtil.getInfoMap()));
 
-
-        // Exception handlers
-        final ExceptionHandler exceptionHandler = Handlers.exceptionHandler(path);
-        for (Map.Entry<Class<? extends Throwable>, Function<Throwable, ApiError>> e : errorHandlers.entrySet())
-        {
-            exceptionHandler.addExceptionHandler(e.getKey(), exchange ->
-            {
-                final Throwable exc = exchange.getAttachment(ExceptionHandler.THROWABLE);
-                final ApiError response = e.getValue().apply(exc);
-                exchange.setStatusCode(response.getStatus());
-                json(exchange, response);
-            });
-        }
-
-        return exceptionHandler;
+        return path;
     }
 
     private Geometry getSimpleBoundary(final HttpServerExchange exchange)
     {
         final int id = requireIntParam(exchange, "id");
         final double maxTolerance = requireDoubleParam(exchange, "maxTolerance");
-        return geodataService.findBoundaries(id, maxTolerance).orElseThrow(notNull("No boundary found for location with id " + id));
+        return geodataService.findBoundaries(id, maxTolerance).orElseThrow(required("No boundary found for location with id " + id));
     }
 
     private void sendGeoJson(final HttpServerExchange exchange, final Geometry boundary)
@@ -365,6 +383,6 @@ public class ServerHandler extends BaseServerHandler
         final double maxLat = requireDoubleParam(exchange, "maxLat");
         final int width = requireIntParam(exchange, "width");
         final int height = requireIntParam(exchange, "height");
-        return geodataService.findBoundaries(id, new View(minLng, maxLng, minLat, maxLat, width, height)).orElseThrow(notNull("No boundary found for location with id " + id));
+        return geodataService.findBoundaries(id, new View(minLng, maxLng, minLat, maxLat, width, height)).orElseThrow(required("No boundary found for location with id " + id));
     }
 }

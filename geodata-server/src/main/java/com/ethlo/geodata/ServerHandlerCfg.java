@@ -2,7 +2,7 @@ package com.ethlo.geodata;
 
 /*-
  * #%L
- * geodata-server
+ * geodata-fast-server
  * %%
  * Copyright (C) 2017 - 2020 Morten Haraldsen (ethlo)
  * %%
@@ -22,10 +22,20 @@ package com.ethlo.geodata;
  * #L%
  */
 
-public class MissingParameterException extends RuntimeException
+import java.nio.file.Path;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import com.ethlo.kviksilver.KviksilverServer;
+
+@Configuration
+public class ServerHandlerCfg
 {
-    public MissingParameterException(final String parameterName)
+    @Bean
+    public KviksilverServer undertowServer(@Value("${geodata.base-path}") final Path basePath)
     {
-        super("Missing input parameter " + parameterName);
+        return new KviksilverServer(new GeoDataHandlerConfig(basePath));
     }
 }
