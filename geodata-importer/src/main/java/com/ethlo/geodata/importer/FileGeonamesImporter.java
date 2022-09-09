@@ -247,7 +247,7 @@ public class FileGeonamesImporter implements DataImporter
         final double lng = Double.parseDouble(line.get("lng"));
         final long population = Long.parseLong(line.get("population"));
         final String strElevation = line.get("elevation");
-        final int elevation = !StringUtils.isEmpty(strElevation) ? Integer.parseInt(strElevation) : Integer.MIN_VALUE;
+        final int elevation = !StringUtils.hasLength(strElevation) ? Integer.parseInt(strElevation) : Integer.MIN_VALUE;
 
         if (adm1 != null || adm2 != null || adm3 != null || adm4 != null)
         {

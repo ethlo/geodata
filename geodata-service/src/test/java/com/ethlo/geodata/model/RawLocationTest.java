@@ -22,11 +22,11 @@ package com.ethlo.geodata.model;
  * #L%
  */
 
+import org.junit.jupiter.api.Test;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.util.SerializationUtils.deserialize;
 import static org.springframework.util.SerializationUtils.serialize;
-
-import org.junit.Test;
 
 public class RawLocationTest
 {

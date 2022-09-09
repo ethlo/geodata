@@ -27,8 +27,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Slice;
 
 import com.ethlo.geodata.model.Continent;
 import com.ethlo.geodata.model.Coordinates;
@@ -46,7 +44,6 @@ import com.ethlo.geodata.rest.v1.model.V1GeoLocationSummary;
 import com.ethlo.geodata.rest.v1.model.V1PageCountry;
 import com.ethlo.geodata.rest.v1.model.V1PageGeoLocation;
 import com.ethlo.geodata.rest.v1.model.V1PageGeoLocationDistance;
-import com.ethlo.geodata.rest.v1.model.V1SliceGeoLocation;
 
 public class Mapper
 {
@@ -55,11 +52,6 @@ public class Mapper
     public Mapper(final GeodataService geodataService)
     {
         this.geodataService = geodataService;
-    }
-
-    public static PageRequest pageable(final Integer page, final Integer size)
-    {
-        return PageRequest.of(page != null ? page : 0, size != null && size > 0 & size <= 10_000 ? size : 25);
     }
 
     public static V1PageGeoLocation toGeoLocationPage(final Page<V1GeoLocation> res)
@@ -73,17 +65,6 @@ public class Mapper
                 .size(res.getSize())
                 .totalElements(res.getTotalElements())
                 .totalPages(res.getTotalPages());
-    }
-
-    public static V1SliceGeoLocation toGeoLocationSlice(final Slice<V1GeoLocation> slice)
-    {
-        return new V1SliceGeoLocation()
-                .content(slice.getContent())
-                .first(slice.isFirst())
-                .last(slice.isLast())
-                .number(slice.getNumber())
-                .numberOfElements(slice.getNumberOfElements())
-                .size(slice.getSize());
     }
 
     public V1GeoLocation transform(final GeoLocation l)

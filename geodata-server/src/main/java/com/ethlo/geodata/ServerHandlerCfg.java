@@ -2,7 +2,7 @@ package com.ethlo.geodata;
 
 /*-
  * #%L
- * geodata-server
+ * geodata-fast-server
  * %%
  * Copyright (C) 2017 - 2020 Morten Haraldsen (ethlo)
  * %%
@@ -22,35 +22,20 @@ package com.ethlo.geodata;
  * #L%
  */
 
-import io.undertow.server.HttpHandler;
-import io.undertow.server.HttpServerExchange;
+import java.nio.file.Path;
 
-public class InitSuspendHandler implements HttpHandler
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import com.ethlo.kviksilver.KviksilverServer;
+
+@Configuration
+public class ServerHandlerCfg
 {
-    private final HttpHandler delegate;
-    private boolean ready = false;
-
-    public InitSuspendHandler(final HttpHandler delegate)
+    @Bean
+    public KviksilverServer undertowServer(@Value("${geodata.base-path}") final Path basePath)
     {
-        this.delegate = delegate;
-    }
-
-    public InitSuspendHandler setReady(final boolean ready)
-    {
-        this.ready = ready;
-        return this;
-    }
-
-    @Override
-    public void handleRequest(final HttpServerExchange exchange) throws Exception
-    {
-        if (ready)
-        {
-            delegate.handleRequest(exchange);
-        }
-        else
-        {
-            BaseServerHandler.json(exchange, new ApiError(503, "Server is initializing, please wait..."));
-        }
+        return new KviksilverServer(new GeoDataHandlerConfig(basePath));
     }
 }

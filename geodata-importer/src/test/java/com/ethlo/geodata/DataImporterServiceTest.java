@@ -38,7 +38,7 @@ public class DataImporterServiceTest
 {
     final Path basePath = Path.of("test");
     final Path inputPath = basePath.resolve("input");
-    private final DataImporterService dataImporterService = new DataImporterService(Files.createDirectory(basePath), inputPath, Duration.ofDays(7), null, null);
+    private final DataImporterService dataImporterService = new DataImporterService(Files.createDirectories(basePath), inputPath, Duration.ofDays(7), null, null);
 
     public DataImporterServiceTest() throws IOException
     {

@@ -37,7 +37,7 @@ public class Runner
         }
         else
         {
-            SpringApplication.run(UndertowServer.class, args);
+            SpringApplication.run(ServerRunner.class, args);
         }
     }
 }
