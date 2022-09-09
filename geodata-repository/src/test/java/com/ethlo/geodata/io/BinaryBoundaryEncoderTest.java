@@ -30,7 +30,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.CoordinateXY;
 import org.locationtech.jts.geom.Geometry;

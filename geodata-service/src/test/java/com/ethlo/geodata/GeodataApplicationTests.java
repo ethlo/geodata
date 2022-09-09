@@ -27,14 +27,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Optional;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.locationtech.jts.geom.Geometry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import com.ethlo.geodata.model.Continent;
@@ -44,7 +45,7 @@ import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
 import com.ethlo.geodata.model.View;
 
-@RunWith(SpringRunner.class)
+@ExtendWith(SpringExtension.class)
 @SpringBootTest
 @TestPropertySource(locations = "classpath:test-application.properties")
 public class GeodataApplicationTests

@@ -1,11 +1,33 @@
 package com.ethlo.geodata;
 
+/*-
+ * #%L
+ * geodata-server
+ * %%
+ * Copyright (C) 2017 - 2022 Morten Haraldsen (ethlo)
+ * %%
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Lesser Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Lesser Public
+ * License along with this program.  If not, see
+ * <http://www.gnu.org/licenses/lgpl-3.0.html>.
+ * #L%
+ */
+
 import static com.ethlo.kviksilver.util.RequestUtil.classpathResource;
 import static com.ethlo.kviksilver.util.RequestUtil.getBooleanParam;
 import static com.ethlo.kviksilver.util.RequestUtil.getIntList;
 import static com.ethlo.kviksilver.util.RequestUtil.getIntParam;
 import static com.ethlo.kviksilver.util.RequestUtil.getPageable;
-import static com.ethlo.kviksilver.util.RequestUtil.json;
+import static com.ethlo.kviksilver.util.RequestUtil.sendJson;
 import static com.ethlo.kviksilver.util.RequestUtil.missingParam;
 import static com.ethlo.kviksilver.util.RequestUtil.requireDoubleParam;
 import static com.ethlo.kviksilver.util.RequestUtil.requireIntParam;
@@ -119,7 +141,7 @@ public class GeoDataHandlerConfig implements KviksilverConfig
                 .add(Methods.GET, "/v1/locations/ids", exchange ->
                 {
                     final List<Integer> ids = getIntList(exchange, "ids").orElseThrow(missingParam("ids"));
-                    json(exchange, ids.stream().map(geodataService::findById).collect(Collectors.toList()));
+                    sendJson(exchange, ids.stream().map(geodataService::findById).collect(Collectors.toList()));
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}/boundaries", exchange ->
@@ -139,7 +161,7 @@ public class GeoDataHandlerConfig implements KviksilverConfig
                 .add(Methods.GET, "/v1/locations/ip/{ip}", exchange ->
                 {
                     final String ip = requireStringParam(exchange, "ip");
-                    json(exchange, Optional.ofNullable(geodataService.findByIp(InetUtil.inet(ip)))
+                    sendJson(exchange, Optional.ofNullable(geodataService.findByIp(InetUtil.inet(ip)))
                             .map(mapper::transform)
                             .orElseThrow(required("No location found for IP address " + ip)));
                 })
@@ -150,41 +172,41 @@ public class GeoDataHandlerConfig implements KviksilverConfig
                     final Pageable pageable = getPageable(exchange);
                     final Slice<V1GeoLocation> slice = geodataService.findByName(name, pageable).map(mapper::transform);
                     final int total = slice.hasNext() ? slice.getContent().size() + 1 : slice.getContent().size();
-                    json(exchange, Mapper.toGeoLocationPage(new PageImpl<>(slice.getContent(), pageable, total)));
+                    sendJson(exchange, Mapper.toGeoLocationPage(new PageImpl<>(slice.getContent(), pageable, total)));
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}/children", exchange ->
                 {
                     final boolean matchLevel = getBooleanParam(exchange, "match_level").orElse(true);
                     final int id = requireIntParam(exchange, "id");
-                    json(exchange, Mapper.toGeoLocationPage(geodataService.findChildren(id, matchLevel, getPageable(exchange)).map(mapper::transform)));
+                    sendJson(exchange, Mapper.toGeoLocationPage(geodataService.findChildren(id, matchLevel, getPageable(exchange)).map(mapper::transform)));
                 })
 
                 .add(Methods.GET, "/v1/continents/{continentCode}", exchange ->
                 {
                     final String continentCode = requireStringParam(exchange, "continentCode");
-                    json(exchange, Optional.ofNullable(geodataService.findContinent(continentCode)).map(mapper::transform).orElseThrow(required("No continent found for continent code " + continentCode)));
+                    sendJson(exchange, Optional.ofNullable(geodataService.findContinent(continentCode)).map(mapper::transform).orElseThrow(required("No continent found for continent code " + continentCode)));
                 })
 
                 .add(Methods.GET, "/v1/countries", exchange ->
-                        json(exchange, mapper.toCountryPage(geodataService.findCountries(getPageable(exchange)).map(mapper::transform))))
+                        sendJson(exchange, mapper.toCountryPage(geodataService.findCountries(getPageable(exchange)).map(mapper::transform))))
 
                 .add(Methods.GET, "/v1/countries/{countryCode}/children", exchange ->
                 {
                     final String countryCode = requireStringParam(exchange, "countryCode");
-                    json(exchange, Mapper.toGeoLocationPage(geodataService.findChildren(countryCode, getPageable(exchange)).map(mapper::transform)));
+                    sendJson(exchange, Mapper.toGeoLocationPage(geodataService.findChildren(countryCode, getPageable(exchange)).map(mapper::transform)));
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}", exchange ->
                 {
                     final int id = requireIntParam(exchange, "id");
-                    json(exchange, Optional.ofNullable(geodataService.findById(id)).map(mapper::transform).orElseThrow(required("No location with id " + id)));
+                    sendJson(exchange, Optional.ofNullable(geodataService.findById(id)).map(mapper::transform).orElseThrow(required("No location with id " + id)));
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}/parent", exchange ->
                 {
                     final int id = requireIntParam(exchange, "id");
-                    json(exchange, Optional.ofNullable(geodataService.findParent(id))
+                    sendJson(exchange, Optional.ofNullable(geodataService.findParent(id))
                             .map(mapper::transform)
                             .orElseThrow(required("No parent location found for id " + id)));
                 })
@@ -193,20 +215,20 @@ public class GeoDataHandlerConfig implements KviksilverConfig
                 {
                     final int id = requireIntParam(exchange, "id");
                     final List<Integer> ids = getIntList(exchange, "ids").orElseThrow(missingParam("ids"));
-                    json(exchange, geodataService.isInsideAny(ids, id));
+                    sendJson(exchange, geodataService.isInsideAny(ids, id));
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}/contains/{child}", exchange ->
                 {
                     final int id = requireIntParam(exchange, "id");
                     final int child = requireIntParam(exchange, "child");
-                    json(exchange, geodataService.isLocationInside(child, id));
+                    sendJson(exchange, geodataService.isLocationInside(child, id));
                 })
 
                 .add(Methods.GET, "/v1/continents", exchange ->
                 {
                     final Page<V1Continent> page = geodataService.findContinents().map(mapper::transform);
-                    json(exchange, new V1PageContinent()
+                    sendJson(exchange, new V1PageContinent()
                             .content(page.getContent())
                             .first(page.isFirst())
                             .last(page.isLast())
@@ -220,20 +242,20 @@ public class GeoDataHandlerConfig implements KviksilverConfig
                 .add(Methods.GET, "/v1/continents/{continent}/countries", exchange ->
                 {
                     final String continent = requireStringParam(exchange, "continent");
-                    json(exchange, mapper.toCountryPage(geodataService.findCountriesOnContinent(continent, getPageable(exchange)).map(mapper::transform)));
+                    sendJson(exchange, mapper.toCountryPage(geodataService.findCountriesOnContinent(continent, getPageable(exchange)).map(mapper::transform)));
                 })
 
                 .add(Methods.GET, "/v1/countries/{countryCode}", exchange ->
                 {
                     final String countryCode = requireStringParam(exchange, "countryCode");
-                    json(exchange, Optional.ofNullable(geodataService.findCountryByCode(countryCode)).map(mapper::transform).orElseThrow(required("No such country code: " + countryCode)));
+                    sendJson(exchange, Optional.ofNullable(geodataService.findCountryByCode(countryCode)).map(mapper::transform).orElseThrow(required("No such country code: " + countryCode)));
                 })
 
                 .add(Methods.GET, "/v1/locations/phone/{phone}", exchange ->
                 {
                     final String phone = requireStringParam(exchange, "phone");
                     final Country country = Optional.ofNullable(geodataService.findByPhoneNumber(phone)).orElseThrow(required("Unable to determine country by phone number " + phone));
-                    json(exchange, mapper.transform(country));
+                    sendJson(exchange, mapper.transform(country));
                 })
 
                 .add(Methods.GET, "/v1/locations/proximity", exchange ->
@@ -243,7 +265,7 @@ public class GeoDataHandlerConfig implements KviksilverConfig
                     final double lng = requireDoubleParam(exchange, "lng");
                     final int maxDistance = getIntParam(exchange, "maxDistance").orElse(Integer.MAX_VALUE);
                     final Page<GeoLocationDistance> locationAndDistance = geodataService.findNear(Coordinates.from(lat, lng), maxDistance, pageable);
-                    json(exchange, mapper.toGeolocationDistancePage(locationAndDistance));
+                    sendJson(exchange, mapper.toGeolocationDistancePage(locationAndDistance));
                 })
 
                 .add(Methods.GET, "/v1/locations/coordinates", exchange ->
@@ -273,7 +295,7 @@ public class GeoDataHandlerConfig implements KviksilverConfig
                         exchange.getResponseHeaders().add(new HttpString("X-Boundary-Lookup"), lookupHeader);
                     });
 
-                    json(exchange, l);
+                    sendJson(exchange, l);
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}/previewboundaries", exchange ->
@@ -294,7 +316,7 @@ public class GeoDataHandlerConfig implements KviksilverConfig
                     final double lng = requireDoubleParam(exchange, "lng");
                     final Coordinates coordinates = Coordinates.from(lat, lng);
                     final int maxDistance = getIntParam(exchange, "maxDistance").orElse(Integer.MAX_VALUE);
-                    json(exchange, geodataService.findWithin(coordinates, maxDistance)
+                    sendJson(exchange, geodataService.findWithin(coordinates, maxDistance)
                             .map(lmd ->
                             {
                                 // Add some metadata about the lookup
@@ -310,7 +332,7 @@ public class GeoDataHandlerConfig implements KviksilverConfig
                 {
                     final int id = requireIntParam(exchange, "id");
                     final List<Integer> ids = getIntList(exchange, "ids").orElseThrow(missingParam("ids"));
-                    json(exchange, geodataService.isOutsideAll(ids, id));
+                    sendJson(exchange, geodataService.isOutsideAll(ids, id));
                 })
 
                 .add(Methods.GET, "/v1/locations/{id}/simpleboundaries.wkb", exchange ->
@@ -332,7 +354,7 @@ public class GeoDataHandlerConfig implements KviksilverConfig
                 .addExactPath("/", new ResourceHandler(classpathResource("public/index.html")));
 
         // Source data information
-        path.addExactPath("/sysadmin/source", exchange -> json(exchange, metaDao.load()));
+        path.addExactPath("/sysadmin/source", exchange -> sendJson(exchange, metaDao.load()));
 
         // Version info
         final Map<String, Object> versionInfo = new LinkedHashMap<>();
@@ -341,16 +363,16 @@ public class GeoDataHandlerConfig implements KviksilverConfig
             final Properties gitProperties = new Properties();
             gitProperties.load(new ClassPathResource("git.properties").getInputStream());
             versionInfo.put("git", gitProperties);
-            json(exchange, versionInfo);
+            sendJson(exchange, versionInfo);
         });
 
         // Health
         path.addExactPath("/sysadmin/health", exchange ->
-                json(exchange, Collections.singletonMap("status", "UP")));
+                sendJson(exchange, Collections.singletonMap("status", "UP")));
 
         // Memory
         path.addExactPath("/sysadmin/memory", exchange ->
-                json(exchange, MemoryUsageUtil.getInfoMap()));
+                sendJson(exchange, MemoryUsageUtil.getInfoMap()));
 
         return path;
     }

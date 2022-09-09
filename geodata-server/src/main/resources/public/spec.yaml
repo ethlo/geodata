@@ -1,6 +1,6 @@
 openapi: 3.0.0
 info:
-  description: " Geodata Service"
+  description: " Geo data Service"
   version: "1.0"
   title: " Geodata Service"
 paths:
