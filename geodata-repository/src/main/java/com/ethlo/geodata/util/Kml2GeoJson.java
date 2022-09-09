@@ -40,8 +40,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 /**
  * Simple converter for KML to GeoJSON
  *
- * @link https://developers.google.com/kml/documentation/kmlreference
- * @link http://geojson.org/geojson-spec.html
+ * https://developers.google.com/kml/documentation/kmlreference
+ * http://geojson.org/geojson-spec.html
  */
 public class Kml2GeoJson
 {

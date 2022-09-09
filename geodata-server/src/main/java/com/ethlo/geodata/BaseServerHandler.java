@@ -23,7 +23,6 @@ package com.ethlo.geodata;
  */
 
 import java.nio.ByteBuffer;
-import java.util.Date;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
@@ -37,24 +36,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.util.StringUtils;
 
 import com.ethlo.geodata.util.JsonUtil;
-import com.ethlo.time.ITU;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.jsoniter.output.EncodingMode;
-import com.jsoniter.output.JsonStream;
-import com.jsoniter.spi.JsoniterSpi;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.server.handlers.resource.ClassPathResourceManager;
 import io.undertow.util.Headers;
 
 public class BaseServerHandler
 {
-    public BaseServerHandler()
-    {
-        JsonStream.setMode(EncodingMode.DYNAMIC_MODE);
-        JsoniterSpi.registerTypeEncoder(Date.class, (obj, stream) ->
-                stream.writeVal(ITU.formatUtc((Date) obj)));
-    }
-
     public static void json(final HttpServerExchange exchange, final Object obj) throws JsonProcessingException
     {
         exchange.getResponseHeaders().add(Headers.CONTENT_TYPE, "application/json");

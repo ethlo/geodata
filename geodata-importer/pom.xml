@@ -5,7 +5,7 @@
     <parent>
         <artifactId>geodata</artifactId>
         <groupId>com.ethlo.geodata</groupId>
-        <version>1.0.2</version>
+        <version>1.1.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>geodata-importer</artifactId>
@@ -13,15 +13,15 @@
         <dependency>
             <groupId>com.ethlo.geodata</groupId>
             <artifactId>geodata-repository</artifactId>
-            <version>1.0.2</version>
+            <version>1.1.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

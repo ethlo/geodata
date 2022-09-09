@@ -106,11 +106,11 @@ public class Mapper
     public List<V1GeoLocationSummary> transform(final List<GeoLocation> path)
     {
         return path.stream().map(l ->
-                new V1GeoLocationSummary()
-                        .id(l.getId())
-                        .name(l.getName())
-                        .featureClass(l.getFeatureClass())
-                        .featureCode(l.getFeatureCode()))
+                        new V1GeoLocationSummary()
+                                .id(l.getId())
+                                .name(l.getName())
+                                .featureClass(l.getFeatureClass())
+                                .featureCode(l.getFeatureCode()))
                 .collect(Collectors.toList());
     }
 

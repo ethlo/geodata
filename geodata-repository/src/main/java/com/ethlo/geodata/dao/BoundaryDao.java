@@ -22,7 +22,6 @@ package com.ethlo.geodata.dao;
  * #L%
  */
 
-import java.util.Iterator;
 import java.util.Optional;
 import java.util.stream.Stream;
 

@@ -28,7 +28,7 @@ import java.util.Collection;
 
 import javax.xml.stream.XMLStreamException;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.geojson.GeoJsonReader;

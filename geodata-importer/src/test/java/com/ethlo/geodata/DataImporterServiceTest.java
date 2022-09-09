@@ -30,7 +30,8 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import com.ethlo.geodata.importer.DataImporterService;
 
@@ -38,12 +39,13 @@ public class DataImporterServiceTest
 {
     final Path basePath = Path.of("test");
     final Path inputPath = basePath.resolve("input");
-    private final DataImporterService dataImporterService = new DataImporterService(Files.createDirectory(basePath), inputPath, Duration.ofDays(7), null, null);
+    private final DataImporterService dataImporterService = new DataImporterService(Files.createDirectories(basePath), inputPath, Duration.ofDays(7), null, null);
 
     public DataImporterServiceTest() throws IOException
     {
     }
 
+    @Disabled
     @Test
     public void metadataTest()
     {

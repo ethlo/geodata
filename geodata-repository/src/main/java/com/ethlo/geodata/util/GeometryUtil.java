@@ -251,10 +251,10 @@ public class GeometryUtil
         final Envelope bb = geom.getEnvelopeInternal();
         final Coordinate centre = bb.centre();
         return Arrays.stream(new Envelope[]{
-                new Envelope(bb.getMinX(), centre.x, bb.getMinY(), centre.y),
-                new Envelope(centre.x, bb.getMaxX(), bb.getMinY(), centre.y),
-                new Envelope(bb.getMinX(), centre.x, centre.y, bb.getMaxY()),
-                new Envelope(centre.x, bb.getMaxX(), centre.y, bb.getMaxY())})
+                        new Envelope(bb.getMinX(), centre.x, bb.getMinY(), centre.y),
+                        new Envelope(centre.x, bb.getMaxX(), bb.getMinY(), centre.y),
+                        new Envelope(bb.getMinX(), centre.x, centre.y, bb.getMaxY()),
+                        new Envelope(centre.x, bb.getMaxX(), centre.y, bb.getMaxY())})
                 .map(box -> clip(box, geom))
                 .collect(Collectors.toList());
     }
