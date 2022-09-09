@@ -124,7 +124,7 @@
                         <enabled>true</enabled>
                     </layers>
                     <image>
-                        <name>docker.io/ethlocom/geodata-server:latest</name>
+                        <name>docker.io/ethlocom/geodata-server:${project.version}</name>
                     </image>
                 </configuration>
             </plugin>
