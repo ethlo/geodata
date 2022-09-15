@@ -106,7 +106,7 @@ public class HierachyBuilder
             final int continentId = getContinentId(countries, countryCode);
             childToParent.put(id, continentId);
         }
-        else if (!StringUtils.hasLength(countryCode))
+        else if (StringUtils.hasLength(countryCode))
         {
             final int countryId = getCountryId(countries, countryCode);
             if (countryId != id)
