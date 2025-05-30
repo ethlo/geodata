@@ -33,8 +33,6 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.Map;
 
-import javax.validation.constraints.NotNull;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -44,6 +42,7 @@ import com.ethlo.geodata.util.ResourceUtil;
 import com.ethlo.geodata.util.TarGzUtil;
 import com.maxmind.db.Metadata;
 import com.maxmind.db.Reader;
+import jakarta.validation.constraints.NotNull;
 
 @Component
 public class FileIpDataImporter implements DataImporter

@@ -22,10 +22,10 @@ package com.ethlo.geodata.io;
  * #L%
  */
 
+import jakarta.annotation.Nonnull;
+
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-
-import javax.annotation.Nonnull;
 
 public class ByteBufferBackedInputStream extends InputStream
 {

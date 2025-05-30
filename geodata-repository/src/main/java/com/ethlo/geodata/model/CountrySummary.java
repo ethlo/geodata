@@ -25,7 +25,7 @@ package com.ethlo.geodata.model;
 import java.io.Serializable;
 import java.util.Objects;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 public class CountrySummary implements Serializable
 {

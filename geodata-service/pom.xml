@@ -9,23 +9,23 @@
     <parent>
         <groupId>com.ethlo.geodata</groupId>
         <artifactId>geodata</artifactId>
-        <version>1.1.1</version>
+        <version>1.2.0-SNAPSHOT</version>
     </parent>
     <dependencies>
         <dependency>
             <groupId>com.ethlo.geodata</groupId>
             <artifactId>geodata-repository</artifactId>
-            <version>1.1.1</version>
+            <version>1.2.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
-            <version>8.4.2</version>
+            <version>8.5.15</version>
         </dependency>
         <dependency>
             <groupId>com.ethlo.time</groupId>
             <artifactId>chronograph</artifactId>
-            <version>1.2.0</version>
+            <version>5.0.0</version>
         </dependency>
         <dependency>
             <groupId>com.googlecode.concurrent-trees</groupId>
@@ -39,7 +39,7 @@
         <dependency>
             <groupId>com.ethlo.time</groupId>
             <artifactId>itu</artifactId>
-            <version>1.3.0</version>
+            <version>1.14.0</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -59,7 +59,7 @@
         <dependency>
             <groupId>com.googlecode.libphonenumber</groupId>
             <artifactId>libphonenumber</artifactId>
-            <version>8.12.11</version>
+            <version>9.0.6</version>
         </dependency>
     </dependencies>
     <build>

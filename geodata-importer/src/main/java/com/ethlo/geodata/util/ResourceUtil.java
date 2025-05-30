@@ -68,6 +68,10 @@ public class ResourceUtil
     private static final Logger logger = LoggerFactory.getLogger(ResourceUtil.class);
     private final Path tmpDir;
 
+    private final HttpClient client = HttpClient.newBuilder()
+            .followRedirects(HttpClient.Redirect.ALWAYS)  // follow all redirects automatically
+            .build();
+
     public ResourceUtil(@Value("${geodata.tmp.dir}") Path tmpDir)
     {
         this.tmpDir = tmpDir;
@@ -109,8 +113,8 @@ public class ResourceUtil
             return new AbstractMap.SimpleEntry<>(getOffsetDateTime(classRes), classRes.getInputStream());
         }
 
-        final HttpClient client = HttpClient.newHttpClient();
         final HttpRequest request = HttpRequest.newBuilder()
+                .setHeader("User-Agent", "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36")
                 .uri(URI.create(urlParts[0]))
                 .build();
 

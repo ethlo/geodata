@@ -22,8 +22,8 @@ package com.ethlo.geodata.model;
  * #L%
  */
 
+import static org.apache.commons.lang3.SerializationUtils.deserialize;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.util.SerializationUtils.deserialize;
 import static org.springframework.util.SerializationUtils.serialize;
 
 import org.junit.jupiter.api.Test;
@@ -35,7 +35,7 @@ public class RawLocationTest
     {
         final RawLocation l = new RawLocation(123, "norway", "NO", Coordinates.from(23.44499898D, 55.77777D), 33, 989898L, 23, 181);
         final byte[] data = serialize(l);
-        final RawLocation after = (RawLocation) deserialize(data);
+        final RawLocation after = deserialize(data);
         assertThat(after).isEqualTo(l);
         assertThat(data).hasSize(107);
     }

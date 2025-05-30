@@ -5,7 +5,7 @@
     <parent>
         <artifactId>geodata</artifactId>
         <groupId>com.ethlo.geodata</groupId>
-        <version>1.1.1</version>
+        <version>1.2.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>geodata-repository</artifactId>
@@ -13,7 +13,7 @@
         <dependency>
             <groupId>org.tukaani</groupId>
             <artifactId>xz</artifactId>
-            <version>1.8</version>
+            <version>1.10</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.data</groupId>
@@ -41,7 +41,7 @@
         <dependency>
             <groupId>com.github.davidmoten</groupId>
             <artifactId>grumpy-core</artifactId>
-            <version>0.4.5</version>
+            <version>0.4.8</version>
         </dependency>
         <dependency>
             <groupId>org.geotools</groupId>
@@ -66,7 +66,7 @@
         <dependency>
             <groupId>org.geotools</groupId>
             <artifactId>gt-geobuf</artifactId>
-            <version>24.0</version>
+            <version>32.3</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.geotools</groupId>
@@ -82,12 +82,12 @@
         <dependency>
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
-            <version>8.4.2</version>
+            <version>8.5.15</version>
         </dependency>
         <dependency>
             <groupId>com.ethlo.time</groupId>
             <artifactId>itu</artifactId>
-            <version>1.7.0</version>
+            <version>1.14.0</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
@@ -100,9 +100,8 @@
         <dependency>
             <groupId>com.maxmind.db</groupId>
             <artifactId>maxmind-db</artifactId>
-            <version>2.0.0</version>
+            <version>3.2.0</version>
         </dependency>
-
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
             <artifactId>jackson-module-parameter-names</artifactId>
@@ -118,22 +117,22 @@
         <dependency>
             <groupId>commons-net</groupId>
             <artifactId>commons-net</artifactId>
-            <version>3.9.0</version>
+            <version>3.11.1</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>3.10</version>
+            <version>3.17.0</version>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>32.0.0-jre</version>
+            <version>33.4.8-jre</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-compress</artifactId>
-            <version>1.21</version>
+            <version>1.27.1</version>
         </dependency>
 
         <dependency>

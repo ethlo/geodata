@@ -42,8 +42,6 @@ import java.util.Set;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.stream.Collectors;
 
-import javax.annotation.PostConstruct;
-
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.slf4j.Logger;
@@ -59,6 +57,7 @@ import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
 import org.springframework.stereotype.Service;
 
+import com.ethlo.chronograph.Chronograph;
 import com.ethlo.geodata.dao.BoundaryDao;
 import com.ethlo.geodata.dao.CountryDao;
 import com.ethlo.geodata.dao.FeatureCodeDao;
@@ -80,7 +79,6 @@ import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.progress.StatefulProgressListener;
 import com.ethlo.geodata.progress.StepProgressListener;
 import com.ethlo.geodata.util.GeometryUtil;
-import com.ethlo.time.Chronograph;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -93,6 +91,7 @@ import com.googlecode.concurrenttrees.radix.RadixTree;
 import com.googlecode.concurrenttrees.radix.node.concrete.SmartArrayBasedNodeFactory;
 import com.illucit.util.ASCIIUtils;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import jakarta.annotation.PostConstruct;
 
 @Lazy
 @Service
@@ -189,7 +188,7 @@ public class GeodataServiceImpl implements GeodataService
                 .stream()
                 .map(this::findById)
                 .filter(l -> subLevel.map(s -> s.contains(l.getFeatureKey())).orElse(false))
-                .collect(Collectors.toList());
+                .toList();
 
         final long total = locations.size();
 
@@ -272,19 +271,19 @@ public class GeodataServiceImpl implements GeodataService
         this.timezones = HashBiMap.create(timeZoneDao.load());
 
         final Chronograph chronograph = Chronograph.create();
-        chronograph.timed("Locations", () -> loadLocations(progressListener));
-        chronograph.timed("Geometry", () -> loadProximityTree(progressListener));
-        chronograph.timed("Countries", () -> loadCountries(progressListener));
-        chronograph.timed("Continents", () -> loadContinents(progressListener));
-        chronograph.timed("SearchIndex", () -> loadSearchIndex(progressListener));
-        chronograph.timed("Hierarchy", () -> loadHierarchy(progressListener));
+        chronograph.time("Locations", () -> loadLocations(progressListener));
+        chronograph.time("Geometry", () -> loadProximityTree());
+        chronograph.time("Countries", () -> loadCountries(progressListener));
+        chronograph.time("Continents", () -> loadContinents(progressListener));
+        chronograph.time("SearchIndex", () -> loadSearchIndex(progressListener));
+        chronograph.time("Hierarchy", () -> loadHierarchy(progressListener));
 
         logger.info("Data loaded successfully");
 
-        logger.info(chronograph.prettyPrint());
+        logger.info(chronograph.toString());
     }
 
-    private void loadProximityTree(final LoadProgressListener progressListener)
+    private void loadProximityTree()
     {
         final Set<Integer> featureCodesForProximity = featureCodes.entrySet().stream()
                 .filter(e -> GeoConstants.ADMINISTRATIVE_OR_ABOVE.contains(e.getValue().getKey()))
@@ -410,7 +409,7 @@ public class GeodataServiceImpl implements GeodataService
         final List<Country> onContinent = countries.values()
                 .stream()
                 .filter(c -> c.getContinentCode().equals(continentCode))
-                .collect(Collectors.toList());
+                .toList();
         return new PageImpl<>(onContinent.stream().skip(pageable.getOffset()).limit(pageable.getPageSize()).collect(Collectors.toList()), pageable, onContinent.size());
 
     }

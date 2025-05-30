@@ -24,12 +24,10 @@ package com.ethlo.geodata.model;
 
 import java.io.Serializable;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 public class GeoLocationDistance implements Serializable
 {
-    private static final long serialVersionUID = -4591909310445372923L;
-
     @NotNull
     private GeoLocation location;
 

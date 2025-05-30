@@ -27,8 +27,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-import javax.validation.Valid;
-
 import org.locationtech.jts.geom.Geometry;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -40,6 +38,7 @@ import com.ethlo.geodata.model.Country;
 import com.ethlo.geodata.model.GeoLocation;
 import com.ethlo.geodata.model.GeoLocationDistance;
 import com.ethlo.geodata.model.View;
+import jakarta.validation.Valid;
 
 public interface GeodataService
 {

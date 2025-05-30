@@ -44,9 +44,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import javax.annotation.PostConstruct;
-import javax.validation.constraints.NotNull;
-
 import org.apache.commons.collections4.iterators.LazyIteratorChain;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,6 +67,8 @@ import com.ethlo.geodata.util.IoUtil;
 import com.ethlo.geodata.util.JsonUtil;
 import com.ethlo.geodata.util.SerializationUtil;
 import com.google.common.util.concurrent.RateLimiter;
+import jakarta.annotation.PostConstruct;
+import jakarta.validation.constraints.NotNull;
 
 @Service
 public class DataImporterService
