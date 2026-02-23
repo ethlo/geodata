@@ -66,7 +66,7 @@ jobs:
         run: |
           mvn -f geodata-server/pom.xml spring-boot:build-image \
             -DskipTests \
-            -Dimage.tag=${DOCKER_ARCH_TAG}
+            -Dspring-boot.build-image.imageName=${IMAGE_NAME}:${DOCKER_ARCH_TAG}
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
