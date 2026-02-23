@@ -9,6 +9,7 @@
     <artifactId>geodata-server</artifactId>
     <properties>
         <default.package>com.ethlo.geodata.rest.v1</default.package>
+        <image.tag>latest-SNAPSHOT</image.tag>
     </properties>
     <dependencies>
         <dependency>
@@ -166,11 +167,8 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <layers>
-                        <enabled>true</enabled>
-                    </layers>
                     <image>
-                        <name>docker.io/ethlocom/geodata-server:${project.version}</name>
+                        <name>ethlocom/cloud-gateway:${image.tag}</name>
                     </image>
                 </configuration>
             </plugin>
