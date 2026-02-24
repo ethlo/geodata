@@ -2,7 +2,6 @@ name: Create and Publish Release
 
 on:
   workflow_dispatch:
-
   push:
     tags:
       - 'v*.*.*'
@@ -20,20 +19,12 @@ jobs:
           - arch: amd64
             runs_on: ubuntu-latest
           - arch: arm64
-            runs_on: ubuntu-24.04-arm  # Free ARM64 runner for public repos
+            runs_on: ubuntu-24.04-arm 
     runs-on: ${{ matrix.runs_on }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Cache
-        uses: actions/cache@v5.0.3
-        with:
-          # A list of files, directories, and wildcard patterns to cache and restore
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2      
 
       - name: Set up JDK 25
         uses: actions/setup-java@v4
@@ -48,25 +39,22 @@ jobs:
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             VERSION=${{ github.ref_name }}
             VERSION=${VERSION#v}
-            DOCKER_TAG=${VERSION}
           else
             VERSION="latest-SNAPSHOT"
-            DOCKER_TAG="latest-SNAPSHOT"
           fi
           echo "MAVEN_VERSION=${VERSION}" >> $GITHUB_ENV
-          echo "DOCKER_ARCH_TAG=${DOCKER_TAG}-${{ matrix.arch }}" >> $GITHUB_ENV
+          echo "DOCKER_ARCH_TAG=${VERSION}-${{ matrix.arch }}" >> $GITHUB_ENV
 
-      - name: Set Project Version
-        run: mvn versions:set -DnewVersion=${{ env.MAVEN_VERSION }} -DskipTests
-
-      - name: Build Full Project
-        run: mvn -B clean install -DskipTests
-
-      - name: Build Spring Boot Docker Image Locally
+      - name: Build and Push
         run: |
+          # Set the project version so the jar has the right internal metadata
+          mvn versions:set -DnewVersion=${{ env.MAVEN_VERSION }} -DskipTests
+          
+          # Build the image using the Spring Boot Maven plugin
+          # We pass the full image name here to ensure it overrides the POM default
           mvn -f geodata-server/pom.xml spring-boot:build-image \
             -DskipTests \
-            -Dspring-boot.build-image.imageName=${IMAGE_NAME}:${DOCKER_ARCH_TAG}
+            -Dspring-boot.build-image.imageName=${{ env.IMAGE_NAME }}:${{ env.DOCKER_ARCH_TAG }}
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -75,8 +63,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Push Docker Image
-        run: |
-          docker push ${{ env.IMAGE_NAME }}:${{ env.DOCKER_ARCH_TAG }}
+        run: docker push ${{ env.IMAGE_NAME }}:${{ env.DOCKER_ARCH_TAG }}
 
   merge-manifests:
     needs: [build]
@@ -90,35 +77,25 @@ jobs:
 
       - name: Create and Push Multi-Arch Manifest
         run: |
-          echo "Waiting 30 seconds for images to become available..."
-          sleep 30
-
+          # Determine the base tag (e.g., 1.2.0 or latest-SNAPSHOT)
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            FINAL_TAG="${{ github.ref_name }}"
-            FINAL_TAG="${FINAL_TAG#v}"
+            TAG="${{ github.ref_name }}"
+            TAG="${TAG#v}"
           else
-            FINAL_TAG="latest-SNAPSHOT"
+            TAG="latest-SNAPSHOT"
           fi
 
-          AMD64_TAG="${{ env.IMAGE_NAME }}:${FINAL_TAG}-amd64"
-          ARM64_TAG="${{ env.IMAGE_NAME }}:${FINAL_TAG}-arm64"
+          AMD_TAG="${{ env.IMAGE_NAME }}:${TAG}-amd64"
+          ARM_TAG="${{ env.IMAGE_NAME }}:${TAG}-arm64"
+          TARGET_TAG="${{ env.IMAGE_NAME }}:${TAG}"
 
-          docker manifest create ${{ env.IMAGE_NAME }}:${FINAL_TAG} \
-            --amend ${AMD64_TAG} \
-            --amend ${ARM64_TAG}
+          # Create the primary manifest
+          docker manifest create ${TARGET_TAG} --amend ${AMD_TAG} --amend ${ARM_TAG}
+          docker manifest push ${TARGET_TAG}
 
-          docker manifest push ${{ env.IMAGE_NAME }}:${FINAL_TAG}
-
-      - name: (Optional) Tag release as 'latest'
-        if: github.ref_type == 'tag'
-        run: |
-          FINAL_TAG="${{ github.ref_name }}"
-          FINAL_TAG="${FINAL_TAG#v}"
-
-          AMD64_TAG="${{ env.IMAGE_NAME }}:${FINAL_TAG}-amd64"
-          ARM64_TAG="${{ env.IMAGE_NAME }}:${FINAL_TAG}-arm64"
-
-          docker manifest create ${{ env.IMAGE_NAME }}:latest \
-            --amend ${AMD64_TAG} \
-            --amend ${ARM64_TAG}
-          docker manifest push ${{ env.IMAGE_NAME }}:latest
+          # If it's a real version tag, also update 'latest'
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            LATEST_TAG="${{ env.IMAGE_NAME }}:latest"
+            docker manifest create ${LATEST_TAG} --amend ${AMD_TAG} --amend ${ARM_TAG}
+            docker manifest push ${LATEST_TAG}
+          fi
