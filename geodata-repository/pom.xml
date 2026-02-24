@@ -56,7 +56,16 @@
                     <groupId>javax.media</groupId>
                     <artifactId>jai_core</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-text</artifactId>
+                </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
+            <version>1.14.0</version>
         </dependency>
         <dependency>
             <groupId>com.goebl</groupId>
@@ -132,7 +141,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>33.4.8-jre</version>
+            <version>33.5.0-jre</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
