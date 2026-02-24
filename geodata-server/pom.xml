@@ -168,7 +168,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
                     <image>
-                        <name>ethlocom/cloud-gateway:${image.tag}</name>
+                        <name>ethlocom/geodata-server:${image.tag}</name>
                     </image>
                 </configuration>
             </plugin>
