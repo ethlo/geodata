@@ -45,13 +45,15 @@ jobs:
           echo "MAVEN_VERSION=${VERSION}" >> $GITHUB_ENV
           echo "DOCKER_ARCH_TAG=${VERSION}-${{ matrix.arch }}" >> $GITHUB_ENV
 
-      - name: Build and Push
+      - name: Build Full Project
+        # This installs sibling modules (service, importer) into the local .m2
         run: |
-          # Set the project version so the jar has the right internal metadata
           mvn versions:set -DnewVersion=${{ env.MAVEN_VERSION }} -DskipTests
-          
-          # Build the image using the Spring Boot Maven plugin
-          # We pass the full image name here to ensure it overrides the POM default
+          mvn -B clean install -DskipTests
+
+      - name: Build and Push Docker Image
+        run: |
+          # Now geodata-server can find its siblings in the local cache
           mvn -f geodata-server/pom.xml spring-boot:build-image \
             -DskipTests \
             -Dspring-boot.build-image.imageName=${{ env.IMAGE_NAME }}:${{ env.DOCKER_ARCH_TAG }}
