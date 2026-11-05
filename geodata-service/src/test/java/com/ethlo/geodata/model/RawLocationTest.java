@@ -22,31 +22,58 @@ package com.ethlo.geodata.model;
  * #L%
  */
 
-import static org.apache.commons.lang3.SerializationUtils.deserialize;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.util.SerializationUtils.serialize;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 
 import org.junit.jupiter.api.Test;
 
 public class RawLocationTest
 {
-    @Test
-    public void testSerialization()
+    private static byte[] write(final RawLocation location) throws IOException
     {
-        final RawLocation l = new RawLocation(123, "norway", "NO", Coordinates.from(23.44499898D, 55.77777D), 33, 989898L, 23, 181);
-        final byte[] data = serialize(l);
-        final RawLocation after = deserialize(data);
-        assertThat(after).isEqualTo(l);
-        assertThat(data).hasSize(107);
+        final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes))
+        {
+            location.write(out);
+        }
+        return bytes.toByteArray();
+    }
+
+    private static RawLocation read(final byte[] data) throws IOException
+    {
+        final RawLocation location = new RawLocation();
+        location.read(new DataInputStream(new ByteArrayInputStream(data)));
+        return location;
     }
 
     @Test
-    public void testSerializationWithoutCC()
+    public void testSerialization() throws IOException
+    {
+        final RawLocation l = new RawLocation(123, "norway", "NO", Coordinates.from(23.44499898D, 55.77777D), 33, 989898L, 23, 181);
+        final byte[] data = write(l);
+        final RawLocation after = read(data);
+        assertThat(after).isEqualTo(l);
+        assertThat(after.getCountryCode()).isEqualTo("NO");
+        assertThat(after.getCoordinates().getLat()).isEqualTo(23.44499898D);
+        assertThat(after.getCoordinates().getLng()).isEqualTo(55.77777D);
+        assertThat(after.getPopulation()).isEqualTo(989898L);
+        assertThat(after.getElevation()).isEqualTo(181);
+        assertThat(data).hasSize(52);
+    }
+
+    @Test
+    public void testSerializationWithoutCC() throws IOException
     {
         final RawLocation l = new RawLocation(123, "europe", null, Coordinates.from(23.44499898D, 55.77777D), 33, 989898L, 23, 181);
-        final byte[] data = serialize(l);
-        final RawLocation after = (RawLocation) deserialize(data);
+        final byte[] data = write(l);
+        final RawLocation after = read(data);
         assertThat(after).isEqualTo(l);
-        assertThat(data).hasSize(105);
+        assertThat(after.getCountryCode()).isNull();
+        assertThat(data).hasSize(50);
     }
 }

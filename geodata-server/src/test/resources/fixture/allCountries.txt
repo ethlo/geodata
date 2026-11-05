@@ -1,0 +1,82 @@
+6255146	Africa	Africa		7.19	21.09	L	CONT							0		0		2020-01-01
+6255147	Asia	Asia		29.84	89.3	L	CONT							0		0		2020-01-01
+6255148	Europe	Europe		48.69	9.14	L	CONT							0		0		2020-01-01
+6255149	North America	North America		46.07	-100.55	L	CONT							0		0		2020-01-01
+6255150	South America	South America		-14.6	-57.66	L	CONT							0		0		2020-01-01
+6255151	Oceania	Oceania		-18.31	138.52	L	CONT							0		0		2020-01-01
+6255152	Antarctica	Antarctica		-78.16	16.41	L	CONT							0		0		2020-01-01
+3144096	Norway	Norway		62.0	10.0	A	PCLI	NO		00				5314336		0	Europe/Oslo	2020-01-01
+2661886	Sweden	Sweden		62.0	15.0	A	PCLI	SE		00				10183175		0	Europe/Stockholm	2020-01-01
+2635167	United Kingdom	United Kingdom		54.75844	-2.69531	A	PCLI	GB		00				66488991		0	Europe/London	2020-01-01
+6252001	United States	United States		39.76	-98.5	A	PCLI	US		00				327167434		0	America/Chicago	2020-01-01
+9100001	Agder	Agder		58.5	7.5	A	ADM1	NO		42				0		0	Europe/Oslo	2020-01-01
+9100002	Innlandet	Innlandet		61.0	10.5	A	ADM1	NO		34				0		0	Europe/Oslo	2020-01-01
+9100003	Møre og Romsdal	Møre og Romsdal		62.5	7.2	A	ADM1	NO		15				0		0	Europe/Oslo	2020-01-01
+9100004	Nordland	Nordland		67.0	14.5	A	ADM1	NO		18				0		0	Europe/Oslo	2020-01-01
+3143242	Oslo	Oslo		59.91	10.75	A	ADM1	NO		12				0		0	Europe/Oslo	2020-01-01
+9100006	Rogaland	Rogaland		59.0	6.0	A	ADM1	NO		11				0		0	Europe/Oslo	2020-01-01
+9100007	Troms og Finnmark	Troms og Finnmark		69.5	23.0	A	ADM1	NO		54				0		0	Europe/Oslo	2020-01-01
+9100008	Trøndelag	Trøndelag		63.5	11.0	A	ADM1	NO		50				0		0	Europe/Oslo	2020-01-01
+9100009	Vestfold og Telemark	Vestfold og Telemark		59.3	9.3	A	ADM1	NO		38				0		0	Europe/Oslo	2020-01-01
+9100010	Vestland	Vestland		60.8	6.0	A	ADM1	NO		46				0		0	Europe/Oslo	2020-01-01
+9100011	Viken	Viken		60.0	10.0	A	ADM1	NO		30				0		0	Europe/Oslo	2020-01-01
+3143244	Oslo	Oslo		59.91273	10.74609	P	PPLC	NO		12				580000		0	Europe/Oslo	2020-01-01
+9100100	Test Island	Test Island		71.0	8.5	T	ISL	NO		00				0		0	Europe/Oslo	2020-01-01
+9200001	State AL	State AL		39.0	-98.0	A	ADM1	US		AL				0		0	America/Chicago	2020-01-01
+9200002	State AK	State AK		39.0	-98.0	A	ADM1	US		AK				0		0	America/Chicago	2020-01-01
+9200003	State AZ	State AZ		39.0	-98.0	A	ADM1	US		AZ				0		0	America/Chicago	2020-01-01
+9200004	State AR	State AR		39.0	-98.0	A	ADM1	US		AR				0		0	America/Chicago	2020-01-01
+5332921	California	California		39.0	-98.0	A	ADM1	US		CA				0		0	America/Chicago	2020-01-01
+9200006	State CO	State CO		39.0	-98.0	A	ADM1	US		CO				0		0	America/Chicago	2020-01-01
+9200007	State CT	State CT		39.0	-98.0	A	ADM1	US		CT				0		0	America/Chicago	2020-01-01
+9200008	State DE	State DE		39.0	-98.0	A	ADM1	US		DE				0		0	America/Chicago	2020-01-01
+9200009	State DC	State DC		39.0	-98.0	A	ADM1	US		DC				0		0	America/Chicago	2020-01-01
+9200010	State FL	State FL		39.0	-98.0	A	ADM1	US		FL				0		0	America/Chicago	2020-01-01
+9200011	State GA	State GA		39.0	-98.0	A	ADM1	US		GA				0		0	America/Chicago	2020-01-01
+9200012	State HI	State HI		39.0	-98.0	A	ADM1	US		HI				0		0	America/Chicago	2020-01-01
+9200013	State ID	State ID		39.0	-98.0	A	ADM1	US		ID				0		0	America/Chicago	2020-01-01
+9200014	State IL	State IL		39.0	-98.0	A	ADM1	US		IL				0		0	America/Chicago	2020-01-01
+9200015	State IN	State IN		39.0	-98.0	A	ADM1	US		IN				0		0	America/Chicago	2020-01-01
+9200016	State IA	State IA		39.0	-98.0	A	ADM1	US		IA				0		0	America/Chicago	2020-01-01
+9200017	State KS	State KS		39.0	-98.0	A	ADM1	US		KS				0		0	America/Chicago	2020-01-01
+9200018	State KY	State KY		39.0	-98.0	A	ADM1	US		KY				0		0	America/Chicago	2020-01-01
+9200019	State LA	State LA		39.0	-98.0	A	ADM1	US		LA				0		0	America/Chicago	2020-01-01
+9200020	State ME	State ME		39.0	-98.0	A	ADM1	US		ME				0		0	America/Chicago	2020-01-01
+9200021	State MD	State MD		39.0	-98.0	A	ADM1	US		MD				0		0	America/Chicago	2020-01-01
+9200022	State MA	State MA		39.0	-98.0	A	ADM1	US		MA				0		0	America/Chicago	2020-01-01
+9200023	State MI	State MI		39.0	-98.0	A	ADM1	US		MI				0		0	America/Chicago	2020-01-01
+9200024	State MN	State MN		39.0	-98.0	A	ADM1	US		MN				0		0	America/Chicago	2020-01-01
+9200025	State MS	State MS		39.0	-98.0	A	ADM1	US		MS				0		0	America/Chicago	2020-01-01
+9200026	State MO	State MO		39.0	-98.0	A	ADM1	US		MO				0		0	America/Chicago	2020-01-01
+9200027	State MT	State MT		39.0	-98.0	A	ADM1	US		MT				0		0	America/Chicago	2020-01-01
+9200028	State NE	State NE		39.0	-98.0	A	ADM1	US		NE				0		0	America/Chicago	2020-01-01
+9200029	State NV	State NV		39.0	-98.0	A	ADM1	US		NV				0		0	America/Chicago	2020-01-01
+9200030	State NH	State NH		39.0	-98.0	A	ADM1	US		NH				0		0	America/Chicago	2020-01-01
+9200031	State NJ	State NJ		39.0	-98.0	A	ADM1	US		NJ				0		0	America/Chicago	2020-01-01
+9200032	State NM	State NM		39.0	-98.0	A	ADM1	US		NM				0		0	America/Chicago	2020-01-01
+9200033	State NY	State NY		39.0	-98.0	A	ADM1	US		NY				0		0	America/Chicago	2020-01-01
+9200034	State NC	State NC		39.0	-98.0	A	ADM1	US		NC				0		0	America/Chicago	2020-01-01
+9200035	State ND	State ND		39.0	-98.0	A	ADM1	US		ND				0		0	America/Chicago	2020-01-01
+9200036	State OH	State OH		39.0	-98.0	A	ADM1	US		OH				0		0	America/Chicago	2020-01-01
+9200037	State OK	State OK		39.0	-98.0	A	ADM1	US		OK				0		0	America/Chicago	2020-01-01
+9200038	State OR	State OR		39.0	-98.0	A	ADM1	US		OR				0		0	America/Chicago	2020-01-01
+9200039	State PA	State PA		39.0	-98.0	A	ADM1	US		PA				0		0	America/Chicago	2020-01-01
+9200040	State RI	State RI		39.0	-98.0	A	ADM1	US		RI				0		0	America/Chicago	2020-01-01
+9200041	State SC	State SC		39.0	-98.0	A	ADM1	US		SC				0		0	America/Chicago	2020-01-01
+9200042	State SD	State SD		39.0	-98.0	A	ADM1	US		SD				0		0	America/Chicago	2020-01-01
+9200043	State TN	State TN		39.0	-98.0	A	ADM1	US		TN				0		0	America/Chicago	2020-01-01
+9200044	State TX	State TX		39.0	-98.0	A	ADM1	US		TX				0		0	America/Chicago	2020-01-01
+9200045	State UT	State UT		39.0	-98.0	A	ADM1	US		UT				0		0	America/Chicago	2020-01-01
+9200046	State VT	State VT		39.0	-98.0	A	ADM1	US		VT				0		0	America/Chicago	2020-01-01
+9200047	State VA	State VA		39.0	-98.0	A	ADM1	US		VA				0		0	America/Chicago	2020-01-01
+5815135	Washington	Washington		39.0	-98.0	A	ADM1	US		WA				0		0	America/Chicago	2020-01-01
+9200049	State WV	State WV		39.0	-98.0	A	ADM1	US		WV				0		0	America/Chicago	2020-01-01
+9200050	State WI	State WI		39.0	-98.0	A	ADM1	US		WI				0		0	America/Chicago	2020-01-01
+9200051	State WY	State WY		39.0	-98.0	A	ADM1	US		WY				0		0	America/Chicago	2020-01-01
+5391811	San Diego	San Diego		32.71571	-117.16472	P	PPL	US		CA				1394928		0	America/Los_Angeles	2020-01-01
+5803556	Milton	Milton		47.24816	-122.3129	P	PPL	US		WA				7973		0	America/Los_Angeles	2020-01-01
+6269131	England	England		52.16045	-0.70312	A	ADM1	GB		ENG				0		0	Europe/London	2020-01-01
+2643743	London	London		51.50853	-0.12574	P	PPLC	GB		ENG				8961989		0	Europe/London	2020-01-01
+2655045	Boxford	Boxford		51.75	-1.25	P	PPL	GB		ENG				0		0	Europe/London	2020-01-01
+2685867	Östergötland	Östergötland		58.41667	15.75	A	ADM1	SE		16				0		0	Europe/Stockholm	2020-01-01
+2694762	Linköping	Linköping		58.41086	15.62157	P	PPLA	SE		16				104232		0	Europe/Stockholm	2020-01-01
