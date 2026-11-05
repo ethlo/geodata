@@ -31,6 +31,13 @@ import com.ethlo.geodata.model.RTreePayload;
 
 public interface BoundaryDao
 {
+    /**
+     * Load the boundary index. Safe to call more than once.
+     *
+     * @return The number of indexed entries
+     */
+    int load();
+
     Stream<RTreePayload> stream();
 
     Optional<Geometry> findGeometryById(int id);

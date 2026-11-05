@@ -293,6 +293,10 @@ public class GeodataServiceImpl implements GeodataService
 
         final Chronograph chronograph = Chronograph.create();
         chronograph.time("Locations", () -> loadLocations(progressListener));
+        if (available.isEnabled(Feature.BOUNDARIES))
+        {
+            chronograph.time("Boundaries", () -> logger.info("Loaded {} boundary index entries", boundaryDao.load()));
+        }
         if (available.isEnabled(Feature.COORDINATES))
         {
             chronograph.time("Geometry", () -> loadProximityTree(available.isEnabled(Feature.BOUNDARIES)));

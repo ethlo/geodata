@@ -27,6 +27,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.net.InetAddress;
@@ -71,14 +73,27 @@ class GeodataServiceFeatureGatingTest
         return manifest;
     }
 
+    private static BoundaryDao boundaryDao()
+    {
+        final BoundaryDao boundaryDao = mock(BoundaryDao.class);
+        when(boundaryDao.stream()).thenAnswer(inv -> Stream.empty());
+        when(boundaryDao.hasGeometry(anyInt())).thenReturn(true);
+        return boundaryDao;
+    }
+
     private static GeodataServiceImpl loadedService(final GeodataFeatures features, final SourceDataInfoSet manifest)
     {
-        final GeodataServiceImpl service = service(features, manifest);
+        return loadedService(features, manifest, boundaryDao());
+    }
+
+    private static GeodataServiceImpl loadedService(final GeodataFeatures features, final SourceDataInfoSet manifest, final BoundaryDao boundaryDao)
+    {
+        final GeodataServiceImpl service = service(features, manifest, boundaryDao);
         service.load();
         return service;
     }
 
-    private static GeodataServiceImpl service(final GeodataFeatures features, final SourceDataInfoSet manifest)
+    private static GeodataServiceImpl service(final GeodataFeatures features, final SourceDataInfoSet manifest, final BoundaryDao boundaryDao)
     {
         final Map<Integer, RawLocation> locations = new HashMap<>();
         GeoConstants.CONTINENTS.values().forEach(id -> locations.put(id, new RawLocation(id, "Continent " + id, null, Coordinates.from(0, 0), 1, 0, 1, 0)));
@@ -97,9 +112,6 @@ class GeodataServiceFeatureGatingTest
         when(countryDao.load()).thenReturn(new ArrayList<>());
         final HierarchyDao hierarchyDao = mock(HierarchyDao.class);
         when(hierarchyDao.load()).thenReturn(new HashMap<>());
-        final BoundaryDao boundaryDao = mock(BoundaryDao.class);
-        when(boundaryDao.stream()).thenAnswer(inv -> Stream.empty());
-        when(boundaryDao.hasGeometry(anyInt())).thenReturn(true);
         final IpDao ipDao = mock(IpDao.class);
         when(ipDao.findByIp(any())).thenReturn(Optional.of(OSLO));
         final MetaDao metaDao = mock(MetaDao.class);
@@ -109,9 +121,30 @@ class GeodataServiceFeatureGatingTest
     }
 
     @Test
+    void boundariesAreLoadedWithoutCoordinates()
+    {
+        final BoundaryDao boundaryDao = boundaryDao();
+        final GeodataServiceImpl service = loadedService(GeodataFeatures.of(Feature.BOUNDARIES), manifest(DataType.BOUNDARIES), boundaryDao);
+
+        verify(boundaryDao).load();
+        verify(boundaryDao, never()).stream();
+        assertThat(service.hasBoundary(OSLO)).isTrue();
+    }
+
+    @Test
+    void boundariesAreNotLoadedWhenDisabled()
+    {
+        final BoundaryDao boundaryDao = boundaryDao();
+        loadedService(GeodataFeatures.of(Feature.COORDINATES), manifest(DataType.BOUNDARIES), boundaryDao);
+
+        verify(boundaryDao, never()).load();
+        verify(boundaryDao, never()).stream();
+    }
+
+    @Test
     void nothingIsAvailableBeforeLoad()
     {
-        final GeodataServiceImpl service = service(GeodataFeatures.all(), manifest(DataType.IP, DataType.BOUNDARIES));
+        final GeodataServiceImpl service = service(GeodataFeatures.all(), manifest(DataType.IP, DataType.BOUNDARIES), boundaryDao());
         assertThat(service.getFeatures().getEnabled()).isEmpty();
         assertThatThrownBy(() -> service.findByIp(InetAddress.getLoopbackAddress())).isInstanceOf(FeatureDisabledException.class);
     }
@@ -141,7 +174,7 @@ class GeodataServiceFeatureGatingTest
         assertThatThrownBy(() -> service.findWithin(NEAR_OSLO, Integer.MAX_VALUE)).isInstanceOf(FeatureDisabledException.class);
         assertThat(service.hasBoundary(OSLO)).isFalse();
 
-        // Coordinates lookups still work, falling back to the nearest location
+        // Without boundaries there is no containing boundary, only the nearest location
         assertThat(service.findByCoordinate(NEAR_OSLO, Integer.MAX_VALUE)).isEmpty();
         assertThat(service.findNear(NEAR_OSLO, Integer.MAX_VALUE, PageRequest.of(0, 1)).getContent().get(0).getLocation().getId()).isEqualTo(OSLO);
     }
