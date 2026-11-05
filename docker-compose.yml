@@ -1,12 +1,11 @@
-version: '3'
 services:
   server:
-    image: ethlo/geodata-server:1.0.0-SNAPSHOT
+    image: ethlocom/geodata-server:latest
     restart: on-failure
-    expose:
-      - 6565
     ports:
       - "6566:6565"
+    volumes:
+      - ~/geodata/data:/geodata-server/data
     deploy:
       resources:
         limits:
