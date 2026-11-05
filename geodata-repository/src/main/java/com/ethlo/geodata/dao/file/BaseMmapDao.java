@@ -30,8 +30,8 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.AbstractMap;
-import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import org.apache.commons.io.input.BoundedInputStream;
@@ -39,7 +39,6 @@ import org.springframework.util.Assert;
 
 import com.ethlo.geodata.io.RecordType;
 import com.ethlo.geodata.util.CompressionUtil;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.primitives.Ints;
 
 public class BaseMmapDao
@@ -47,7 +46,7 @@ public class BaseMmapDao
     private final Path indexPath;
     private final Path dataPath;
 
-    private ArrayListMultimap<Integer, Integer> indexMap;
+    private IdOffsetIndex index;
     private ByteBufferHolder byteBufferHolder;
 
     public BaseMmapDao(Path basePath, String alias)
@@ -58,21 +57,20 @@ public class BaseMmapDao
 
     public int load()
     {
-        if (indexMap == null)
+        if (index == null)
         {
-            loadIndex();
-            if (!indexMap.isEmpty())
+            final IdOffsetIndex loaded = loadIndex();
+            if (!loaded.isEmpty())
             {
                 this.byteBufferHolder = new ByteBufferHolder(dataPath);
             }
+            this.index = loaded;
         }
-        return indexMap.size();
+        return index.size();
     }
 
-    private void loadIndex()
+    private IdOffsetIndex loadIndex()
     {
-        this.indexMap = ArrayListMultimap.create();
-
         if (Files.exists(indexPath))
         {
             try (final InputStream indexIn = Files.newInputStream(indexPath))
@@ -81,26 +79,30 @@ public class BaseMmapDao
                 Assert.isTrue(indexIn.read(countBuffer) == 4, "Expected to read 4 bytes");
                 final int entries = Ints.fromByteArray(countBuffer);
 
+                final long[] packed = new long[entries];
                 try (final DataInputStream compressedIndexIn = new DataInputStream(CompressionUtil.decompress(new BufferedInputStream(indexIn))))
                 {
                     for (int i = 0; i < entries; i++)
                     {
                         final int id = compressedIndexIn.readInt();
                         final int offset = compressedIndexIn.readInt();
-                        indexMap.put(id, offset);
+                        packed[i] = IdOffsetIndex.entry(id, offset);
                     }
                 }
+                return IdOffsetIndex.of(packed);
             }
             catch (IOException exc)
             {
                 throw new UncheckedIOException(exc);
             }
         }
+        return IdOffsetIndex.empty();
     }
 
     protected Stream<Map.Entry<Integer, DataInputStream>> rawIterator()
     {
-        return indexMap.entries().parallelStream().map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), getInputStream(e.getValue())));
+        final IdOffsetIndex idx = index;
+        return IntStream.range(0, idx.size()).parallel().mapToObj(i -> new AbstractMap.SimpleEntry<>(idx.idAt(i), getInputStream(idx.offsetAt(i))));
     }
 
     protected DataInputStream getInputStream(long position)
@@ -127,17 +129,16 @@ public class BaseMmapDao
 
     protected Integer getOffset(final int id, int subIndex)
     {
-        final List<Integer> parts = indexMap.get(id);
-        return parts.size() > subIndex ? parts.get(subIndex) : null;
+        return index.offset(id, subIndex);
     }
 
     public boolean exists(int id)
     {
-        return this.indexMap.containsKey(id);
+        return index.contains(id);
     }
 
     public int size()
     {
-        return indexMap.size();
+        return index.size();
     }
 }

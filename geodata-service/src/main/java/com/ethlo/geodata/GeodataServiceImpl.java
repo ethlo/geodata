@@ -28,7 +28,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -39,7 +38,6 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.stream.Collectors;
 
 import org.locationtech.jts.geom.Envelope;
@@ -77,7 +75,6 @@ import com.ethlo.geodata.model.MapFeature;
 import com.ethlo.geodata.model.RawLocation;
 import com.ethlo.geodata.model.View;
 import com.ethlo.geodata.progress.StatefulProgressListener;
-import com.ethlo.geodata.progress.StepProgressListener;
 import com.ethlo.geodata.util.GeometryUtil;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.BiMap;
@@ -91,7 +88,8 @@ import com.googlecode.concurrenttrees.radix.ConcurrentRadixTree;
 import com.googlecode.concurrenttrees.radix.RadixTree;
 import com.googlecode.concurrenttrees.radix.node.concrete.SmartArrayBasedNodeFactory;
 import com.illucit.util.ASCIIUtils;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.ints.IntLists;
 import jakarta.annotation.PostConstruct;
 
 @Lazy
@@ -114,7 +112,7 @@ public class GeodataServiceImpl implements GeodataService
     private volatile GeodataFeatures features = GeodataFeatures.of();
     private RtreeRepository rtreeRepository;
     // Loaded data
-    private Map<Integer, Node> nodes = new Int2ObjectOpenHashMap<>();
+    private volatile Hierarchy hierarchy = Hierarchy.empty();
     private BiMap<String, Integer> timezones;
     private Map<String, Country> countries;
     private List<Continent> continents = new LinkedList<>();
@@ -238,12 +236,7 @@ public class GeodataServiceImpl implements GeodataService
 
     private List<Integer> getChildIds(final int id)
     {
-        final Node node = nodes.get(id);
-        if (node != null)
-        {
-            return node.getChildren();
-        }
-        return Collections.emptyList();
+        return hierarchy.childrenOf(id);
     }
 
     private Optional<List<String>> getSubLevel(final String featureCode)
@@ -359,7 +352,7 @@ public class GeodataServiceImpl implements GeodataService
         progressListener.end();
 
         progressListener.begin("join_admin_levels");
-        joinHierarchyNodes(childToParent, progressListener::progress);
+        this.hierarchy = Hierarchy.of(childToParent);
         progressListener.end();
     }
 
@@ -446,7 +439,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<Country> findCountries(Pageable pageable)
     {
-        final List<Country> content = countries.values().stream().filter(c -> nodes.containsKey(c.getId())).skip(pageable.getOffset()).limit(pageable.getPageSize()).collect(Collectors.toList());
+        final List<Country> content = countries.values().stream().filter(c -> hierarchy.contains(c.getId())).skip(pageable.getOffset()).limit(pageable.getPageSize()).collect(Collectors.toList());
         return new PageImpl<>(content, pageable, countries.size());
     }
 
@@ -467,7 +460,7 @@ public class GeodataServiceImpl implements GeodataService
                 .map(Country::getId)
                 .orElseThrow(() -> new EmptyResultDataAccessException("No country code " + countryCode, 1));
 
-        final List<Integer> childIds = Optional.ofNullable(nodes.get(id).getChildren()).orElse(Collections.emptyList());
+        final List<Integer> childIds = hierarchy.childrenOf(id);
 
         final List<GeoLocation> content = childIds.stream()
                 .map(this::findById)
@@ -477,19 +470,6 @@ public class GeodataServiceImpl implements GeodataService
                 .sorted(Comparator.comparing(GeoLocation::getName))
                 .collect(Collectors.toList());
         return new PageImpl<>(content, pageable, childIds.size());
-    }
-
-    private void joinHierarchyNodes(final Map<Integer, Integer> childToParent, StepProgressListener listener)
-    {
-        nodes = new Int2ObjectOpenHashMap<>(childToParent.size());
-        childToParent.forEach((child, parent) ->
-        {
-            final Node childNode = nodes.computeIfAbsent(child, Node::new);
-            final Node parentNode = nodes.computeIfAbsent(parent, Node::new);
-            parentNode.addChild(child);
-            childNode.setParent(parent);
-            listener.progress(nodes.size(), childToParent.size());
-        });
     }
 
     @Override
@@ -560,31 +540,21 @@ public class GeodataServiceImpl implements GeodataService
 
     private Collection<Integer> getPath(final int id)
     {
-        Node node = this.nodes.get(id);
-        if (node == null)
+        final Hierarchy current = hierarchy;
+        final IntList path = current.pathOf(id);
+        if (path == null)
         {
             throw new EmptyResultDataAccessException("No location with id " + id, 1);
         }
-        final Deque<Integer> path = new LinkedBlockingDeque<>();
-        while (node != null)
+        // A path that ends on a location with a parent was cut short by a cycle, so it has no root to drop
+        final boolean circular = current.parentOf(path.getInt(path.size() - 1)) != null;
+        if (circular)
         {
-            if (!path.add(node.getId()))
-            {
-                logger.warn("Circular reference for {}: {}", node.getId(), path);
-                node = null;
-            }
-            else
-            {
-                final Integer parent = node.getParent();
-                node = parent != null ? nodes.get(parent) : null;
-            }
+            logger.warn("Circular reference in the hierarchy of {}: {}", id, path);
         }
-        path.removeFirst();
-        if (!path.isEmpty())
-        {
-            path.removeLast();
-        }
-        return path;
+        // Without the location itself and the root
+        final int end = circular ? path.size() : path.size() - 1;
+        return end > 1 ? path.subList(1, end) : IntLists.emptyList();
     }
 
     @Override
@@ -693,8 +663,7 @@ public class GeodataServiceImpl implements GeodataService
         final CountrySummary countrySummary = country != null ? country.toSummary(l.getCountryCode()) : null;
 
         final int id = l.getId();
-        final Node node = nodes.get(id);
-        final Integer parentId = Optional.ofNullable(node).map(Node::getParent).orElse(null);
+        final Integer parentId = hierarchy.parentOf(id);
 
         final int featureCodeId = l.getMapFeatureId();
         final MapFeature mapFeature = featureCodeId != 0 ? featureCodes.get(featureCodeId) : null;
