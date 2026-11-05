@@ -65,7 +65,6 @@ class HierarchyTest
         assertThat(hierarchy.pathOf(OSLO).toIntArray()).containsExactly(OSLO, NORWAY, EUROPE, EARTH);
         assertThat(hierarchy.pathOf(EARTH).toIntArray()).containsExactly(EARTH);
         assertThat(hierarchy.pathOf(99) == null).isTrue();
-        assertThat(hierarchy.isCircular(OSLO)).isFalse();
     }
 
     @Test
@@ -73,7 +72,7 @@ class HierarchyTest
     {
         final Hierarchy hierarchy = Hierarchy.of(Map.of(OSLO, NORWAY, NORWAY, EUROPE, EUROPE, NORWAY));
         assertThat(hierarchy.pathOf(OSLO).toIntArray()).containsExactly(OSLO, NORWAY, EUROPE);
-        assertThat(hierarchy.isCircular(OSLO)).isTrue();
+        assertThat(hierarchy.parentOf(EUROPE)).isEqualTo(NORWAY);
     }
 
     @Test

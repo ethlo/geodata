@@ -25,7 +25,8 @@ package com.ethlo.geodata.dao.file;
 import java.util.Arrays;
 
 /**
- * Read-only id to offset index kept in two sorted primitive arrays. An id may have several offsets, which are kept in insertion order.
+ * Read-only id to offset index kept in two sorted primitive arrays. An id may have several offsets, which are kept in ascending offset order
+ * (the write order, as the data files are append-only).
  */
 public final class IdOffsetIndex
 {

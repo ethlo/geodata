@@ -465,9 +465,9 @@ public class GeodataServiceImpl implements GeodataService
         final List<GeoLocation> content = childIds.stream()
                 .map(this::findById)
                 .filter(l -> "ADM1".equals(l.getFeatureCode()))
+                .sorted(Comparator.comparing(GeoLocation::getName))
                 .skip(pageable.getOffset())
                 .limit(pageable.getPageSize())
-                .sorted(Comparator.comparing(GeoLocation::getName))
                 .collect(Collectors.toList());
         return new PageImpl<>(content, pageable, childIds.size());
     }
@@ -545,7 +545,8 @@ public class GeodataServiceImpl implements GeodataService
         {
             throw new EmptyResultDataAccessException("No location with id " + id, 1);
         }
-        if (hierarchy.isCircular(id))
+        // A path that ends on a location with a parent was cut short by a cycle
+        if (hierarchy.parentOf(path.getInt(path.size() - 1)) != null)
         {
             logger.warn("Circular reference in the hierarchy of {}: {}", id, path);
         }

@@ -66,6 +66,15 @@ class IdOffsetIndexTest
     }
 
     @Test
+    void repeatedIdsAreInOffsetOrder()
+    {
+        final IdOffsetIndex index = IdOffsetIndex.of(new long[]{IdOffsetIndex.entry(7, 900), IdOffsetIndex.entry(7, 50), IdOffsetIndex.entry(7, 300)});
+        assertThat(index.offset(7, 0)).isEqualTo(50);
+        assertThat(index.offset(7, 1)).isEqualTo(300);
+        assertThat(index.offset(7, 2)).isEqualTo(900);
+    }
+
+    @Test
     void emptyIndex()
     {
         assertThat(IdOffsetIndex.empty().isEmpty()).isTrue();

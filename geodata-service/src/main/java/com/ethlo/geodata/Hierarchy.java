@@ -192,19 +192,4 @@ public final class Hierarchy
         }
         return path;
     }
-
-    /**
-     * @return whether following parents from the id comes back to an id already visited
-     */
-    public boolean isCircular(final int id)
-    {
-        final IntList path = pathOf(id);
-        if (path == null || path.isEmpty())
-        {
-            return false;
-        }
-        final int last = path.getInt(path.size() - 1);
-        final Integer parent = parentOf(last);
-        return parent != null && path.contains(parent.intValue());
-    }
 }
