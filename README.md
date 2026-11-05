@@ -59,7 +59,7 @@ Locations, countries, continents, search by name and the hierarchy are always av
 | `coordinates` | `geodata.features.coordinates.enabled` / `GEODATA_FEATURES_COORDINATES_ENABLED` | Geonames (locations)    | `/v1/locations/coordinates`, `/v1/locations/proximity`, `/v1/locations/contains`                   |
 | `phone`       | `geodata.features.phone.enabled` / `GEODATA_FEATURES_PHONE_ENABLED`             | Geonames (countries)    | `/v1/locations/phone/{phone}`                                                                      |
 
-* The importer skips the data of a disabled feature, so with `ip` off no MaxMind license key is needed.
+* The importer skips the data of a disabled feature and removes data imported for it earlier, so with `ip` off no MaxMind license key is needed. When IP data is (re)imported, the locations are re-imported too, since they include the cities the IP data refers to.
 * The server enables a feature only when it is enabled *and* its data was imported (according to `metadata.json`), and logs a warning for an enabled feature without data. With `coordinates` off, no proximity tree is built, which saves memory and startup time.
 * `/v1/locations/coordinates` returns the containing boundary when `boundaries` is on, and the nearest location otherwise.
 * Endpoints of a disabled feature return `501 Not Implemented`. `/sysadmin/features` lists the features that are available.

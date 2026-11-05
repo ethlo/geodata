@@ -125,9 +125,10 @@ public class DataImporterService
         logger.info("Enabled features: {}", features);
 
         // Imported before locations, so the locations it references are kept
+        boolean ipImported = false;
         if (features.isEnabled(Feature.IP))
         {
-            ifExpired(DataType.IP, ipLookupImporter.lastRemoteModified(), maxDataAge, () ->
+            ipImported = ifExpired(DataType.IP, ipLookupImporter.lastRemoteModified(), maxDataAge, false, () ->
             {
                 ipLookupImporter.purgeData();
                 updated.set(true);
@@ -136,10 +137,11 @@ public class DataImporterService
         }
         else
         {
-            logger.info("Feature 'ip' is disabled. Skipping import of {} data", DataType.IP);
+            removeDisabled(Feature.IP, ipLookupImporter::purgeData);
         }
 
-        ifExpired(DataType.LOCATIONS, geonamesImporter.lastRemoteModified(), maxDataAge, () ->
+        // Locations keep the ones referenced by the IP data, so new IP data needs a locations import too
+        ifExpired(DataType.LOCATIONS, geonamesImporter.lastRemoteModified(), maxDataAge, ipImported, () ->
         {
             geonamesImporter.purgeData();
             updated.set(true);
@@ -152,7 +154,7 @@ public class DataImporterService
         }
         else
         {
-            logger.info("Feature 'boundaries' is disabled. Skipping import of {} data", DataType.BOUNDARIES);
+            removeDisabled(Feature.BOUNDARIES, this::purgeBoundaries);
         }
 
         if (!updated.get())
@@ -164,7 +166,7 @@ public class DataImporterService
     private void importBoundaries(final AtomicBoolean updated)
     {
         final Path boundaryImportFolder = inputBasePath.resolve(DataType.BOUNDARIES);
-        ifExpired(DataType.BOUNDARIES, getLastModifiedFile(boundaryImportFolder).orElse(OffsetDateTime.now().minusYears(10)), Duration.ofSeconds(5), () ->
+        ifExpired(DataType.BOUNDARIES, getLastModifiedFile(boundaryImportFolder).orElse(OffsetDateTime.now().minusYears(10)), Duration.ofSeconds(5), false, () ->
         {
             final FeatureCodeDao featureCodeDao = new FileFeatureCodeDao(basePath);
             final LocationDao locationDao = new FileLocationDao(basePath);
@@ -313,16 +315,43 @@ public class DataImporterService
         return p -> supportedExtensions.contains(IoUtil.getExtension(p));
     }
 
-    private void ifExpired(final String type, final OffsetDateTime sourceTimestamp, Duration expiry, final Supplier<Integer> updater)
+    private void removeDisabled(final Feature feature, final Runnable purge)
+    {
+        logger.info("Feature '{}' is disabled. Skipping import of {} data", feature.getKey(), feature.getDataType());
+        purge.run();
+        final SourceDataInfoSet data = getSourceDataInfo();
+        if (data.remove(feature.getDataType()))
+        {
+            logger.info("Removed previously imported {} data", feature.getDataType());
+            JsonUtil.write(basePath.resolve(FileMetaDao.FILE), data);
+        }
+    }
+
+    private void purgeBoundaries()
+    {
+        try
+        {
+            Files.deleteIfExists(basePath.resolve(DataType.BOUNDARIES + ".index"));
+            Files.deleteIfExists(basePath.resolve(DataType.BOUNDARIES + ".data"));
+        }
+        catch (IOException e)
+        {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private boolean ifExpired(final String type, final OffsetDateTime sourceTimestamp, Duration expiry, final boolean force, final Supplier<Integer> updater)
     {
         logger.info("Checking data type: {}, max age: {}", type, expiry);
         final Optional<OffsetDateTime> localDataModifiedAt = getLastModified(type);
         logger.info("local last modified: {}", localDataModifiedAt.orElse(null));
-        if (localDataModifiedAt.isEmpty() || sourceTimestamp.isAfter(localDataModifiedAt.get().plusSeconds(maxDataAge.toSeconds())))
+        if (force || localDataModifiedAt.isEmpty() || sourceTimestamp.isAfter(localDataModifiedAt.get().plusSeconds(maxDataAge.toSeconds())))
         {
             final int count = updater.get();
             setStatus(type, sourceTimestamp, count);
+            return true;
         }
+        return false;
     }
 
     public SourceDataInfoSet getSourceDataInfo()

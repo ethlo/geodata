@@ -24,11 +24,13 @@ package com.ethlo.geodata;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -57,10 +59,57 @@ class DataImporterFeatureGatingTest
         final DataImporterService service = new DataImporterService(basePath, basePath.resolve("input"), Duration.ofDays(7), ipImporter, geonamesImporter, GeodataFeatures.of(Feature.COORDINATES));
         service.update();
 
-        verifyNoInteractions(ipImporter);
+        verify(ipImporter, never()).lastRemoteModified();
+        verify(ipImporter, never()).importData();
         verify(geonamesImporter).importData();
         assertThat(service.getSourceDataInfo().get(DataType.LOCATIONS).getCount()).isEqualTo(42);
         assertThat(service.getSourceDataInfo().get(DataType.IP)).isNull();
         assertThat(service.getSourceDataInfo().get(DataType.BOUNDARIES)).isNull();
+    }
+
+    @Test
+    void newlyEnabledIpReimportsFreshLocations() throws IOException
+    {
+        final FileIpDataImporter ipImporter = mock(FileIpDataImporter.class);
+        final FileGeonamesImporter geonamesImporter = mock(FileGeonamesImporter.class);
+        when(ipImporter.lastRemoteModified()).thenReturn(OffsetDateTime.now());
+        when(ipImporter.importData()).thenReturn(7);
+        when(geonamesImporter.lastRemoteModified()).thenReturn(OffsetDateTime.now());
+        when(geonamesImporter.importData()).thenReturn(42);
+
+        // Locations imported earlier without IP, still within max data age
+        new DataImporterService(basePath, basePath.resolve("input"), Duration.ofDays(7), ipImporter, geonamesImporter, GeodataFeatures.of()).update();
+        verify(geonamesImporter).importData();
+
+        new DataImporterService(basePath, basePath.resolve("input"), Duration.ofDays(7), ipImporter, geonamesImporter, GeodataFeatures.of(Feature.IP)).update();
+
+        verify(ipImporter).importData();
+        verify(geonamesImporter, times(2)).importData();
+    }
+
+    @Test
+    void disabledSourceRemovesPreviouslyImportedData() throws IOException
+    {
+        final FileIpDataImporter ipImporter = mock(FileIpDataImporter.class);
+        final FileGeonamesImporter geonamesImporter = mock(FileGeonamesImporter.class);
+        when(ipImporter.lastRemoteModified()).thenReturn(OffsetDateTime.now());
+        when(ipImporter.importData()).thenReturn(7);
+        when(geonamesImporter.lastRemoteModified()).thenReturn(OffsetDateTime.now());
+
+        final DataImporterService withIp = new DataImporterService(basePath, basePath.resolve("input"), Duration.ofDays(7), ipImporter, geonamesImporter, GeodataFeatures.of(Feature.IP));
+        withIp.update();
+        withIp.setStatus(DataType.BOUNDARIES, OffsetDateTime.now(), 3);
+        Files.writeString(basePath.resolve("boundaries.data"), "x");
+        assertThat(withIp.getSourceDataInfo().get(DataType.IP)).isNotNull();
+
+        final DataImporterService none = new DataImporterService(basePath, basePath.resolve("input"), Duration.ofDays(7), ipImporter, geonamesImporter, GeodataFeatures.of());
+        none.update();
+
+        // Once before the import, once when removed
+        verify(ipImporter, times(2)).purgeData();
+        verify(ipImporter).importData();
+        assertThat(none.getSourceDataInfo().get(DataType.IP)).isNull();
+        assertThat(none.getSourceDataInfo().get(DataType.BOUNDARIES)).isNull();
+        assertThat(basePath.resolve("boundaries.data")).doesNotExist();
     }
 }
