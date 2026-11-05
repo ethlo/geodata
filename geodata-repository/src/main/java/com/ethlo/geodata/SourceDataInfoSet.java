@@ -44,6 +44,11 @@ public class SourceDataInfoSet
         data.add(sourceDataInfo);
     }
 
+    public boolean remove(final String type)
+    {
+        return data.removeIf(e -> e.getType().equals(type));
+    }
+
     public Set<SourceDataInfo> getData()
     {
         return data;

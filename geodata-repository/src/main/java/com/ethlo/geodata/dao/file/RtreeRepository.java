@@ -69,6 +69,11 @@ public class RtreeRepository
 
     public RtreeRepository(LocationDao locationDao, BoundaryDao boundaryDao, final Set<Integer> featureCodesIncluded)
     {
+        this(locationDao, boundaryDao, featureCodesIncluded, true);
+    }
+
+    public RtreeRepository(LocationDao locationDao, BoundaryDao boundaryDao, final Set<Integer> featureCodesIncluded, final boolean includeBoundaries)
+    {
         this.boundaryDao = boundaryDao;
 
         // Load proximity tree
@@ -87,7 +92,7 @@ public class RtreeRepository
         logger.info("Loaded {} location points", proximity.size());
 
         // Load boundaries
-        boundaryRTree = getBoundaryRTree(locationDao, boundaryDao);
+        boundaryRTree = includeBoundaries ? getBoundaryRTree(locationDao, boundaryDao) : RTree.create();
         logger.info("Loaded {} location bounding boxes", boundaryRTree.size());
     }
 

@@ -37,8 +37,10 @@ import com.ethlo.geodata.dao.IpDao;
 import com.google.common.primitives.Ints;
 import com.maxmind.db.MaxMindDbConstructor;
 import com.maxmind.db.MaxMindDbParameter;
+import com.maxmind.db.DatabaseRecord;
+import com.maxmind.db.InvalidNetworkException;
+import com.maxmind.db.Networks;
 import com.maxmind.db.Reader;
-import com.maxmind.db.ReaderIterator;
 
 @Repository
 public class FileIpDao implements IpDao
@@ -70,6 +72,11 @@ public class FileIpDao implements IpDao
     @Override
     public Optional<Integer> findByIp(final InetAddress ip)
     {
+        if (reader == null)
+        {
+            return Optional.empty();
+        }
+
         try
         {
             final LookupResult result = reader.get(ip, LookupResult.class);
@@ -84,7 +91,28 @@ public class FileIpDao implements IpDao
     @Override
     public void iterate(Consumer<Integer> callback) throws IOException
     {
-        new ReaderIterator(reader).iterateSearchTree(data -> data.getMostSpecificId().ifPresent(callback));
+        if (reader == null)
+        {
+            return;
+        }
+
+        final Networks<LookupResult> networks;
+        try
+        {
+            networks = reader.networks(false, LookupResult.class);
+        }
+        catch (InvalidNetworkException e)
+        {
+            throw new IOException(e);
+        }
+        while (networks.hasNext())
+        {
+            final DatabaseRecord<LookupResult> record = networks.next();
+            if (record.data() != null)
+            {
+                record.data().getMostSpecificId().ifPresent(callback);
+            }
+        }
     }
 
     public static class LookupResult

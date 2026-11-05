@@ -25,7 +25,6 @@ package com.ethlo.geodata.importer;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -40,7 +39,6 @@ import com.ethlo.geodata.DataType;
 import com.ethlo.geodata.dao.file.FileIpDao;
 import com.ethlo.geodata.util.ResourceUtil;
 import com.ethlo.geodata.util.TarGzUtil;
-import com.maxmind.db.Metadata;
 import com.maxmind.db.Reader;
 import jakarta.validation.constraints.NotNull;
 
@@ -99,10 +97,10 @@ public class FileIpDataImporter implements DataImporter
                 }
             });
             Files.move(tmp, filePath, StandardCopyOption.ATOMIC_MOVE);
-            final Reader reader = new Reader(filePath.toFile());
-
-            final Metadata metadata = reader.getMetadata();
-            return extractCount(metadata);
+            try (final Reader reader = new Reader(filePath.toFile()))
+            {
+                return Math.toIntExact(reader.getMetadata().nodeCount());
+            }
         }
         catch (IOException exc)
         {
@@ -110,19 +108,6 @@ public class FileIpDataImporter implements DataImporter
         }
     }
 
-    private int extractCount(final Metadata metadata)
-    {
-        try
-        {
-            final Field nodeCountField = Metadata.class.getDeclaredField("nodeCount");
-            nodeCountField.setAccessible(true);
-            return (int) nodeCountField.get(metadata);
-        }
-        catch (IllegalAccessException | NoSuchFieldException e)
-        {
-            throw new RuntimeException(e);
-        }
-    }
 
     @Override
     public OffsetDateTime lastRemoteModified() throws IOException

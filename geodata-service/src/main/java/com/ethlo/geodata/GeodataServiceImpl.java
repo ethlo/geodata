@@ -84,6 +84,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Lists;
 import com.google.i18n.phonenumbers.NumberParseException;
+import com.ethlo.geodata.GeodataFeatures.Feature;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.googlecode.concurrenttrees.radix.ConcurrentRadixTree;
@@ -109,6 +110,8 @@ public class GeodataServiceImpl implements GeodataService
     private final MetaDao metaDao;
     private final List<String> additionalIndexedFeatures;
     private final int qualityConstant;
+    private final GeodataFeatures configuredFeatures;
+    private volatile GeodataFeatures features = GeodataFeatures.of();
     private RtreeRepository rtreeRepository;
     // Loaded data
     private Map<Integer, Node> nodes = new Int2ObjectOpenHashMap<>();
@@ -121,8 +124,10 @@ public class GeodataServiceImpl implements GeodataService
                               final FeatureCodeDao featureCodeDao, final TimeZoneDao timeZoneDao, final CountryDao countryDao,
                               final BoundaryDao boundaryDao, final MetaDao metaDao,
                               @Value("${geodata.search.index-features}") final List<String> additionalIndexedFeatures,
-                              @Value("${geodata.boundaries.quality}") final int qualityConstant)
+                              @Value("${geodata.boundaries.quality}") final int qualityConstant,
+                              final GeodataFeatures configuredFeatures)
     {
+        this.configuredFeatures = configuredFeatures;
         this.locationDao = locationDao;
         this.ipDao = ipDao;
         this.hierarchyDao = hierarchyDao;
@@ -138,6 +143,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public GeoLocation findByIp(InetAddress ip)
     {
+        requireFeature(Feature.IP);
         return ipDao.findByIp(ip).map(this::findById).orElseThrow(() -> new EmptyResultDataAccessException("Cannot find location for ip " + ip, 1));
     }
 
@@ -150,6 +156,13 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Optional<LookupMetadata> findWithin(Coordinates coordinate, int maxDistanceInKilometers)
     {
+        requireFeature(Feature.COORDINATES);
+        requireFeature(Feature.BOUNDARIES);
+        return lookupWithin(coordinate);
+    }
+
+    private Optional<LookupMetadata> lookupWithin(Coordinates coordinate)
+    {
         return Optional.ofNullable(rtreeRepository.find(coordinate)).map(e ->
                 new LookupMetadata(findById(e.value().getId()), e.value().getSubdivideIndex(), e.value().getEnvelope()));
     }
@@ -157,6 +170,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Page<GeoLocationDistance> findNear(Coordinates point, int maxDistanceInKilometers, Pageable pageable)
     {
+        requireFeature(Feature.COORDINATES);
         final Map<Integer, Double> locations = rtreeRepository.getNearest(point, maxDistanceInKilometers, pageable);
         final List<GeoLocationDistance> content = locations.entrySet().stream().map(e -> new GeoLocationDistance().setLocation(findById(e.getKey())).setDistance(e.getValue())).collect(Collectors.toList());
         return new PageImpl<>(content, pageable, locations.size());
@@ -175,6 +189,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Optional<Geometry> findBoundaries(int id)
     {
+        requireFeature(Feature.BOUNDARIES);
         return boundaryDao.findGeometryById(id);
     }
 
@@ -218,7 +233,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public boolean hasBoundary(final int id)
     {
-        return boundaryDao.hasGeometry(id);
+        return features.isEnabled(Feature.BOUNDARIES) && boundaryDao.hasGeometry(id);
     }
 
     private List<Integer> getChildIds(final int id)
@@ -264,6 +279,12 @@ public class GeodataServiceImpl implements GeodataService
         final SourceDataInfoSet sourceDataInfo = metaDao.load();
         logger.info("{}", sourceDataInfo);
 
+        final GeodataFeatures available = configuredFeatures.availableIn(sourceDataInfo);
+        configuredFeatures.getEnabled().stream()
+                .filter(f -> !available.isEnabled(f))
+                .forEach(f -> logger.warn("Feature '{}' is enabled, but no {} data has been imported. Disabling it.", f.getKey(), f.getDataType()));
+        logger.info("Enabled features: {}", available);
+
         progressListener.begin("feature_codes", 1);
         this.featureCodes = featureCodeDao.load();
 
@@ -272,24 +293,32 @@ public class GeodataServiceImpl implements GeodataService
 
         final Chronograph chronograph = Chronograph.create();
         chronograph.time("Locations", () -> loadLocations(progressListener));
-        chronograph.time("Geometry", () -> loadProximityTree());
+        if (available.isEnabled(Feature.BOUNDARIES))
+        {
+            chronograph.time("Boundaries", () -> logger.info("Loaded {} boundary index entries", boundaryDao.load()));
+        }
+        if (available.isEnabled(Feature.COORDINATES))
+        {
+            chronograph.time("Geometry", () -> loadProximityTree(available.isEnabled(Feature.BOUNDARIES)));
+        }
         chronograph.time("Countries", () -> loadCountries(progressListener));
         chronograph.time("Continents", () -> loadContinents(progressListener));
         chronograph.time("SearchIndex", () -> loadSearchIndex(progressListener));
         chronograph.time("Hierarchy", () -> loadHierarchy(progressListener));
 
+        this.features = available;
         logger.info("Data loaded successfully");
 
         logger.info(chronograph.toString());
     }
 
-    private void loadProximityTree()
+    private void loadProximityTree(final boolean includeBoundaries)
     {
         final Set<Integer> featureCodesForProximity = featureCodes.entrySet().stream()
                 .filter(e -> GeoConstants.ADMINISTRATIVE_OR_ABOVE.contains(e.getValue().getKey()))
                 .map(Entry::getKey)
                 .collect(Collectors.toSet());
-        rtreeRepository = new RtreeRepository(locationDao, boundaryDao, featureCodesForProximity);
+        rtreeRepository = new RtreeRepository(locationDao, boundaryDao, featureCodesForProximity, includeBoundaries);
     }
 
     private void loadLocations(final LoadProgressListener progressListener)
@@ -466,6 +495,7 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Country findByPhoneNumber(String phoneNumber)
     {
+        requireFeature(Feature.PHONE);
         String stripped = phoneNumber.replaceAll("[^\\d.]", "");
         stripped = stripped.replaceFirst("^0+(?!$)", "");
 
@@ -578,7 +608,22 @@ public class GeodataServiceImpl implements GeodataService
     @Override
     public Optional<LookupMetadata> findByCoordinate(Coordinates point, int distance)
     {
-        return findWithin(point, distance);
+        requireFeature(Feature.COORDINATES);
+        return features.isEnabled(Feature.BOUNDARIES) ? lookupWithin(point) : Optional.empty();
+    }
+
+    @Override
+    public GeodataFeatures getFeatures()
+    {
+        return features;
+    }
+
+    private void requireFeature(final Feature feature)
+    {
+        if (!features.isEnabled(feature))
+        {
+            throw new FeatureDisabledException(feature);
+        }
     }
 
     @Override

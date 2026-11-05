@@ -22,6 +22,9 @@ package com.ethlo.geodata;
  * #L%
  */
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -42,6 +45,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 
+import com.ethlo.geodata.GeodataFeatures.Feature;
 import com.ethlo.geodata.dao.MetaDao;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
@@ -295,13 +299,14 @@ public class ServerHandler extends BaseServerHandler
 
         // Static content
         final PathHandler path = Handlers.path(performanceHandler)
-                .addPrefixPath("/swagger-ui", new ResourceHandler(classpathResource("META-INF/resources/webjars/swagger-ui/5.22.0")))
+                .addPrefixPath("/swagger-ui", new ResourceHandler(classpathResource("META-INF/resources/webjars/swagger-ui/" + swaggerUiVersion())))
                 .addExactPath("/spec.yaml", new ResourceHandler(classpathResource("public/spec.yaml")))
                 .addExactPath("/", new ResourceHandler(classpathResource("public/index.html")))
-                .addExactPath("/api.html", new ResourceHandler(classpathResource("public/api.html")));;
+                .addExactPath("/api.html", new ResourceHandler(classpathResource("public/api.html")));
 
         // Source data information
         path.addExactPath("/sysadmin/source", exchange -> json(exchange, metaDao.load()));
+        path.addExactPath("/sysadmin/features", exchange -> json(exchange, geodataService.getFeatures().getEnabled().stream().map(Feature::getKey).sorted().collect(Collectors.toList())));
 
         // Version info
         final Map<String, Object> versionInfo = new LinkedHashMap<>();
@@ -336,6 +341,20 @@ public class ServerHandler extends BaseServerHandler
         }
 
         return exceptionHandler;
+    }
+
+    private static String swaggerUiVersion()
+    {
+        try (InputStream in = new ClassPathResource("META-INF/maven/org.webjars/swagger-ui/pom.properties").getInputStream())
+        {
+            final Properties properties = new Properties();
+            properties.load(in);
+            return properties.getProperty("version");
+        }
+        catch (IOException e)
+        {
+            throw new UncheckedIOException("Unable to determine swagger-ui webjar version", e);
+        }
     }
 
     private Geometry getSimpleBoundary(final HttpServerExchange exchange)

@@ -52,6 +52,8 @@ import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import com.ethlo.geodata.DataType;
+import com.ethlo.geodata.GeodataFeatures;
+import com.ethlo.geodata.GeodataFeatures.Feature;
 import com.ethlo.geodata.GeoConstants;
 import com.ethlo.geodata.SourceDataInfo;
 import com.ethlo.geodata.SourceDataInfoSet;
@@ -81,13 +83,15 @@ public class DataImporterService
     private final FileGeonamesImporter geonamesImporter;
     private final Path basePath;
     private final Path inputBasePath;
+    private final GeodataFeatures features;
     private GeoNamesBoundaryImporter geoNamesBoundaryImporter;
 
     public DataImporterService(@Value("${geodata.base-path}") @NotNull final Path basePath,
                                @Value("${geodata.data-source-path}") @NotNull final Path inputBasePath,
                                @Value("${geodata.max-data-age}") @NotNull final Duration maxDataAge,
                                FileIpDataImporter ipLookupImporter,
-                               FileGeonamesImporter geonamesImporter)
+                               FileGeonamesImporter geonamesImporter,
+                               GeodataFeatures features)
     {
         logger.info("Base path for data: {}", basePath);
 
@@ -96,6 +100,7 @@ public class DataImporterService
         this.maxDataAge = Objects.requireNonNull(maxDataAge, "GEODATA_MAXDATAAGE must be set");
         this.ipLookupImporter = ipLookupImporter;
         this.geonamesImporter = geonamesImporter;
+        this.features = features;
     }
 
     public Optional<OffsetDateTime> getLastModified(String alias)
@@ -117,23 +122,61 @@ public class DataImporterService
         Files.createDirectories(basePath);
 
         final AtomicBoolean updated = new AtomicBoolean();
+        logger.info("Enabled features: {}", features);
 
-        ifExpired(DataType.IP, ipLookupImporter.lastRemoteModified(), maxDataAge, () ->
+        // Imported before locations, so the locations it references are kept
+        boolean ipImported = false;
+        OffsetDateTime ipModified = null;
+        int ipCount = 0;
+        if (features.isEnabled(Feature.IP))
         {
-            ipLookupImporter.purgeData();
-            updated.set(true);
-            return ipLookupImporter.importData();
-        });
+            ipModified = ipLookupImporter.lastRemoteModified();
+            ipImported = isExpired(DataType.IP, ipModified);
+            if (ipImported)
+            {
+                ipLookupImporter.purgeData();
+                updated.set(true);
+                ipCount = ipLookupImporter.importData();
+            }
+        }
+        else
+        {
+            removeDisabled(Feature.IP, ipLookupImporter::purgeData);
+        }
 
-        ifExpired(DataType.LOCATIONS, geonamesImporter.lastRemoteModified(), maxDataAge, () ->
+        // Locations keep the ones referenced by the IP data, so new IP data needs a locations import too
+        ifExpired(DataType.LOCATIONS, geonamesImporter.lastRemoteModified(), maxDataAge, ipImported, () ->
         {
             geonamesImporter.purgeData();
             updated.set(true);
             return geonamesImporter.importData();
         });
 
+        // Recorded only after the locations import, so an interrupted run imports both again
+        if (ipImported)
+        {
+            setStatus(DataType.IP, ipModified, ipCount);
+        }
+
+        if (features.isEnabled(Feature.BOUNDARIES))
+        {
+            importBoundaries(updated);
+        }
+        else
+        {
+            removeDisabled(Feature.BOUNDARIES, this::purgeBoundaries);
+        }
+
+        if (!updated.get())
+        {
+            logger.info("No data to update. Max data age {}", maxDataAge);
+        }
+    }
+
+    private void importBoundaries(final AtomicBoolean updated)
+    {
         final Path boundaryImportFolder = inputBasePath.resolve(DataType.BOUNDARIES);
-        ifExpired(DataType.BOUNDARIES, getLastModifiedFile(boundaryImportFolder).orElse(OffsetDateTime.now().minusYears(10)), Duration.ofSeconds(5), () ->
+        ifExpired(DataType.BOUNDARIES, getLastModifiedFile(boundaryImportFolder).orElse(OffsetDateTime.now().minusYears(10)), Duration.ofSeconds(5), false, () ->
         {
             final FeatureCodeDao featureCodeDao = new FileFeatureCodeDao(basePath);
             final LocationDao locationDao = new FileLocationDao(basePath);
@@ -160,11 +203,6 @@ public class DataImporterService
                 return 0;
             }
         });
-
-        if (!updated.get())
-        {
-            logger.info("No data to update. Max data age {}", maxDataAge);
-        }
     }
 
     private Optional<OffsetDateTime> getLastModifiedFile(final Path directory)
@@ -287,16 +325,48 @@ public class DataImporterService
         return p -> supportedExtensions.contains(IoUtil.getExtension(p));
     }
 
-    private void ifExpired(final String type, final OffsetDateTime sourceTimestamp, Duration expiry, final Supplier<Integer> updater)
+    private void removeDisabled(final Feature feature, final Runnable purge)
+    {
+        logger.info("Feature '{}' is disabled. Skipping import of {} data", feature.getKey(), feature.getDataType());
+        purge.run();
+        final SourceDataInfoSet data = getSourceDataInfo();
+        if (data.remove(feature.getDataType()))
+        {
+            logger.info("Removed previously imported {} data", feature.getDataType());
+            JsonUtil.write(basePath.resolve(FileMetaDao.FILE), data);
+        }
+    }
+
+    private void purgeBoundaries()
+    {
+        try
+        {
+            Files.deleteIfExists(basePath.resolve(DataType.BOUNDARIES + ".index"));
+            Files.deleteIfExists(basePath.resolve(DataType.BOUNDARIES + ".data"));
+        }
+        catch (IOException e)
+        {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private boolean isExpired(final String type, final OffsetDateTime sourceTimestamp)
+    {
+        final Optional<OffsetDateTime> localDataModifiedAt = getLastModified(type);
+        logger.info("{} local last modified: {}", type, localDataModifiedAt.orElse(null));
+        return localDataModifiedAt.isEmpty() || sourceTimestamp.isAfter(localDataModifiedAt.get().plusSeconds(maxDataAge.toSeconds()));
+    }
+
+    private boolean ifExpired(final String type, final OffsetDateTime sourceTimestamp, Duration expiry, final boolean force, final Supplier<Integer> updater)
     {
         logger.info("Checking data type: {}, max age: {}", type, expiry);
-        final Optional<OffsetDateTime> localDataModifiedAt = getLastModified(type);
-        logger.info("local last modified: {}", localDataModifiedAt.orElse(null));
-        if (localDataModifiedAt.isEmpty() || sourceTimestamp.isAfter(localDataModifiedAt.get().plusSeconds(maxDataAge.toSeconds())))
+        if (force || isExpired(type, sourceTimestamp))
         {
             final int count = updater.get();
             setStatus(type, sourceTimestamp, count);
+            return true;
         }
+        return false;
     }
 
     public SourceDataInfoSet getSourceDataInfo()

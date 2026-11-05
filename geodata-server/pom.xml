@@ -27,34 +27,24 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.swagger.core.v3</groupId>
-            <artifactId>swagger-annotations</artifactId>
-            <version>2.2.32</version>
-        </dependency>
-        <dependency>
             <groupId>io.undertow</groupId>
             <artifactId>undertow-core</artifactId>
-            <version>2.3.23.Final</version>
+            <version>${undertow.version}</version>
         </dependency>
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
-            <version>3.0.2</version>
+            <version>${jsr305.version}</version>
         </dependency>
         <dependency>
             <groupId>org.openapitools</groupId>
             <artifactId>jackson-databind-nullable</artifactId>
-            <version>0.2.6</version>
+            <version>${jackson-databind-nullable.version}</version>
         </dependency>
         <dependency>
             <groupId>org.webjars</groupId>
             <artifactId>swagger-ui</artifactId>
-            <version>5.22.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.javassist</groupId>
-            <artifactId>javassist</artifactId>
-            <version>3.30.2-GA</version>
+            <version>${swagger-ui.version}</version>
         </dependency>
 
         <!-- TEST -->
@@ -69,7 +59,7 @@
             <plugin>
                 <groupId>org.openapitools</groupId>
                 <artifactId>openapi-generator-maven-plugin</artifactId>
-                <version>6.5.0</version>
+                <version>7.27.0</version>
                 <executions>
                     <execution>
                         <id>generate-api-models</id>
@@ -91,7 +81,6 @@
                             <generateSupportingFiles>false</generateSupportingFiles>
                             <modelNamePrefix>V1</modelNamePrefix>
                             <configOptions>
-                                <useSwaggerAnnotations>false</useSwaggerAnnotations>
                                 <delegatePattern>true</delegatePattern>
                                 <sourceFolder>/</sourceFolder>
                                 <dateLibrary>java8</dateLibrary>
@@ -101,53 +90,18 @@
                                 <developerName>Morten Haraldsen</developerName>
                                 <developerEmail>hidden</developerEmail>
                                 <useJakartaEe>true</useJakartaEe>
-                                <useSpringBoot3>true</useSpringBoot3>
-                                <oas3>true</oas3>
+                                <useSpringBoot4>true</useSpringBoot4>
+                                <annotationLibrary>none</annotationLibrary>
+                                <documentationProvider>none</documentationProvider>
                             </configOptions>
                         </configuration>
                     </execution>
-                    <!--
-                    <execution>
-                        <id>generate-undertow-server</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>generate</goal>
-                        </goals>
-                        <configuration>
-                            <inputSpec>${project.basedir}/src/main/resources/public/spec.yaml</inputSpec>
-                            <generatorName>java-undertow-server</generatorName>
-                            <output>${project.build.directory}/generated-sources</output>
-                            <apiPackage>${default.package}.handler</apiPackage>
-                            <modelPackage>${default.package}.model</modelPackage>
-                            <invokerPackage>${default.package}.handler</invokerPackage>
-                            <generateApiDocumentation>false</generateApiDocumentation>
-                            <generateModels>true</generateModels>
-                            <generateApis>true</generateApis>
-                            <generateSupportingFiles>false</generateSupportingFiles>
-                            <modelNamePrefix>V1</modelNamePrefix>
-                            <configOptions>
-                                <useSwaggerAnnotations>false</useSwaggerAnnotations>
-                                <delegatePattern>true</delegatePattern>
-                                <sourceFolder>/</sourceFolder>
-                                <dateLibrary>java8</dateLibrary>
-                                <hideGenerationTimestamp>true</hideGenerationTimestamp>
-                                <developerOrganization>ethlo</developerOrganization>
-                                <developerOrganizationUrl>ethlo.com</developerOrganizationUrl>
-                                <developerName>Morten Haraldsen</developerName>
-                                <developerEmail>hidden</developerEmail>
-                                <useJakartaEe>true</useJakartaEe>
-                                <useSpringBoot3>true</useSpringBoot3>
-                                <oas3>true</oas3>
-                            </configOptions>
-                        </configuration>
-                    </execution>
-                    -->
                 </executions>
             </plugin>
             <plugin>
-                <groupId>pl.project13.maven</groupId>
-                <artifactId>git-commit-id-plugin</artifactId>
-                <version>4.0.2</version>
+                <groupId>io.github.git-commit-id</groupId>
+                <artifactId>git-commit-id-maven-plugin</artifactId>
+                <version>10.0.1</version>
                 <executions>
                     <execution>
                         <id>get-the-git-infos</id>

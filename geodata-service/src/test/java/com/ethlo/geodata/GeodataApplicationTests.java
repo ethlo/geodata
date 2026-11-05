@@ -46,7 +46,7 @@ import com.ethlo.geodata.model.GeoLocationDistance;
 import com.ethlo.geodata.model.View;
 
 @ExtendWith(SpringExtension.class)
-@SpringBootTest(classes = GeodataServiceImpl.class)
+@SpringBootTest(classes = {GeodataServiceImpl.class, GeodataFeatures.class})
 @SpringBootConfiguration
 @TestPropertySource(locations = "classpath:test-application.properties")
 public class GeodataApplicationTests

@@ -139,6 +139,8 @@ paths:
             type: number
             format: double
       responses:
+        501:
+          $ref: "#/components/responses/FeatureDisabled"
         200:
           description: OK
           content:
@@ -173,6 +175,8 @@ paths:
             type: number
             format: double
       responses:
+        501:
+          $ref: "#/components/responses/FeatureDisabled"
         200:
           description: OK
           content:
@@ -217,6 +221,8 @@ paths:
           schema:
             type: string
       responses:
+        501:
+          $ref: "#/components/responses/FeatureDisabled"
         200:
           description: OK
           content:
@@ -257,6 +263,8 @@ paths:
           schema:
             type: string
       responses:
+        501:
+          $ref: "#/components/responses/FeatureDisabled"
         200:
           description: OK
           content:
@@ -293,6 +301,8 @@ paths:
             type: integer
             format: int32
       responses:
+        501:
+          $ref: "#/components/responses/FeatureDisabled"
         200:
           description: OK
           content:
@@ -333,6 +343,8 @@ paths:
             type: integer
             format: int32
       responses:
+        501:
+          $ref: "#/components/responses/FeatureDisabled"
         200:
           description: OK
 
@@ -349,6 +361,8 @@ paths:
             type: integer
             format: int32
       responses:
+        501:
+          $ref: "#/components/responses/FeatureDisabled"
         200:
           description: OK
           content:
@@ -541,6 +555,8 @@ paths:
             type: integer
             format: int32
       responses:
+        501:
+          $ref: "#/components/responses/FeatureDisabled"
         200:
           description: OK
 
@@ -594,6 +610,8 @@ paths:
             type: integer
             format: int32
       responses:
+        501:
+          $ref: "#/components/responses/FeatureDisabled"
         200:
           description: OK
           content:
@@ -623,6 +641,8 @@ paths:
             type: number
             format: double
       responses:
+        501:
+          $ref: "#/components/responses/FeatureDisabled"
         200:
           description: OK
 
@@ -647,6 +667,8 @@ paths:
             type: number
             format: double
       responses:
+        501:
+          $ref: "#/components/responses/FeatureDisabled"
         200:
           description: OK
           content:
@@ -657,7 +679,28 @@ paths:
 
 
 components:
+  responses:
+    FeatureDisabled:
+      description: The optional feature this operation belongs to (ip, boundaries, coordinates or phone) is not enabled on this server
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
   schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: string
+        timestamp:
+          type: string
+          format: date-time
+
     Page:
       type: object
       properties:
