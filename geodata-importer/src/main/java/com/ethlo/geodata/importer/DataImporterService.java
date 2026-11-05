@@ -126,14 +126,18 @@ public class DataImporterService
 
         // Imported before locations, so the locations it references are kept
         boolean ipImported = false;
+        OffsetDateTime ipModified = null;
+        int ipCount = 0;
         if (features.isEnabled(Feature.IP))
         {
-            ipImported = ifExpired(DataType.IP, ipLookupImporter.lastRemoteModified(), maxDataAge, false, () ->
+            ipModified = ipLookupImporter.lastRemoteModified();
+            ipImported = isExpired(DataType.IP, ipModified);
+            if (ipImported)
             {
                 ipLookupImporter.purgeData();
                 updated.set(true);
-                return ipLookupImporter.importData();
-            });
+                ipCount = ipLookupImporter.importData();
+            }
         }
         else
         {
@@ -147,6 +151,12 @@ public class DataImporterService
             updated.set(true);
             return geonamesImporter.importData();
         });
+
+        // Recorded only after the locations import, so an interrupted run imports both again
+        if (ipImported)
+        {
+            setStatus(DataType.IP, ipModified, ipCount);
+        }
 
         if (features.isEnabled(Feature.BOUNDARIES))
         {
@@ -340,12 +350,17 @@ public class DataImporterService
         }
     }
 
+    private boolean isExpired(final String type, final OffsetDateTime sourceTimestamp)
+    {
+        final Optional<OffsetDateTime> localDataModifiedAt = getLastModified(type);
+        logger.info("{} local last modified: {}", type, localDataModifiedAt.orElse(null));
+        return localDataModifiedAt.isEmpty() || sourceTimestamp.isAfter(localDataModifiedAt.get().plusSeconds(maxDataAge.toSeconds()));
+    }
+
     private boolean ifExpired(final String type, final OffsetDateTime sourceTimestamp, Duration expiry, final boolean force, final Supplier<Integer> updater)
     {
         logger.info("Checking data type: {}, max age: {}", type, expiry);
-        final Optional<OffsetDateTime> localDataModifiedAt = getLastModified(type);
-        logger.info("local last modified: {}", localDataModifiedAt.orElse(null));
-        if (force || localDataModifiedAt.isEmpty() || sourceTimestamp.isAfter(localDataModifiedAt.get().plusSeconds(maxDataAge.toSeconds())))
+        if (force || isExpired(type, sourceTimestamp))
         {
             final int count = updater.get();
             setStatus(type, sourceTimestamp, count);

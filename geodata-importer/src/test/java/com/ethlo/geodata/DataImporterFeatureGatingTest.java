@@ -23,6 +23,7 @@ package com.ethlo.geodata;
  */
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -111,5 +112,26 @@ class DataImporterFeatureGatingTest
         assertThat(none.getSourceDataInfo().get(DataType.IP)).isNull();
         assertThat(none.getSourceDataInfo().get(DataType.BOUNDARIES)).isNull();
         assertThat(basePath.resolve("boundaries.data")).doesNotExist();
+    }
+
+    @Test
+    void failedLocationsImportRetriesIpImport() throws IOException
+    {
+        final FileIpDataImporter ipImporter = mock(FileIpDataImporter.class);
+        final FileGeonamesImporter geonamesImporter = mock(FileGeonamesImporter.class);
+        when(ipImporter.lastRemoteModified()).thenReturn(OffsetDateTime.now());
+        when(ipImporter.importData()).thenReturn(7);
+        when(geonamesImporter.lastRemoteModified()).thenReturn(OffsetDateTime.now());
+        when(geonamesImporter.importData()).thenThrow(new IllegalStateException("download failed")).thenReturn(42);
+
+        final DataImporterService service = new DataImporterService(basePath, basePath.resolve("input"), Duration.ofDays(7), ipImporter, geonamesImporter, GeodataFeatures.of(Feature.IP));
+        assertThatThrownBy(service::update).isInstanceOf(IllegalStateException.class);
+        assertThat(service.getSourceDataInfo().get(DataType.IP)).isNull();
+
+        service.update();
+
+        verify(ipImporter, times(2)).importData();
+        verify(geonamesImporter, times(2)).importData();
+        assertThat(service.getSourceDataInfo().get(DataType.IP).getCount()).isEqualTo(7);
     }
 }
