@@ -64,11 +64,7 @@ public final class IdOffsetIndex
 
     public static long entry(final int id, final int offset)
     {
-        if (offset < 0)
-        {
-            throw new IllegalArgumentException("Negative offset " + offset + " for id " + id);
-        }
-        return ((long) id << 32) | offset;
+        return ((long) id << 32) | (offset & 0xFFFFFFFFL);
     }
 
     public int size()
@@ -87,17 +83,17 @@ public final class IdOffsetIndex
     }
 
     /**
-     * @return the offset of the given part of the id, or -1 if there is none
+     * @return the offset of the given part of the id, or null if there is none
      */
-    public int offset(final int id, final int subIndex)
+    public Integer offset(final int id, final int subIndex)
     {
         final int first = firstIndexOf(id);
         if (first < 0 || subIndex < 0)
         {
-            return -1;
+            return null;
         }
         final int index = first + subIndex;
-        return index < ids.length && ids[index] == id ? offsets[index] : -1;
+        return index < ids.length && ids[index] == id ? offsets[index] : null;
     }
 
     public int idAt(final int index)

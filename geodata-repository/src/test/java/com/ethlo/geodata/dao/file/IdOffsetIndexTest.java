@@ -23,7 +23,6 @@ package com.ethlo.geodata.dao.file;
  */
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
@@ -51,7 +50,7 @@ class IdOffsetIndexTest
         assertThat(index.offset(20, 0)).isEqualTo(Integer.MAX_VALUE);
         assertThat(index.contains(20)).isTrue();
         assertThat(index.contains(15)).isFalse();
-        assertThat(index.offset(15, 0)).isEqualTo(-1);
+        assertThat(index.offset(15, 0)).isNull();
     }
 
     @Test
@@ -61,8 +60,8 @@ class IdOffsetIndexTest
         assertThat(index.offset(30, 0)).isZero();
         assertThat(index.offset(30, 1)).isEqualTo(200);
         assertThat(index.offset(30, 2)).isEqualTo(400);
-        assertThat(index.offset(30, 3)).isEqualTo(-1);
-        assertThat(index.offset(10, 1)).isEqualTo(-1);
+        assertThat(index.offset(30, 3)).isNull();
+        assertThat(index.offset(10, 1)).isNull();
     }
 
     @Test
@@ -79,12 +78,14 @@ class IdOffsetIndexTest
     {
         assertThat(IdOffsetIndex.empty().isEmpty()).isTrue();
         assertThat(IdOffsetIndex.empty().contains(1)).isFalse();
-        assertThat(IdOffsetIndex.empty().offset(1, 0)).isEqualTo(-1);
+        assertThat(IdOffsetIndex.empty().offset(1, 0)).isNull();
     }
 
     @Test
-    void rejectsNegativeOffset()
+    void keepsOffsetsThatOverflowedInt()
     {
-        assertThatThrownBy(() -> IdOffsetIndex.entry(1, -1)).isInstanceOf(IllegalArgumentException.class);
+        final IdOffsetIndex index = IdOffsetIndex.of(new long[]{IdOffsetIndex.entry(1, -1), IdOffsetIndex.entry(1, 10)});
+        assertThat(index.offset(1, 0)).isEqualTo(10);
+        assertThat(index.offset(1, 1)).isEqualTo(-1);
     }
 }

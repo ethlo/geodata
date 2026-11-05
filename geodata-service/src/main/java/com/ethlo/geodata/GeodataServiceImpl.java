@@ -540,13 +540,14 @@ public class GeodataServiceImpl implements GeodataService
 
     private Collection<Integer> getPath(final int id)
     {
-        final IntList path = hierarchy.pathOf(id);
+        final Hierarchy current = hierarchy;
+        final IntList path = current.pathOf(id);
         if (path == null)
         {
             throw new EmptyResultDataAccessException("No location with id " + id, 1);
         }
         // A path that ends on a location with a parent was cut short by a cycle, so it has no root to drop
-        final boolean circular = hierarchy.parentOf(path.getInt(path.size() - 1)) != null;
+        final boolean circular = current.parentOf(path.getInt(path.size() - 1)) != null;
         if (circular)
         {
             logger.warn("Circular reference in the hierarchy of {}: {}", id, path);

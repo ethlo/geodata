@@ -129,8 +129,7 @@ public class BaseMmapDao
 
     protected Integer getOffset(final int id, int subIndex)
     {
-        final int offset = index.offset(id, subIndex);
-        return offset >= 0 ? offset : null;
+        return index.offset(id, subIndex);
     }
 
     public boolean exists(int id)
