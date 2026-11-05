@@ -52,6 +52,8 @@ import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import com.ethlo.geodata.DataType;
+import com.ethlo.geodata.GeodataFeatures;
+import com.ethlo.geodata.GeodataFeatures.Feature;
 import com.ethlo.geodata.GeoConstants;
 import com.ethlo.geodata.SourceDataInfo;
 import com.ethlo.geodata.SourceDataInfoSet;
@@ -81,13 +83,15 @@ public class DataImporterService
     private final FileGeonamesImporter geonamesImporter;
     private final Path basePath;
     private final Path inputBasePath;
+    private final GeodataFeatures features;
     private GeoNamesBoundaryImporter geoNamesBoundaryImporter;
 
     public DataImporterService(@Value("${geodata.base-path}") @NotNull final Path basePath,
                                @Value("${geodata.data-source-path}") @NotNull final Path inputBasePath,
                                @Value("${geodata.max-data-age}") @NotNull final Duration maxDataAge,
                                FileIpDataImporter ipLookupImporter,
-                               FileGeonamesImporter geonamesImporter)
+                               FileGeonamesImporter geonamesImporter,
+                               GeodataFeatures features)
     {
         logger.info("Base path for data: {}", basePath);
 
@@ -96,6 +100,7 @@ public class DataImporterService
         this.maxDataAge = Objects.requireNonNull(maxDataAge, "GEODATA_MAXDATAAGE must be set");
         this.ipLookupImporter = ipLookupImporter;
         this.geonamesImporter = geonamesImporter;
+        this.features = features;
     }
 
     public Optional<OffsetDateTime> getLastModified(String alias)
@@ -117,13 +122,22 @@ public class DataImporterService
         Files.createDirectories(basePath);
 
         final AtomicBoolean updated = new AtomicBoolean();
+        logger.info("Enabled features: {}", features);
 
-        ifExpired(DataType.IP, ipLookupImporter.lastRemoteModified(), maxDataAge, () ->
+        // Imported before locations, so the locations it references are kept
+        if (features.isEnabled(Feature.IP))
         {
-            ipLookupImporter.purgeData();
-            updated.set(true);
-            return ipLookupImporter.importData();
-        });
+            ifExpired(DataType.IP, ipLookupImporter.lastRemoteModified(), maxDataAge, () ->
+            {
+                ipLookupImporter.purgeData();
+                updated.set(true);
+                return ipLookupImporter.importData();
+            });
+        }
+        else
+        {
+            logger.info("Feature 'ip' is disabled. Skipping import of {} data", DataType.IP);
+        }
 
         ifExpired(DataType.LOCATIONS, geonamesImporter.lastRemoteModified(), maxDataAge, () ->
         {
@@ -132,6 +146,23 @@ public class DataImporterService
             return geonamesImporter.importData();
         });
 
+        if (features.isEnabled(Feature.BOUNDARIES))
+        {
+            importBoundaries(updated);
+        }
+        else
+        {
+            logger.info("Feature 'boundaries' is disabled. Skipping import of {} data", DataType.BOUNDARIES);
+        }
+
+        if (!updated.get())
+        {
+            logger.info("No data to update. Max data age {}", maxDataAge);
+        }
+    }
+
+    private void importBoundaries(final AtomicBoolean updated)
+    {
         final Path boundaryImportFolder = inputBasePath.resolve(DataType.BOUNDARIES);
         ifExpired(DataType.BOUNDARIES, getLastModifiedFile(boundaryImportFolder).orElse(OffsetDateTime.now().minusYears(10)), Duration.ofSeconds(5), () ->
         {
@@ -160,11 +191,6 @@ public class DataImporterService
                 return 0;
             }
         });
-
-        if (!updated.get())
-        {
-            logger.info("No data to update. Max data age {}", maxDataAge);
-        }
     }
 
     private Optional<OffsetDateTime> getLastModifiedFile(final Path directory)

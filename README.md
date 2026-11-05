@@ -25,7 +25,7 @@ The API is fully documented using Open API 3.x specification and allows for easy
 
 ## Usage guide
 ### Import and process data
-Prerequisite: You need to register for an account at MaxMind (free) for the GeoLite2 data
+Prerequisite: You need to register for an account at MaxMind (free) for the GeoLite2 data, unless the `ip` feature is disabled (see [Optional features](#optional-features)).
 
 Simple, sample script I use for creating data-set for the server:
 ```shell script
@@ -47,6 +47,22 @@ docker run -d --rm -m1G -p 6566:6565 --name geodata-server -v ~/geodata/data:/ge
 -e JAVA_OPTS="-XX:MaxDirectMemorySize=1G" ethlocom/geodata-server:latest \ 
 && docker logs -f geodata-server
 ```
+
+### Optional features
+
+Locations, countries, continents, search by name and the hierarchy are always available. The rest can be turned off, all are on by default:
+
+| Feature       | Property / environment variable                                            | Data source             | Endpoints                                                                                          |
+|---------------|----------------------------------------------------------------------------|-------------------------|----------------------------------------------------------------------------------------------------|
+| `ip`          | `geodata.features.ip.enabled` / `GEODATA_FEATURES_IP_ENABLED`                   | MaxMind GeoLite2        | `/v1/locations/ip/{ip}`                                                                            |
+| `boundaries`  | `geodata.features.boundaries.enabled` / `GEODATA_FEATURES_BOUNDARIES_ENABLED`   | Files in `input/boundaries` | `/v1/locations/{id}/boundaries`, `previewboundaries`, `simpleboundaries`, `/v1/locations/contains` |
+| `coordinates` | `geodata.features.coordinates.enabled` / `GEODATA_FEATURES_COORDINATES_ENABLED` | Geonames (locations)    | `/v1/locations/coordinates`, `/v1/locations/proximity`, `/v1/locations/contains`                   |
+| `phone`       | `geodata.features.phone.enabled` / `GEODATA_FEATURES_PHONE_ENABLED`             | Geonames (countries)    | `/v1/locations/phone/{phone}`                                                                      |
+
+* The importer skips the data of a disabled feature, so with `ip` off no MaxMind license key is needed.
+* The server enables a feature only when it is enabled *and* its data was imported (according to `metadata.json`), and logs a warning for an enabled feature without data. With `coordinates` off, no proximity tree is built, which saves memory and startup time.
+* `/v1/locations/coordinates` returns the containing boundary when `boundaries` is on, and the nearest location otherwise.
+* Endpoints of a disabled feature return `501 Not Implemented`. `/sysadmin/features` lists the features that are available.
 
 ## This service utilize data from:
 

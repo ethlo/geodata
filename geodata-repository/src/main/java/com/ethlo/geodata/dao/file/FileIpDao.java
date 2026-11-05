@@ -72,6 +72,11 @@ public class FileIpDao implements IpDao
     @Override
     public Optional<Integer> findByIp(final InetAddress ip)
     {
+        if (reader == null)
+        {
+            return Optional.empty();
+        }
+
         try
         {
             final LookupResult result = reader.get(ip, LookupResult.class);
@@ -86,6 +91,11 @@ public class FileIpDao implements IpDao
     @Override
     public void iterate(Consumer<Integer> callback) throws IOException
     {
+        if (reader == null)
+        {
+            return;
+        }
+
         final Networks<LookupResult> networks;
         try
         {

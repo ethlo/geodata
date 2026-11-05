@@ -61,9 +61,14 @@ public class UndertowServer
 
     public UndertowServer(@Value("${geodata.base-path}") final Path basePath,
                           @Value("${server.host}") final String host,
-                          @Value("${server.port}") final int port)
+                          @Value("${server.port}") final int port,
+                          @Value("${geodata.features.ip.enabled:true}") final boolean ipEnabled,
+                          @Value("${geodata.features.boundaries.enabled:true}") final boolean boundariesEnabled,
+                          @Value("${geodata.features.coordinates.enabled:true}") final boolean coordinatesEnabled,
+                          @Value("${geodata.features.phone.enabled:true}") final boolean phoneEnabled)
     {
         final Map<Class<? extends Throwable>, Function<Throwable, ApiError>> exceptionHandlers = new LinkedHashMap<>();
+        exceptionHandlers.put(FeatureDisabledException.class, exc -> new ApiError(501, exc.getMessage()));
         exceptionHandlers.put(EmptyResultDataAccessException.class, exc -> new ApiError(404, exc.getMessage()));
         exceptionHandlers.put(MissingParameterException.class, exc -> new ApiError(400, exc.getMessage()));
         exceptionHandlers.put(InvalidDataException.class, exc -> new ApiError(400, exc.getMessage()));
@@ -82,7 +87,8 @@ public class UndertowServer
         final CountryDao countryDao = new FileCountryDao(basePath);
         final BoundaryDao boundaryDao = new FileBoundaryDao(basePath);
         final int boundaryQualityConstant = 200_000;
-        final GeodataServiceImpl geodataService = new GeodataServiceImpl(locationDao, ipDao, hierarchyDao, featureCodeDao, timeZoneDao, countryDao, boundaryDao, metaDao, Collections.emptyList(), boundaryQualityConstant);
+        final GeodataServiceImpl geodataService = new GeodataServiceImpl(locationDao, ipDao, hierarchyDao, featureCodeDao, timeZoneDao, countryDao, boundaryDao, metaDao, Collections.emptyList(), boundaryQualityConstant,
+                new GeodataFeatures(ipEnabled, boundariesEnabled, coordinatesEnabled, phoneEnabled));
         final StatefulProgressListener progressListener = new StatefulProgressListener();
 
         final InitSuspendHandler routes = new InitSuspendHandler(new ServerHandler(geodataService, metaDao).handler(exceptionHandlers));

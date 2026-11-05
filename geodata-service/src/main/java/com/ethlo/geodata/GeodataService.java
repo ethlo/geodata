@@ -44,6 +44,11 @@ public interface GeodataService
 {
     GeoLocation findByIp(InetAddress ip);
 
+    /**
+     * @return The features available on this instance: enabled in configuration and with imported data. Empty until loaded.
+     */
+    GeodataFeatures getFeatures();
+
     GeoLocation findById(int geoNameId);
 
     Optional<LookupMetadata> findWithin(@Valid Coordinates point, int maxDistanceInKilometers);

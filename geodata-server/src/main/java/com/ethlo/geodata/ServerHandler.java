@@ -45,6 +45,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 
+import com.ethlo.geodata.GeodataFeatures.Feature;
 import com.ethlo.geodata.dao.MetaDao;
 import com.ethlo.geodata.model.Coordinates;
 import com.ethlo.geodata.model.Country;
@@ -305,6 +306,7 @@ public class ServerHandler extends BaseServerHandler
 
         // Source data information
         path.addExactPath("/sysadmin/source", exchange -> json(exchange, metaDao.load()));
+        path.addExactPath("/sysadmin/features", exchange -> json(exchange, geodataService.getFeatures().getEnabled().stream().map(Feature::getKey).sorted().collect(Collectors.toList())));
 
         // Version info
         final Map<String, Object> versionInfo = new LinkedHashMap<>();
