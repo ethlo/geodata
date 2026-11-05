@@ -200,7 +200,7 @@ public class GeodataServiceImpl implements GeodataService
         final List<GeoLocation> locations = all
                 .stream()
                 .map(this::findById)
-                .filter(l -> subLevel.map(s -> s.contains(l.getFeatureKey())).orElse(false))
+                .filter(l -> !matchLevel || subLevel.map(s -> s.contains(l.getFeatureKey())).orElse(false))
                 .toList();
 
         final long total = locations.size();
