@@ -122,7 +122,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
                     <image>
-                        <name>ethlocom/geodata-server:${image.tag}</name>
+                        <name>ghcr.io/ethlo/geodata-server:${image.tag}</name>
                     </image>
                 </configuration>
             </plugin>

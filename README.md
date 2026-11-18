@@ -1,7 +1,6 @@
 # Geodata
-![Docker Image Version (latest semver)](https://img.shields.io/docker/v/ethlocom/geodata-server?sort=semver)
-![Docker Image Size (latest by date)](https://img.shields.io/docker/image-size/ethlocom/geodata-server)
-![Docker Pulls](https://img.shields.io/docker/pulls/ethlocom/geodata-server)
+[![Container image](https://img.shields.io/badge/ghcr.io-ethlo%2Fgeodata--server-blue?logo=docker)](https://github.com/ethlo/geodata/pkgs/container/geodata-server)
+[![Release](https://img.shields.io/github/v/release/ethlo/geodata?sort=semver)](https://github.com/ethlo/geodata/releases)
 
 A simple, fast and free geodata server you can run anywhere. It is made for quick lookups:
 * Find a location by name, IP address, phone number or coordinates.
@@ -29,7 +28,7 @@ docker run --memory=2G --rm --name geodata-server-import \
   -e GEODATA_IMPORT=1 \
   -e GEODATA_MAXDATAAGE=P14D \
   -e GEODATA_GEOLITE2_LICENSE_KEY=<license key> \
-  ethlocom/geodata-server
+  ghcr.io/ethlo/geodata-server
 ```
 
 Data younger than `GEODATA_MAXDATAAGE` is kept, so running it again only fetches what is outdated.
@@ -47,7 +46,7 @@ This loads the data from the import and listens on host port 6566:
 ```shell
 docker run -d --rm -m1500M -p 6566:6565 --name geodata-server \
   -v ~/geodata/data:/geodata-server/data \
-  ethlocom/geodata-server:latest && docker logs -f geodata-server
+  ghcr.io/ethlo/geodata-server:latest && docker logs -f geodata-server
 ```
 
 There is also a `docker-compose.yml` that does the same.
@@ -78,7 +77,7 @@ You need Java 25.
 ./build.sh
 ```
 
-This builds the modules and the `ethlocom/geodata-server` image. The tests import a small data set that is checked in, so they need no download.
+This builds the modules and the `ghcr.io/ethlo/geodata-server` image. The tests import a small data set that is checked in, so they need no download.
 
 ## Data sources
 - [GeoNames](https://www.geonames.org/), available under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
