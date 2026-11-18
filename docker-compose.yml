@@ -1,6 +1,6 @@
 services:
   server:
-    image: ethlocom/geodata-server:latest
+    image: ghcr.io/ethlo/geodata-server:latest
     restart: on-failure
     ports:
       - "6566:6565"
